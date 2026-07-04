@@ -1,0 +1,4575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Drafting System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+  /* ---- Base ---- */
+  html { font-size: 16px; overflow-x: hidden; width: 100%; }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(180deg, #c8d6e5 0%, #b8c9db 100%);
+    min-height: 100vh;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  /* ---- Spinner ---- */
+  .spinner {
+    border: 3px solid #e5e7eb;
+    border-top: 3px solid #2563eb;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin .8s linear infinite;
+    display: inline-block;
+    box-sizing: border-box;
+    vertical-align: middle;
+  }
+  .spinner.hidden { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- Chat Bubbles ---- */
+  .chat-bubble-user {
+    background: #2563eb; color: #fff;
+    padding: 12px 16px;
+    border-radius: 16px 16px 4px 16px;
+    max-width: 85%; word-wrap: break-word;
+    line-height: 1.5; font-size: 1rem;
+    align-self: flex-end;
+  }
+  .chat-bubble-ai {
+    background: #f1f5f9; color: #0f172a;
+    padding: 12px 16px;
+    border-radius: 16px 16px 16px 4px;
+    max-width: 85%; word-wrap: break-word;
+    line-height: 1.5; font-size: 1rem;
+    align-self: flex-start;
+  }
+
+  /* ---- Fullscreen Overlay ---- */
+  .fullscreen-mode {
+    position: fixed; inset: 0; background: #fff;
+    z-index: 60; overflow-y: auto; padding: 0.75rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ---- App Container ---- */
+  .app-container {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 1rem;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---- Header Card ---- */
+  .header-card {
+    background: #fff;
+    border-radius: 1.5rem;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .hamburger-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 1rem;
+    background: #f1f5f9;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+  .hamburger-btn:hover { background: #e2e8f0; }
+  .hamburger-btn span {
+    display: block;
+    width: 20px;
+    height: 2.5px;
+    background: #334155;
+    border-radius: 2px;
+  }
+  .header-title-group { flex: 1; }
+  .header-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #1e293b;
+    letter-spacing: -0.02em;
+  }
+  .header-date {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-top: 0.15rem;
+  }
+  .header-role {
+    font-size: 0.75rem;
+    color: #2563eb;
+    font-weight: 700;
+    margin-top: 0.1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---- Hamburger Dropdown Menu ---- */
+  .hamburger-menu {
+    position: absolute;
+    top: 52px;
+    left: 0;
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    padding: 0.5rem;
+    min-width: 170px;
+    z-index: 50;
+    animation: menuFade 0.2s ease;
+  }
+  @keyframes menuFade {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .menu-item {
+    width: 100%;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+  }
+  .menu-item:hover { background: #f1f5f9; }
+  .menu-item.logout { color: #dc2626; }
+  .menu-item.logout:hover { background: #fef2f2; }
+
+  /* ---- Dashboard Cards ---- */
+  .dash-card {
+    background: #fff;
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    border: none;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 1rem;
+  }
+  .dash-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+  }
+  .dash-card:active { transform: scale(0.98); }
+  .dash-card .card-label {
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+  }
+  .dash-card .card-count {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-top: 0.5rem;
+  }
+  .dash-card.pending .card-count { color: #2563eb; }
+  .dash-card.review .card-count { color: #7c3aed; }
+  .dash-card.finalized .card-count { color: #16a34a; }
+  .card-icon-box {
+    width: 56px;
+    height: 56px;
+    border-radius: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    flex-shrink: 0;
+  }
+  .dash-card.pending .card-icon-box { background: #eff6ff; }
+  .dash-card.review .card-icon-box { background: #f5f3ff; }
+  .dash-card.finalized .card-icon-box { background: #f0fdf4; }
+
+  /* ---- New Case Button ---- */
+  .btn-new-case {
+    background: #2563eb;
+    color: #fff;
+    border-radius: 1.25rem;
+    padding: 1.15rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    border: none;
+    width: 100%;
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3);
+    margin-top: 0.5rem;
+  }
+  .btn-new-case:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(37, 99, 235, 0.4);
+    background: #1d4ed8;
+  }
+
+  /* ---- Wizard Top Bar ---- */
+  .wiz-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 1rem;
+  }
+  .btn-back-dashboard {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #334155;
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 0.6rem 1.1rem;
+    border-radius: 1rem;
+    background: #fff;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .btn-back-dashboard:hover {
+    background: #f1f5f9;
+    transform: translateX(-2px);
+  }
+  .live-toggle {
+    background: #fff;
+    color: #dc2626;
+    font-size: 0.85rem;
+    padding: 0.6rem 1.1rem;
+    border-radius: 1rem;
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    white-space: nowrap;
+  }
+  .live-toggle:hover { background: #fef2f2; }
+  .live-toggle.on {
+    background: #f0fdf4;
+    color: #16a34a;
+  }
+  .live-indicator {
+    font-size: 0.875rem;
+    color: #16a34a;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    animation: pulse 2s infinite;
+    background: #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    width: fit-content;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* ---- Wizard Steps ---- */
+  .wiz-step {
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid #e2e8f0;
+  }
+  .wiz-step.hidden { display: none !important; }
+
+  /* ---- Upload Area ---- */
+  .upload-area {
+    border: 2px dashed #bfdbfe;
+    border-radius: 1.25rem;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    background: #f8fafc;
+    color: #2563eb;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    margin-bottom: 1rem;
+  }
+  .upload-area:hover {
+    border-color: #2563eb;
+    background: #eff6ff;
+  }
+
+  /* ---- Textareas ---- */
+  .wiz-textarea {
+    width: 100%;
+    border: 2px solid #e2e8f0;
+    border-radius: 1rem;
+    padding: 1rem;
+    font-size: 1rem;
+    color: #334155;
+    resize: vertical;
+    transition: all 0.2s ease;
+    outline: none;
+    font-family: inherit;
+    line-height: 1.5;
+    background: #f8fafc;
+    text-align: start;
+  }
+  .wiz-textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    background: #fff;
+  }
+
+  /* ---- Toast Notification ---- */
+  .toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: #1e293b;
+    color: #fff;
+    padding: 14px 48px 14px 24px;
+    border-radius: 14px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    z-index: 999999;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 90%;
+    text-align: center;
+    pointer-events: auto;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { background: #059669; }
+  .toast.error { background: #dc2626; }
+  .toast-close {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    opacity: 0.8;
+  }
+  .toast-close:hover { opacity: 1; }
+
+  /* ---- OCR Label Row ---- */
+  .ocr-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+  .ocr-label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .fs-btn {
+    font-size: 0.75rem;
+    color: #2563eb;
+    background: #eff6ff;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+    font-weight: 600;
+  }
+  .fs-btn:hover { background: #dbeafe; }
+
+  /* ---- AI Buttons ---- */
+  .btn-ai {
+    margin-top: 0.75rem;
+    background: #2563eb;
+    color: #fff;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.625rem;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    width: 100%;
+  }
+  .btn-ai:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+  }
+
+  /* ---- Output Sections ---- */
+  .output-box {
+    margin-top: 0.75rem;
+    display: none;
+  }
+  .output-box.visible {
+    display: block;
+    animation: slideDown 0.3s ease;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---- Navigation Buttons (Left-Right) ---- */
+  .wiz-nav {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    margin-top: 0.75rem;
+    margin-bottom: 1.5rem;
+    gap: 0.5rem;
+  }
+  .btn-nav {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    border-radius: 0.625rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .btn-nav-back {
+    background: #e2e8f0;
+    color: #475569;
+  }
+  .btn-nav-back:hover { background: #cbd5e1; }
+  .btn-nav-next {
+    background: #16a34a;
+    color: #fff;
+  }
+  .btn-nav-next:hover { background: #15803d; }
+
+  /* ---- Image Context Menu ---- */
+  .img-context-menu {
+    position: fixed;
+    background: #fff;
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    padding: 0.25rem;
+    min-width: 140px;
+    z-index: 100;
+    animation: menuFade 0.15s ease;
+  }
+  .img-context-menu button {
+    width: 100%;
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+    transition: all 0.15s ease;
+  }
+  .img-context-menu button:hover { background: #f1f5f9; }
+
+  /* ---- Step 5 Specifics ---- */
+  .short-order-input {
+    width: 100%;
+    border: 2px solid #e2e8f0;
+    border-radius: 1rem;
+    padding: 1rem;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.2s ease;
+    background: #f8fafc;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.5;
+  }
+  .short-order-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    background: #fff;
+  }
+  .btn-generate {
+    margin-top: 0.75rem;
+    background: #16a34a;
+    color: #fff;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.625rem;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    width: 100%;
+  }
+  .btn-generate:hover { background: #15803d; }
+  .btn-action {
+    font-size: 0.875rem;
+    background: #e2e8f0;
+    padding: 0.375rem 0.875rem;
+    border-radius: 0.5rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 600;
+  }
+  .btn-action:hover { background: #cbd5e1; }
+  .btn-finalize {
+    width: 100%;
+    margin-top: 1rem;
+    background: #7c3aed;
+    color: #fff;
+    padding: 0.875rem;
+    border-radius: 0.625rem;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+  }
+  .btn-finalize:hover { background: #6d28d9; }
+
+  /* ---- Chat Section ---- */
+  .chat-section {
+    margin-top: 1rem;
+    border-top: 2px solid #f1f5f9;
+    padding-top: 1rem;
+  }
+  .chat-log {
+    max-height: 16rem;
+    overflow-y: auto;
+    margin-bottom: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .chat-input-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .chat-input {
+    flex: 1;
+    border: 2px solid #e2e8f0;
+    border-radius: 1rem;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.2s ease;
+    background: #f8fafc;
+  }
+  .chat-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    background: #fff;
+  }
+  .btn-send {
+    background: #2563eb;
+    color: #fff;
+    padding: 0.75rem 1.25rem;
+    border-radius: 1rem;
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+  .btn-send:hover { background: #1d4ed8; }
+
+  /* ---- Fullscreen Overlay ---- */
+  .fs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #f1f5f9;
+  }
+  .fs-title {
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 1.25rem;
+  }
+  .fs-close-btn {
+    background: #f1f5f9;
+    padding: 0.5rem 1.25rem;
+    border-radius: 1rem;
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    color: #475569;
+    transition: all 0.2s ease;
+    font-weight: 600;
+  }
+  .fs-close-btn:hover { background: #e2e8f0; }
+  .fs-textarea {
+    width: 100%;
+    height: 80vh;
+    border: 2px solid #e2e8f0;
+    border-radius: 1rem;
+    padding: 0.75rem 0.5rem;
+    font-size: 1.125rem;
+    line-height: 1.7;
+    outline: none;
+    resize: none;
+    font-family: inherit;
+    background: #f8fafc;
+    direction: auto;
+    text-align: start;
+  }
+
+  /* Image editor full image display */
+  .img-editor-container {
+    position:relative; flex:1; display:flex; align-items:center; justify-content:center;
+    background:#eef2f6; border-radius:1rem; margin-bottom:0.75rem;
+    min-height:300px;
+  }
+  .img-editor-container img {
+    max-width:100%; max-height:100%; object-fit:contain;
+    transition:transform 0.2s;
+  }
+
+  /* ---- Utility ---- */
+  .hidden { display: none !important; }
+  .hidden-by-exparte { display: none !important; }
+
+  /* ---- Mobile ---- */
+  @media (max-width: 640px) {
+    .app-container { padding: 0.75rem; }
+    .header-card { padding: 1rem 1.25rem; }
+    .header-title { font-size: 1.15rem; }
+    .dash-card { padding: 1.25rem; }
+    .dash-card .card-count { font-size: 1.75rem; }
+    .wiz-step { padding: 1.25rem; }
+    .hamburger-menu { left: 0; right: auto; min-width: 150px; }
+  }
+  /* ---- Batch Editor ---- */
+  .batch-modal { background: #0f0f1a; }
+  .batch-topbar { background: rgba(15,15,30,0.95); }
+  .batch-preview { flex:1; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; background:#000; }
+  .batch-preview img { max-width:100%; max-height:100%; object-fit:contain; transition: filter 0.3s; }
+  .batch-toolbar { background: #1a1a2e; border-top:1px solid #2a2a3e; }
+  .batch-tool-btn { display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 16px; border-radius:12px; border:none; background:transparent; color:#94a3b8; font-size:11px; font-weight:600; transition:all 0.2s; }
+  .batch-tool-btn.active { background:#2563eb; color:#fff; }
+  .batch-tool-btn:active { transform:scale(0.95); }
+  .batch-tool-btn svg { width:24px; height:24px; }
+  .filmstrip { display:flex; gap:6px; overflow-x:auto; padding:8px 16px; }
+  .filmstrip::-webkit-scrollbar { height:3px; }
+  .filmstrip::-webkit-scrollbar-thumb { background:#444; border-radius:3px; }
+  .filmstrip-item { width:52px; height:52px; border-radius:8px; overflow:hidden; border:2px solid transparent; flex-shrink:0; cursor:pointer; position:relative; transition:border-color 0.2s; }
+  .filmstrip-item.active { border-color:#2563eb; }
+  .filmstrip-item img { width:100%; height:100%; object-fit:cover; }
+  .filmstrip-item .edit-badge { position:absolute; top:2px; right:2px; width:8px; height:8px; border-radius:50%; background:#22c55e; display:none; }
+  .filmstrip-item.edited .edit-badge { display:block; }
+  /* Crop overlay — Android screenshot style */
+  .crop-grid { position:absolute; inset:0; z-index:10; }
+  .crop-grid::before { content:''; position:absolute; inset:0; background:rgba(0,0,0,0.55); }
+  .crop-window {
+    position:absolute; z-index:11; cursor:move; box-sizing:border-box;
+    border:2px solid rgba(255,255,255,0.85);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(255,255,255,0.1);
+  }
+  .crop-window .grid-h, .crop-window .grid-v { position:absolute; pointer-events:none; }
+  .crop-window .grid-h { left:0; right:0; height:1px; background:rgba(255,255,255,0.25); }
+  .crop-window .grid-v { top:0; bottom:0; width:1px; background:rgba(255,255,255,0.25); }
+  /* L-shaped corner handles */
+  .crop-corner {
+    position:absolute; z-index:13; pointer-events:auto;
+    width: 44px; height: 44px;
+  }
+  .crop-corner::before, .crop-corner::after {
+    content:''; position:absolute; background:#fff; border-radius:2px;
+  }
+  .crop-corner.nw { top:-3px; left:-3px; cursor:nw-resize; }
+  .crop-corner.nw::before { top:0; left:0; width:22px; height:4px; }
+  .crop-corner.nw::after  { top:0; left:0; width:4px; height:22px; }
+  .crop-corner.ne { top:-3px; right:-3px; cursor:ne-resize; }
+  .crop-corner.ne::before { top:0; right:0; width:22px; height:4px; }
+  .crop-corner.ne::after  { top:0; right:0; width:4px; height:22px; }
+  .crop-corner.sw { bottom:-3px; left:-3px; cursor:sw-resize; }
+  .crop-corner.sw::before { bottom:0; left:0; width:22px; height:4px; }
+  .crop-corner.sw::after  { bottom:0; left:0; width:4px; height:22px; }
+  .crop-corner.se { bottom:-3px; right:-3px; cursor:se-resize; }
+  .crop-corner.se::before { bottom:0; right:0; width:22px; height:4px; }
+  .crop-corner.se::after  { bottom:0; right:0; width:4px; height:22px; }
+  /* Edge midpoint handles */
+  .crop-edge {
+    position:absolute; z-index:13; pointer-events:auto;
+  }
+  .crop-edge::before {
+    content:''; position:absolute; background:#fff; border-radius:2px;
+  }
+  .crop-edge.n { top:-2px; left:50%; transform:translateX(-50%); width:44px; height:20px; cursor:n-resize; }
+  .crop-edge.n::before { top:0; left:50%; transform:translateX(-50%); width:28px; height:4px; }
+  .crop-edge.s { bottom:-2px; left:50%; transform:translateX(-50%); width:44px; height:20px; cursor:s-resize; }
+  .crop-edge.s::before { bottom:0; left:50%; transform:translateX(-50%); width:28px; height:4px; }
+  .crop-edge.w { left:-2px; top:50%; transform:translateY(-50%); width:20px; height:44px; cursor:w-resize; }
+  .crop-edge.w::before { left:0; top:50%; transform:translateY(-50%); width:4px; height:28px; }
+  .crop-edge.e { right:-2px; top:50%; transform:translateY(-50%); width:20px; height:44px; cursor:e-resize; }
+  .crop-edge.e::before { right:0; top:50%; transform:translateY(-50%); width:4px; height:28px; }
+  /* Legacy crop-handle used by batch editor */
+  .crop-handle {
+    position:absolute; z-index:12;
+    width:44px; height:44px;
+  }
+  .crop-handle::before, .crop-handle::after {
+    content:''; position:absolute; background:#fff; border-radius:2px;
+  }
+  .crop-handle[data-dir="nw"] { top:-3px; left:-3px; cursor:nw-resize; }
+  .crop-handle[data-dir="nw"]::before { top:0; left:0; width:20px; height:4px; }
+  .crop-handle[data-dir="nw"]::after  { top:0; left:0; width:4px; height:20px; }
+  .crop-handle[data-dir="ne"] { top:-3px; right:-3px; cursor:ne-resize; }
+  .crop-handle[data-dir="ne"]::before { top:0; right:0; width:20px; height:4px; }
+  .crop-handle[data-dir="ne"]::after  { top:0; right:0; width:4px; height:20px; }
+  .crop-handle[data-dir="sw"] { bottom:-3px; left:-3px; cursor:sw-resize; }
+  .crop-handle[data-dir="sw"]::before { bottom:0; left:0; width:20px; height:4px; }
+  .crop-handle[data-dir="sw"]::after  { bottom:0; left:0; width:4px; height:20px; }
+  .crop-handle[data-dir="se"] { bottom:-3px; right:-3px; cursor:se-resize; }
+  .crop-handle[data-dir="se"]::before { bottom:0; right:0; width:20px; height:4px; }
+  .crop-handle[data-dir="se"]::after  { bottom:0; right:0; width:4px; height:20px; }
+  .crop-handle:hover { transform:none; }
+  /* Filter presets */
+  .filter-scroll { display:flex; gap:10px; overflow-x:auto; padding:8px 0; }
+  .filter-scroll::-webkit-scrollbar { height:2px; }
+  .filter-preset { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:64px; cursor:pointer; flex-shrink:0; }
+  .filter-preset .thumb { width:60px; height:60px; border-radius:10px; overflow:hidden; border:2px solid transparent; transition:border-color 0.2s; }
+  .filter-preset.active .thumb { border-color:#2563eb; }
+  .filter-preset .thumb img, .filter-preset .thumb canvas { width:100%; height:100%; object-fit:cover; }
+  .filter-preset .label { font-size:10px; color:#94a3b8; font-weight:500; }
+  .filter-preset.active .label { color:#fff; }
+
+  /* ---- Modern Image Editor ---- */
+  .img-editor-modal {
+    background: rgba(0,0,0,0.97);
+    display: flex;
+    flex-direction: column;
+  }
+  .img-editor-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: linear-gradient(180deg, rgba(25,25,45,0.98) 0%, rgba(18,18,35,0.95) 100%);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .img-editor-topbar button {
+    background: none;
+    border: none;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 16px;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+  }
+  .img-editor-topbar .cancel-btn {
+    color: rgba(255,255,255,0.65);
+  }
+  .img-editor-topbar .cancel-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+  }
+  .img-editor-topbar .done-btn {
+    color: #60a5fa;
+    background: rgba(59,130,246,0.12);
+  }
+  .img-editor-topbar .done-btn:hover {
+    background: rgba(59,130,246,0.25);
+  }
+  .img-editor-topbar .title-text {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .img-editor-preview-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a14 70%);
+    min-height: 250px;
+  }
+  .img-editor-preview-area img {
+    max-width: 94%;
+    max-height: 94%;
+    object-fit: contain;
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    border-radius: 4px;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.5);
+  }
+  .img-editor-toolbar {
+    background: linear-gradient(0deg, rgba(12,12,25,0.99) 0%, rgba(22,22,42,0.96) 100%);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 14px 0 max(14px, env(safe-area-inset-bottom));
+  }
+  .img-tool-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 10px 20px;
+    border-radius: 14px;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.5);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    letter-spacing: 0.02em;
+  }
+  .img-tool-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.9);
+  }
+  .img-tool-btn:active { transform: scale(0.92); }
+  .img-tool-btn.active {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(37,99,235,0.35);
+  }
+  .img-tool-btn svg { width: 26px; height: 26px; }
+
+  /* ---- Template Modal ---- */
+  .template-upload-area {
+    border: 2px dashed rgba(37,99,235,0.3);
+    border-radius: 1.25rem;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    margin-bottom: 1rem;
+  }
+  .template-upload-area:hover {
+    border-color: #2563eb;
+    background: #eff6ff;
+    transform: translateY(-2px);
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN SCREEN ===================== -->
+<div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm">
+    <h1 class="text-xl font-bold text-blue-800 mb-1 text-center">AI Drafting System</h1>
+    <p class="text-slate-500 text-sm text-center mb-5">For Court Stenographers & Judges</p>
+
+    <!-- Login Form -->
+    <div id="loginForm">
+      <label class="block text-sm font-semibold mb-1">Email</label>
+      <input type="email" id="loginEmail" class="w-full border-2 border-slate-200 rounded-xl p-3 mb-3 text-base focus:border-blue-500 focus:outline-none" placeholder="judge@court.local" />
+
+      <label class="block text-sm font-semibold mb-1">Password</label>
+      <div class="relative mb-4">
+        <input type="password" id="loginPassword" class="w-full border-2 border-slate-200 rounded-xl p-3 pr-12 text-base focus:border-blue-500 focus:outline-none" placeholder="••••••••" />
+        <button type="button" class="pw-toggle absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold" data-target="loginPassword">Show</button>
+      </div>
+
+      <button id="loginBtn" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg">
+        <span class="spinner hidden" id="spin-login"></span> Login
+      </button>
+    </div>
+
+    <!-- Register Form (hidden by default) -->
+    <div id="registerForm" class="hidden">
+      <label class="block text-sm font-semibold mb-1">Full Name</label>
+      <input type="text" id="regName" class="w-full border-2 border-slate-200 rounded-xl p-3 mb-3 text-base focus:border-blue-500 focus:outline-none" placeholder="Your Name" />
+
+      <label class="block text-sm font-semibold mb-1">Email (apna)</label>
+      <input type="email" id="regEmail" class="w-full border-2 border-slate-200 rounded-xl p-3 mb-3 text-base focus:border-blue-500 focus:outline-none" placeholder="email@court.local" />
+
+      <label class="block text-sm font-semibold mb-1">Password</label>
+      <div class="relative mb-3">
+        <input type="password" id="regPassword" class="w-full border-2 border-slate-200 rounded-xl p-3 pr-12 text-base focus:border-blue-500 focus:outline-none" placeholder="••••••••" />
+        <button type="button" class="pw-toggle absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold" data-target="regPassword">Show</button>
+      </div>
+
+      <label class="block text-sm font-semibold mb-2">Role</label>
+      <div class="flex gap-2 mb-4">
+        <button class="reg-role-btn flex-1 border-2 border-slate-200 rounded-xl py-3 text-sm font-semibold" data-role="steno">📝 Steno</button>
+        <button class="reg-role-btn flex-1 border-2 border-slate-200 rounded-xl py-3 text-sm font-semibold" data-role="judge">👨‍⚖️ Judge</button>
+        <button class="reg-role-btn flex-1 border-2 border-slate-200 rounded-xl py-3 text-sm font-semibold" data-role="user">👤 User</button>
+      </div>
+
+      <!-- Extra fields shown based on role -->
+      <div id="regExtraFields" class="hidden space-y-3 mb-4">
+        <div>
+          <label class="block text-sm font-semibold mb-1">Court Name</label>
+          <input type="text" id="regCourtName" class="w-full border-2 border-slate-200 rounded-xl p-3 text-base focus:border-blue-500 focus:outline-none" placeholder="e.g. District Court Lahore" />
+        </div>
+        <div id="regStenoEmailRow" class="hidden">
+          <label class="block text-sm font-semibold mb-1">Steno ka Email Address (apne steno se poochein)</label>
+          <input type="email" id="regStenoEmail" class="w-full border-2 border-slate-200 rounded-xl p-3 text-base focus:border-blue-500 focus:outline-none" placeholder="steno@court.local" />
+        </div>
+      </div>
+
+      <button id="registerBtn" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg">
+        <span class="spinner hidden" id="spin-register"></span> Register
+      </button>
+    </div>
+
+    <p id="loginError" class="text-red-500 text-sm mt-3 hidden"></p>
+    <p id="regSuccess" class="text-green-600 text-sm mt-3 hidden"></p>
+
+    <div class="mt-4 text-center">
+      <button id="toggleAuthBtn" class="text-blue-600 text-sm font-semibold hover:underline">📝 Register karein</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MAIN APP ===================== -->
+<div id="mainApp" class="hidden app-container" style="max-width:100%;overflow-x:hidden;">
+
+  <!-- ====== HEADER CARD ====== -->
+  <div class="header-card">
+    <div style="position: relative;">
+      <button class="hamburger-btn" id="menuBtn">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <!-- Dropdown Menu -->
+      <div id="hamburgerMenu" class="hidden hamburger-menu">
+        <div class="px-3 py-2 border-b border-slate-100 mb-1">
+          <p class="font-bold text-sm text-slate-800" id="menuUserName"></p>
+          <p class="text-xs text-blue-600 font-semibold" id="menuUserRole"></p>
+        </div>
+        <button id="adminPanelBtn" class="menu-item hidden">
+          🛡️ Admin Panel
+        </button>
+        <button id="judgePanelBtn" class="menu-item hidden">
+          👨‍⚖️ Judge Panel
+        </button>
+        <button id="settingsBtn" class="menu-item">
+          ⚙️ AI Settings
+        </button>
+        <button id="glossaryMenuBtn" class="menu-item">
+          📖 Glossary
+        </button>
+        <button id="logoutBtn" class="menu-item logout">
+          🚪 Logout
+        </button>
+      </div>
+    </div>
+    <div class="header-title-group">
+      <div class="header-title">AI Drafting System</div>
+      <div class="header-date" id="currentDate"></div>
+    </div>
+  </div>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <div id="dashboardScreen">
+    
+    <!-- Pending Card -->
+    <button class="dash-card pending dash-tab-btn" data-status="pending">
+      <div>
+        <div class="card-label">Pending</div>
+        <div class="card-count" id="countPending">0</div>
+      </div>
+      <div class="card-icon-box">📋</div>
+    </button>
+    
+    <!-- Review Card -->
+    <button class="dash-card review dash-tab-btn" data-status="review">
+      <div>
+        <div class="card-label">Under Review</div>
+        <div class="card-count" id="countReview">0</div>
+      </div>
+      <div class="card-icon-box">🟣</div>
+    </button>
+    
+    <!-- Finalized Card -->
+    <button class="dash-card finalized dash-tab-btn" data-status="finalized">
+      <div>
+        <div class="card-label">Finalized</div>
+        <div class="card-count" id="countFinalized">0</div>
+      </div>
+      <div class="card-icon-box">✅</div>
+    </button>
+
+    <div style="display:flex;gap:0.75rem;align-items:stretch;">
+      <button id="liveTypeBtn" style="background:#7c3aed;color:#fff;border:none;border-radius:1.25rem;padding:1.15rem 1.5rem;font-size:1.15rem;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 6px 20px rgba(124,58,237,0.3);margin-top:0.5rem;">✍️ Live</button>
+      <button id="newCaseBtn" class="btn-new-case" style="flex:1;">+ Start New Case</button>
+    </div>
+  </div>
+
+  <!-- Live Type Editor Overlay -->
+  <div id="liveTypeOverlay" class="hidden fullscreen-mode" style="z-index:70;">
+    <div class="fs-header">
+      <h3 class="fs-title">✍️ Live Type Editor</h3>
+      <button id="liveTypeCloseBtn" class="fs-close-btn">Close</button>
+    </div>
+    <textarea id="liveTypeTextarea" class="fs-textarea" placeholder="Yahan type karein..."></textarea>
+    <button id="liveTypeWordBtn" style="margin-top:0.75rem;background:#16a34a;color:#fff;border:none;padding:0.6rem 1.25rem;border-radius:0.75rem;font-weight:700;font-size:0.9rem;cursor:pointer;width:100%;">📄 Open in Word</button>
+  </div>
+
+  <!-- ===================== CASE LIST ===================== -->
+  <div id="caseListScreen" class="hidden">
+    <button id="backToDashBtn" class="btn-back-dashboard mb-4">← Dashboard</button>
+    <h2 id="caseListTitle" class="font-bold text-xl mb-4 text-slate-800"></h2>
+    <div id="caseListContainer" class="space-y-3"></div>
+  </div>
+
+  <!-- ===================== NEW CASE SELECTOR ===================== -->
+  <div id="newCaseScreen" class="hidden">
+    <button id="backFromNewCaseBtn" class="btn-back-dashboard mb-4">← Dashboard</button>
+    
+    <div class="bg-white rounded-2xl shadow-lg p-5 mb-4">
+      <h2 class="font-bold text-xl mb-4 text-slate-800">New Case</h2>
+      
+      <label class="block text-sm font-bold text-slate-600 mb-2 uppercase tracking-wide">Category</label>
+      <select id="newCaseCategory" class="w-full border-2 border-slate-200 rounded-xl p-3 mb-4 text-base focus:border-blue-500 focus:outline-none bg-slate-50">
+        <option value="Family">Family</option>
+        <option value="Civil">Civil</option>
+      </select>
+
+      <label class="block text-sm font-bold text-slate-600 mb-2 uppercase tracking-wide">Case Type</label>
+      <div class="flex gap-3 mb-4">
+        <button class="case-type-btn flex-1 border-2 border-slate-200 rounded-xl py-3 text-sm font-semibold" data-type="contested">Contested</button>
+        <button class="case-type-btn flex-1 border-2 border-slate-200 rounded-xl py-3 text-sm font-semibold" data-type="ex_parte">Ex-parte</button>
+      </div>
+
+      <button id="startCaseBtn" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition">Start Case →</button>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-lg p-5">
+      <p class="text-sm text-slate-500 mb-3 text-center">Ya kisi finalized judgement ko reuse karein:</p>
+      <button id="goToReuseBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition mb-3">📑 Reuse a Finalized Judgement</button>
+      <button id="addTemplateFromNewCase" class="w-full bg-gradient-to-r from-violet-600 to-blue-600 text-white py-3 rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2">📄 Add New Template (Paste / Upload)</button>
+    </div>
+  </div>
+
+<!-- ===================== WIZARD SCREEN ===================== -->
+  <div id="wizardScreen" class="hidden">
+    
+    <!-- Back + Live Editor (Same Line) -->
+    <div class="wiz-top-bar">
+      <button id="backFromWizardBtn" class="btn-back-dashboard" style="flex:1;display:flex;justify-content:center;">← Dashboard</button>
+      <button id="liveModeToggle" class="live-toggle" style="flex:1;display:flex;justify-content:center;">🔴 Live: OFF</button>
+    </div>
+    <div id="autosaveIndicator" style="font-size:0.75rem;color:#94a3b8;text-align:right;min-height:1.1rem;margin-bottom:0.25rem;"></div>
+
+    <!-- Review feedback banner -->
+    <div id="reviewFeedbackBanner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 text-sm text-amber-800"></div>
+    
+    <div id="liveIndicator" class="hidden live-indicator">● Live collaboration active</div>
+    <input type="hidden" id="wizStatus" value="pending" />
+
+    <!-- Step Indicators removed -->
+
+    <!-- STEP 1: PLAINT -->
+    <div id="wstep1" class="wiz-step">
+      <h2 class="font-bold text-xl mb-4">Step 1/5: Plaint</h2>
+      <div id="uploadArea-plaint"></div>
+      <div class="flex justify-between items-center mt-2">
+        <label class="text-xs text-slate-400">OCR Text</label>
+        <button class="fs-btn" data-target="plaintText">⛶</button>
+      </div>
+      <textarea id="plaintText" rows="5" class="wiz-textarea"></textarea>
+      <button id="extractFactsBtn" class="btn-ai">
+        <span class="spinner hidden" id="spin-extractFacts"></span> Extract Facts (AI)
+      </button>
+      <div id="factsOutput" class="hidden mt-3">
+        <div class="flex justify-between items-center">
+          <label class="block text-sm font-semibold mb-1">Extracted Facts</label>
+          <button class="fs-btn" data-target="factsText">⛶</button>
+        </div>
+        <textarea id="factsText" rows="5" class="wiz-textarea"></textarea>
+      </div>
+    </div>
+
+    <!-- STEP 2: WRITTEN STATEMENT -->
+    <div id="wstep2" class="wiz-step hidden">
+      <h2 class="font-bold text-xl mb-4">Step 2/5: Written Statement</h2>
+      <div id="uploadArea-ws"></div>
+      <div class="flex justify-between items-center mt-2">
+        <label class="text-xs text-slate-400">OCR Text</label>
+        <button class="fs-btn" data-target="wsText">⛶</button>
+      </div>
+      <textarea id="wsText" rows="5" class="wiz-textarea"></textarea>
+      <button id="extractAdmitDenyBtn" class="btn-ai">
+        <span class="spinner hidden" id="spin-extractAdmitDeny"></span> Analyze Admit/Deny (AI)
+      </button>
+      <div id="admitDenyOutput" class="hidden mt-3">
+        <div class="flex justify-between items-center">
+          <label class="block text-sm font-semibold mb-1">Admit/Deny Table</label>
+          <button class="fs-btn" data-target="admitDenyText">⛶</button>
+        </div>
+        <textarea id="admitDenyText" rows="5" class="wiz-textarea"></textarea>
+      </div>
+    </div>
+
+    <!-- STEP 3: ISSUES -->
+    <div id="wstep3" class="wiz-step hidden">
+      <h2 class="font-bold text-xl mb-4">Step 3/5: Issues</h2>
+      <div id="uploadArea-issues"></div>
+      <div class="flex justify-between items-center mt-2">
+        <label class="text-xs text-slate-400">OCR Text</label>
+        <button class="fs-btn" data-target="issuesText">⛶</button>
+      </div>
+      <textarea id="issuesText" rows="5" class="wiz-textarea"></textarea>
+      <button id="mapDisputesBtn" class="btn-ai">
+        <span class="spinner hidden" id="spin-mapDisputes"></span> Map Disputes (AI)
+      </button>
+      <div id="disputesOutput" class="hidden mt-3">
+        <div class="flex justify-between items-center">
+          <label class="block text-sm font-semibold mb-1">Dispute Mapping</label>
+          <button class="fs-btn" data-target="disputesText">⛶</button>
+        </div>
+        <textarea id="disputesText" rows="5" class="wiz-textarea"></textarea>
+      </div>
+    </div>
+
+    <!-- STEP 4: EVIDENCE -->
+    <div id="wstep4" class="wiz-step hidden">
+      <h2 class="font-bold text-xl mb-4">Step 4/5: Evidence</h2>
+      <div id="uploadArea-evidence"></div>
+      <div class="flex justify-between items-center mt-2">
+        <label class="text-xs text-slate-400">OCR Text</label>
+        <button class="fs-btn" data-target="evidenceText">⛶</button>
+      </div>
+      <textarea id="evidenceText" rows="5" class="wiz-textarea"></textarea>
+      <button id="analyzeEvidenceBtn" class="btn-ai">
+        <span class="spinner hidden" id="spin-analyzeEvidence"></span> Analyze Evidence (AI)
+      </button>
+      <div id="findingsOutput" class="hidden mt-3">
+        <div class="flex justify-between items-center">
+          <label class="block text-sm font-semibold mb-1">Per-Issue Findings</label>
+          <button class="fs-btn" data-target="findingsText">⛶</button>
+        </div>
+        <textarea id="findingsText" rows="5" class="wiz-textarea"></textarea>
+      </div>
+    </div>
+
+    <!-- STEP 5: JUDGEMENT -->
+    <div id="wstep5" class="wiz-step hidden">
+      <h2 class="font-bold text-xl mb-4">Step 5/5: Short Order & Final Judgement</h2>
+      <textarea id="shortOrder" rows="5" class="wiz-textarea short-order-input" placeholder="suit decreed, dowry articles returned"></textarea>
+      <button id="generateFinalBtn" class="btn-generate">
+        <span class="spinner hidden" id="spin-generateFinal"></span> Generate Final Judgement (AI)
+      </button>
+
+      <div id="outputSection" class="hidden mt-4">
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="font-semibold">Judgement Output</h3>
+          <div class="flex gap-2">
+            <button class="fs-btn" data-target="judgementOutput">⛶</button>
+            <button id="copyBtn" class="btn-action">Copy</button>
+            <button id="downloadBtn" class="btn-action">Open in Word</button>
+          </div>
+        </div>
+        <textarea id="judgementOutput" rows="5" class="wiz-textarea" style="line-height:1.6;min-height:120px;"></textarea>
+      </div>
+
+      <div id="chatSection" class="hidden mt-4 border-t pt-4">
+        <h3 class="font-semibold mb-2">AI Assistant — Refine</h3>
+        <div id="chatLog" class="space-y-2 mb-3 max-h-64 overflow-y-auto"></div>
+        <div class="flex gap-2">
+          <input id="chatInput" type="text" class="chat-input" placeholder="instruction likhein..." />
+          <button id="chatSendBtn" class="btn-send">Send</button>
+        </div>
+      </div>
+
+      <button id="submitReviewBtn" class="hidden w-full mt-3 bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition text-base">📤 Submit for Review</button>
+
+      <button id="finalizeBtn" class="hidden w-full mt-4 btn-finalize">✅ Finalize Case (extract Title + Legal Grounds)</button>
+    </div>
+
+    <!-- LEFT-RIGHT NAVIGATION -->
+    <div class="wiz-nav">
+      <button id="wizBackBtn" class="btn-nav btn-nav-back hidden">← Back</button>
+      <button id="wizReviewBtn" class="btn-nav hidden" style="background:#f59e0b;color:#fff;">📤 Review</button>
+      <button id="wizNextBtn" class="btn-nav btn-nav-next hidden">Next →</button>
+    </div>
+  </div>
+
+<!-- FULL SCREEN OVERLAY -->
+<div id="fullscreenOverlay" class="hidden fullscreen-mode">
+  <div class="fs-header">
+    <h3 class="fs-title" id="fsTitle">Full Screen</h3>
+    <button id="fsCloseBtn" class="fs-close-btn">Minimize</button>
+  </div>
+  <textarea id="fsTextarea" class="fs-textarea"></textarea>
+</div>
+
+  <!-- ===================== REUSE SCREEN ===================== -->
+  <div id="reuseScreen" class="hidden">
+    <button id="backFromReuseListBtn" class="btn-back-dashboard mb-4">← Dashboard</button>
+    <h2 class="font-bold text-xl mb-4 text-slate-800">Select Judgement to Reuse</h2>
+    <div id="reuseListContainer" class="space-y-3"></div>
+  </div>
+
+  <div id="reuseFormScreen" class="hidden">
+    <button id="backFromReuseFormBtn" class="btn-back-dashboard mb-4">← Back</button>
+    
+    <div class="bg-white rounded-2xl shadow-lg p-5 mb-4">
+      <h2 class="font-bold text-xl mb-2">Fill Case Details</h2>
+      <p class="text-xs text-slate-500 mb-4">AI ne pichli judgement se ye fields nikale hain. Bharein, ya agar koi field miss ho to neeche add karein.</p>
+
+      <div id="reuseFieldsContainer" class="space-y-3 mb-4"></div>
+
+      <button id="addReuseFieldBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition mb-4">+ Add Missing Field</button>
+
+      <label class="block text-sm font-bold text-slate-600 mb-2 uppercase tracking-wide">Judge Note</label>
+      <textarea id="judgeNoteText" rows="4" class="wiz-textarea mb-4" placeholder="Koi additional point ya exception likhein..."></textarea>
+
+      <button id="generateFromReuseBtn" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 transition flex items-center justify-center gap-2">
+        <span class="spinner hidden" id="spin-generateFromReuse"></span> Generate Judgement
+      </button>
+    </div>
+
+    <div id="reuseOutputSection" class="hidden">
+      <div class="bg-white rounded-2xl shadow-lg p-5">
+        <h3 class="font-bold text-lg mb-3">Generated Judgement</h3>
+        <textarea id="reuseJudgementOutput" rows="16" class="wiz-textarea"></textarea>
+        <button id="saveReuseCaseBtn" class="w-full mt-4 bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition">Save as New Case (Pending)</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===================== ADMIN PANEL MODAL ===================== -->
+<div id="adminPanelModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl">
+    <h3 class="font-bold text-xl mb-4 text-slate-800">🛡️ Admin Panel</h3>
+    <div id="pendingUsersList" class="space-y-3 mb-4"></div>
+    <button id="closeAdminPanelBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition">Close</button>
+  </div>
+</div>
+
+<!-- ===================== JUDGE PANEL MODAL ===================== -->
+<div id="judgePanelModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl">
+    <h3 class="font-bold text-xl mb-4 text-slate-800">👨‍⚖️ Judge Panel</h3>
+    <p class="text-xs text-slate-500 mb-3">Admin-approved users jo aapki approval ka wait kar rahe hain:</p>
+    <div id="pendingJudgeApprovalList" class="space-y-3 mb-4"></div>
+    <button id="closeJudgePanelBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition">Close</button>
+  </div>
+</div>
+
+<!-- ===================== SETTINGS MODAL ===================== -->
+<div id="settingsModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl">
+    <h3 class="font-bold text-xl mb-4 text-slate-800">AI Provider Settings</h3>
+
+    <label class="block text-sm font-bold text-slate-600 mb-2 uppercase tracking-wide">Provider</label>
+    <select id="providerSelect" class="w-full border-2 border-slate-200 rounded-xl p-3 mb-4 text-base focus:border-blue-500 focus:outline-none bg-slate-50">
+      <option value="claude">Claude (Anthropic)</option>
+      <option value="gemini">Gemini (Google)</option>
+      <option value="openai">OpenAI</option>
+    </select>
+
+    <label class="block text-sm font-bold text-slate-600 mb-2 uppercase tracking-wide">API Keys (Fallback System)</label>
+    <div class="space-y-2 mb-4">
+      <input type="password" id="apiKeyInput1" class="w-full border-2 border-slate-200 rounded-xl p-3 text-base focus:border-blue-500 focus:outline-none" placeholder="1. Primary API Key (Required)" />
+      <input type="password" id="apiKeyInput2" class="w-full border-2 border-slate-200 rounded-xl p-3 text-base focus:border-blue-500 focus:outline-none" placeholder="2. Fallback Key (Optional)" />
+      <input type="password" id="apiKeyInput3" class="w-full border-2 border-slate-200 rounded-xl p-3 text-base focus:border-blue-500 focus:outline-none" placeholder="3. Fallback Key (Optional)" />
+    </div>
+
+    <label class="block text-sm font-bold text-slate-600 mb-2 uppercase tracking-wide">Model</label>
+    <select id="modelInput" class="w-full border-2 border-slate-200 rounded-xl p-3 mb-4 text-base focus:border-blue-500 focus:outline-none bg-slate-50"></select>
+
+    <button id="saveSettingsBtn" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-blue-700 transition mb-4">Save Provider Settings</button>
+
+    <button id="closeSettingsBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition">Close</button>
+  </div>
+</div>
+
+<div id="glossaryModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl">
+    <h3 class="font-bold text-xl mb-4 text-slate-800">AI Correction Rules (Glossary)</h3>
+    <p class="text-xs text-slate-400 mb-3">Jab AI koi lafz/term ghalat handle kare, yahan rule add karein.</p>
+
+    <div id="glossaryList" class="space-y-2 mb-3 max-h-32 overflow-y-auto"></div>
+
+    <div class="flex gap-2 mb-3">
+      <input id="glossaryTermInput" type="text" placeholder="Lafz (e.g. qom)" class="w-1/3 border-2 border-slate-200 rounded-xl p-3 text-sm focus:border-blue-500 focus:outline-none" />
+      <input id="glossaryInstructionInput" type="text" placeholder="Instruction" class="flex-1 border-2 border-slate-200 rounded-xl p-3 text-sm focus:border-blue-500 focus:outline-none" />
+    </div>
+    <button id="addGlossaryBtn" class="w-full bg-slate-700 text-white py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition">+ Rule Add Karein</button>
+
+    <button id="closeGlossaryBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition mt-4">Close</button>
+  </div>
+</div>
+
+<!-- ===================== TEMPLATE MODAL ===================== -->
+<div id="templateModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl">
+    <h3 class="font-bold text-xl mb-1 text-slate-800">📄 Add Template</h3>
+    <p class="text-xs text-slate-400 mb-4">Purani judgement paste karein ya file upload karein — ye finalized template ban jayegi jise reuse kar sakte hain.</p>
+
+    <label class="block text-sm font-bold text-slate-600 mb-2 uppercase tracking-wide">Title</label>
+    <input type="text" id="templateTitle" class="w-full border-2 border-slate-200 rounded-xl p-3 mb-3 text-base focus:border-blue-500 focus:outline-none" placeholder="e.g. Khula Decree Template" />
+
+    <label class="block text-sm font-bold text-slate-600 mb-2 uppercase tracking-wide">Category</label>
+    <select id="templateCategory" class="w-full border-2 border-slate-200 rounded-xl p-3 mb-3 text-base focus:border-blue-500 focus:outline-none bg-slate-50">
+      <option value="Family">Family</option>
+      <option value="Civil">Civil</option>
+    </select>
+
+    <label class="block text-sm font-bold text-slate-600 mb-2 uppercase tracking-wide">Case Type</label>
+    <select id="templateCaseType" class="w-full border-2 border-slate-200 rounded-xl p-3 mb-4 text-base focus:border-blue-500 focus:outline-none bg-slate-50">
+      <option value="contested">Contested</option>
+      <option value="ex_parte">Ex-parte</option>
+    </select>
+
+    <div id="templateUploadArea" class="template-upload-area">
+      <div style="font-size:2.5rem;margin-bottom:0.5rem;">📂</div>
+      <p class="text-sm font-semibold text-blue-600">Upload .txt file</p>
+      <p class="text-xs text-slate-400 mt-1">Ya neeche text paste karein</p>
+    </div>
+    <input type="file" id="templateFileInput" class="hidden" accept=".txt" />
+
+    <label class="block text-sm font-bold text-slate-600 mb-2 uppercase tracking-wide">Judgement Text</label>
+    <textarea id="templateJudgementText" rows="10" class="wiz-textarea mb-4" placeholder="Yahan judgement ka text paste karein..."></textarea>
+
+    <button id="saveTemplateBtn" class="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 transition flex items-center justify-center gap-2">
+      <span class="spinner hidden" id="spin-saveTemplate"></span> Save as Template
+    </button>
+    <button id="closeTemplateBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition mt-3">Close</button>
+  </div>
+</div>
+
+<div id="imageEditorModal" class="hidden fixed inset-0 z-[99999] img-editor-modal">
+  <!-- Top Bar -->
+  <div class="img-editor-topbar">
+    <button id="imgEditorClose" class="cancel-btn">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="4" x2="14" y2="14"/><line x1="14" y1="4" x2="4" y2="14"/></svg>
+    </button>
+    <span class="title-text">Edit Photo</span>
+    <button id="imgEditorConfirm" class="done-btn">Upload ↑</button>
+  </div>
+  <!-- Preview -->
+  <div class="img-editor-preview-area">
+    <img id="imgEditorPreview" class="img-editor-img" />
+  </div>
+  <!-- Toolbar -->
+  <div class="img-editor-toolbar">
+    <div style="display:flex;justify-content:center;gap:6px;">
+      <button id="imgEditorRotateLeft" class="img-tool-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        <span>Rotate L</span>
+      </button>
+      <button id="imgEditorRotateRight" class="img-tool-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+        <span>Rotate R</span>
+      </button>
+      <button id="imgEditorCrop" class="img-tool-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
+        <span>Crop</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="batchEditorModal" class="hidden fixed inset-0 bg-black flex flex-col z-[99999] batch-modal">
+  <!-- Top Bar -->
+  <div class="flex items-center justify-between px-4 py-3 batch-topbar text-white shrink-0">
+    <button id="batchEditorBack" class="text-white/70 hover:text-white text-lg leading-none">← Back</button>
+    <span id="batchEditorCounter" class="text-sm font-semibold text-white/80">1/1</span>
+    <button id="batchUploadBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold text-sm transition">Upload All</button>
+  </div>
+  <!-- Preview -->
+  <div class="batch-preview">
+    <img id="batchPreview" />
+    <div id="batchCropOverlay" class="hidden" style="position:absolute;inset:0;z-index:10">
+      <div id="batchCropWindow" class="crop-window">
+        <div class="grid-h" style="top:33.33%"></div>
+        <div class="grid-h" style="top:66.66%"></div>
+        <div class="grid-v" style="left:33.33%"></div>
+        <div class="grid-v" style="left:66.66%"></div>
+        <div class="crop-handle" data-dir="nw"></div>
+        <div class="crop-handle" data-dir="ne"></div>
+        <div class="crop-handle" data-dir="sw"></div>
+        <div class="crop-handle" data-dir="se"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Tool panels -->
+  <div id="batchFilterPanel" class="hidden shrink-0 bg-[#1a1a2e] px-4 pb-2">
+    <div id="batchFilterScroll" class="filter-scroll"></div>
+    <button id="batchApplyFilter" class="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-bold mt-2">Apply Filter</button>
+  </div>
+  <!-- Bottom toolbar -->
+  <div class="batch-toolbar shrink-0 px-4 pt-2">
+    <div class="flex justify-around">
+      <button class="batch-tool-btn" data-tool="crop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>Crop</button>
+      <button class="batch-tool-btn" data-tool="filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>Filter</button>
+      <button class="batch-tool-btn" id="batchRotateLeft"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Rotate</button>
+      <button class="batch-tool-btn" id="batchResetImg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Reset</button>
+    </div>
+  </div>
+  <!-- Filmstrip -->
+  <div class="bg-[#1a1a2e] shrink-0 border-t border-[#2a2a3e]">
+    <div id="batchFilmstrip" class="filmstrip"></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://atnjolykwqgzouqvorfe.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0bmpvbHlrd3Fnem91cXZvcmZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDM3MTUsImV4cCI6MjA5Nzk3OTcxNX0.7xA6LCJ--DfDgiatWijyMAs_TtfKcpc8TxVj6vZImSY";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
+
+
+<script>
+  document.querySelectorAll("textarea, input:not([type=hidden]):not([type=file])").forEach(el => el.dir = "auto");
+
+  // Show current date in header
+  const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', dateOptions);
+const $ = (id) => document.getElementById(id);
+let currentUser = null;   // { id, email }
+let currentProfile = null; // { id, full_name, role }
+
+// Password show/hide toggle
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".pw-toggle");
+  if (!btn) return;
+  const input = $(btn.dataset.target);
+  if (!input) return;
+  const isPassword = input.type === "password";
+  input.type = isPassword ? "text" : "password";
+  btn.textContent = isPassword ? "Hide" : "Show";
+});
+
+// ============================================
+// AUTH
+// ============================================
+async function checkExistingSession() {
+  const { data } = await sb.auth.getSession();
+  if (data.session) {
+    await onLoginSuccess(data.session.user);
+  }
+}
+
+$("loginBtn").addEventListener("click", async () => {
+  const email = $("loginEmail").value.trim();
+  const password = $("loginPassword").value;
+  if (!email || !password) { showLoginError("Email aur password dono bharain."); return; }
+
+  $("loginBtn").disabled = true;
+  $("spin-login").classList.remove("hidden");
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    await onLoginSuccess(data.user);
+  } catch (err) {
+    showLoginError("Login fail: " + err.message);
+  } finally {
+    $("loginBtn").disabled = false;
+    $("spin-login").classList.add("hidden");
+  }
+});
+
+function showLoginError(msg) {
+  $("loginError").textContent = msg;
+  $("loginError").classList.remove("hidden");
+}
+
+async function onLoginSuccess(user) {
+  currentUser = user;
+  const { data: profile, error } = await sb.from("profiles").select("*").eq("id", user.id).single();
+  if (error || !profile) {
+    showLoginError("Profile nahi mila. Pehle profiles table mein apna UUID add karein.");
+    await sb.auth.signOut();
+    return;
+  }
+  currentProfile = profile;
+
+  showAdminBtnIfAdmin();
+  showJudgeBtnIfJudge();
+
+  if (profile.status === 'pending') {
+    showLoginError("⏳ Account pending hai. Approval ka wait karein.");
+    await sb.auth.signOut();
+    return;
+  }
+  if (profile.status === 'admin_approved') {
+    showLoginError("⏳ Admin ne approve kar diya hai. Ab judge approval ka wait karein.");
+    await sb.auth.signOut();
+    return;
+  }
+  if (profile.status === 'rejected') {
+    showLoginError("❌ Account reject kar diya gaya hai.");
+    await sb.auth.signOut();
+    return;
+  }
+
+  $("loginScreen").classList.add("hidden");
+  $("mainApp").classList.remove("hidden");
+  const roleLabels = { judge: "Judge", steno: "Steno", user: "User" };
+  $("menuUserName").textContent = profile.full_name;
+  $("menuUserRole").textContent = roleLabels[profile.role] || profile.role;
+  await loadGlossary();
+  await loadDashboardCounts();
+  showDashboard();
+}
+
+// Hamburger menu toggle
+$("menuBtn").addEventListener("click", () => {
+  $("hamburgerMenu").classList.toggle("hidden");
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#menuBtn") && !e.target.closest("#hamburgerMenu")) {
+    $("hamburgerMenu").classList.add("hidden");
+  }
+});
+
+$("logoutBtn").addEventListener("click", async () => {
+  await sb.auth.signOut();
+  currentUser = null;
+  currentProfile = null;
+  $("mainApp").classList.add("hidden");
+  $("loginScreen").classList.remove("hidden");
+});
+
+window.addEventListener("DOMContentLoaded", checkExistingSession);
+
+// ============================================
+// ADMIN PANEL
+// ============================================
+function showAdminBtnIfAdmin() {
+  if (currentProfile && currentProfile.is_admin) {
+    $("adminPanelBtn").classList.remove("hidden");
+  }
+}
+
+function showJudgeBtnIfJudge() {
+  if (currentProfile && currentProfile.role === 'judge') {
+    $("judgePanelBtn").classList.remove("hidden");
+  }
+}
+
+$("adminPanelBtn").addEventListener("click", async () => {
+  $("hamburgerMenu").classList.add("hidden");
+  const { data: pending } = await sb.from("profiles").select("*").eq("status", "pending").order("created_at", { ascending: false });
+  const list = $("pendingUsersList");
+  if (!pending || pending.length === 0) {
+    list.innerHTML = `<p class="text-slate-400 text-sm text-center py-4">Koi pending user nahi hai.</p>`;
+  } else {
+    list.innerHTML = pending.map(u => `
+      <div class="bg-slate-50 rounded-xl p-3">
+        <p class="font-semibold text-sm">${escapeHtml(u.full_name)}</p>
+        <p class="text-xs text-slate-500">${escapeHtml(u.email || '')} · ${u.role === 'judge' ? '👨‍⚖️ Judge' : u.role === 'steno' ? '📝 Steno' : '👤 User'} · ${escapeHtml(u.court_name || '')}</p>
+        <div class="flex gap-2 mt-2">
+          <button class="approve-user-btn bg-green-600 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}" data-role="${u.role}">✅ Approve</button>
+          <button class="reject-user-btn bg-red-500 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}">❌ Reject</button>
+        </div>
+      </div>
+    `).join("");
+  }
+  $("adminPanelModal").classList.remove("hidden");
+});
+
+document.addEventListener("click", async (e) => {
+  const target = e.target;
+  if (target.classList.contains("approve-user-btn")) {
+    const id = target.dataset.id;
+    const role = target.dataset.role;
+    // Judge gets full approval, others need judge approval too
+    const newStatus = role === 'judge' ? 'active' : 'admin_approved';
+    await sb.from("profiles").update({ status: newStatus, approved_by_admin: true }).eq("id", id);
+    target.closest(".bg-slate-50")?.remove();
+  }
+  if (target.classList.contains("reject-user-btn")) {
+    const id = target.dataset.id;
+    await sb.from("profiles").update({ status: 'rejected' }).eq("id", id);
+    target.closest(".bg-slate-50")?.remove();
+  }
+});
+
+$("closeAdminPanelBtn").addEventListener("click", () => $("adminPanelModal").classList.add("hidden"));
+
+// ============================================
+// JUDGE PANEL
+// ============================================
+$("judgePanelBtn").addEventListener("click", async () => {
+  $("hamburgerMenu").classList.add("hidden");
+  const { data: pending } = await sb.from("profiles").select("*").eq("status", "admin_approved").order("created_at", { ascending: false });
+  const list = $("pendingJudgeApprovalList");
+  if (!pending || pending.length === 0) {
+    list.innerHTML = `<p class="text-slate-400 text-sm text-center py-4">Koi user judge approval ka wait nahi kar raha.</p>`;
+  } else {
+    list.innerHTML = pending.map(u => `
+      <div class="bg-slate-50 rounded-xl p-3">
+        <p class="font-semibold text-sm">${escapeHtml(u.full_name)}</p>
+        <p class="text-xs text-slate-500">${escapeHtml(u.email || '')} · ${u.role === 'steno' ? '📝 Steno' : '👤 User'} · ${escapeHtml(u.court_name || '')}</p>
+        <div class="flex gap-2 mt-2">
+          <button class="judge-approve-btn bg-green-600 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}">✅ Approve</button>
+          <button class="judge-reject-btn bg-red-500 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}">❌ Reject</button>
+        </div>
+      </div>
+    `).join("");
+  }
+  $("judgePanelModal").classList.remove("hidden");
+});
+
+document.addEventListener("click", async (e) => {
+  const target = e.target;
+  if (target.classList.contains("judge-approve-btn")) {
+    await sb.from("profiles").update({ status: 'active', approved_by_judge: true, judge_id: currentProfile?.id }).eq("id", target.dataset.id);
+    target.closest(".bg-slate-50")?.remove();
+  }
+  if (target.classList.contains("judge-reject-btn")) {
+    await sb.from("profiles").update({ status: 'rejected' }).eq("id", target.dataset.id);
+    target.closest(".bg-slate-50")?.remove();
+  }
+});
+
+$("closeJudgePanelBtn").addEventListener("click", () => $("judgePanelModal").classList.add("hidden"));
+
+// ============================================
+// REGISTER (Sign Up)
+// ============================================
+let regSelectedRole = null;
+
+$("toggleAuthBtn").addEventListener("click", () => {
+  const loginForm = $("loginForm");
+  const regForm = $("registerForm");
+  const toggleBtn = $("toggleAuthBtn");
+  const isLogin = !loginForm.classList.contains("hidden");
+
+  loginForm.classList.toggle("hidden", isLogin);
+  regForm.classList.toggle("hidden", !isLogin);
+  toggleBtn.textContent = isLogin ? "← Login" : "📝 Register karein";
+  $("loginError").classList.add("hidden");
+  $("regSuccess").classList.add("hidden");
+  regSelectedRole = null;
+  document.querySelectorAll(".reg-role-btn").forEach(b => b.classList.remove("bg-green-700", "text-white"));
+  $("regExtraFields").classList.add("hidden");
+});
+
+document.querySelectorAll(".reg-role-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    regSelectedRole = btn.dataset.role;
+    document.querySelectorAll(".reg-role-btn").forEach(b => b.classList.remove("bg-green-700", "text-white"));
+    btn.classList.add("bg-green-700", "text-white");
+
+    $("regExtraFields").classList.remove("hidden");
+    $("regStenoEmailRow").classList.toggle("hidden", btn.dataset.role === "steno");
+    const label = $("regExtraFields").querySelector("label");
+    if (btn.dataset.role === "steno") {
+      label.textContent = "Court Name";
+      $("regCourtName").placeholder = "e.g. District Court Lahore";
+    } else {
+      label.textContent = "Court Name (apne steno se poochein)";
+      $("regCourtName").placeholder = "e.g. District Court Lahore";
+    }
+  });
+});
+
+$("registerBtn").addEventListener("click", async () => {
+  const name = $("regName").value.trim();
+  const email = $("regEmail").value.trim();
+  const password = $("regPassword").value;
+  const courtName = $("regCourtName").value.trim();
+  const stenoEmail = $("regStenoEmail").value.trim();
+  if (!name || !email || !password) { showLoginError("Name, email aur password bharain."); return; }
+  if (!regSelectedRole) { showLoginError("Role select karein."); return; }
+  if (regSelectedRole !== 'steno' && !courtName) { showLoginError("Court name bharain (apne steno se poochein)."); return; }
+  if (regSelectedRole !== 'steno' && !stenoEmail) { showLoginError("Steno ka email address bharain."); return; }
+  if (regSelectedRole === 'steno' && !courtName) { showLoginError("Court name bharain."); return; }
+
+  $("registerBtn").disabled = true;
+  $("spin-register").classList.remove("hidden");
+  try {
+    const { data, error } = await sb.auth.signUp({ email, password });
+    if (error) throw error;
+    if (!data.user) throw new Error("Signup fail - user nahi mila");
+
+    const { data: existingAdmins } = await sb.from("profiles").select("id").eq("is_admin", true).limit(1);
+    const isFirstAdmin = regSelectedRole === 'steno' && (!existingAdmins || existingAdmins.length === 0);
+    const { data: stenoProfile } = stenoEmail ? await sb.from("profiles").select("id").eq("email", stenoEmail).single().catch(() => ({ data: null })) : { data: null };
+
+    let status = 'pending';
+    let needsJudgeApproval = false;
+
+    if (isFirstAdmin) {
+      status = 'active';
+    } else if (regSelectedRole === 'judge') {
+      status = 'pending';
+    } else {
+      // 2nd steno or user - needs admin + judge approval
+      status = 'pending';
+      needsJudgeApproval = true;
+    }
+
+    const profileData = {
+      id: data.user.id, full_name: name, role: regSelectedRole,
+      email: email, court_name: courtName,
+      status: status, is_admin: isFirstAdmin || false,
+      steno_email: stenoEmail || null,
+      judge_id: null,
+      approved_by_admin: false, approved_by_judge: false
+    };
+    if (needsJudgeApproval && stenoProfile) {
+      profileData.judge_id = null; // will be set when judge approves
+    }
+
+    const { error: profileError } = await sb.from("profiles").insert(profileData);
+    if (profileError) throw profileError;
+
+    let msg = "✅ Register ho gaya! Admin approval ka wait karein.";
+    if (isFirstAdmin) msg = "✅ Admin register ho gaya! Ab login karein.";
+    else if (regSelectedRole === 'judge') msg = "✅ Register ho gaya! Steno (admin) approval ka wait karein. Phir judge role accept karna hoga.";
+    else msg = "✅ Register ho gaya! Pehle steno admin approve karein, phir judge approve kare ga.";
+    $("regSuccess").textContent = msg;
+    $("regSuccess").classList.remove("hidden");
+    $("loginError").classList.add("hidden");
+
+    $("loginForm").classList.remove("hidden");
+    $("registerForm").classList.add("hidden");
+    $("toggleAuthBtn").textContent = "📝 Register karein";
+    $("loginEmail").value = email;
+    $("loginPassword").value = "";
+  } catch (err) {
+    showLoginError("Register fail: " + err.message);
+  } finally {
+    $("registerBtn").disabled = false;
+    $("spin-register").classList.add("hidden");
+  }
+});
+
+// ============================================
+// SCREEN NAVIGATION
+// ============================================
+function hideAllScreens() {
+  ["dashboardScreen", "caseListScreen", "newCaseScreen", "wizardScreen", "reuseScreen"].forEach(id => $(id).classList.add("hidden"));
+  if ($("liveTypeOverlay")) $("liveTypeOverlay").classList.add("hidden");
+}
+
+function showDashboard() {
+  hideAllScreens();
+  $("dashboardScreen").classList.remove("hidden");
+  loadDashboardCounts();
+}
+
+$("newCaseBtn").addEventListener("click", () => {
+  hideAllScreens();
+  $("newCaseScreen").classList.remove("hidden");
+  selectedCaseType = null;
+  document.querySelectorAll(".case-type-btn").forEach(b => b.classList.remove("bg-blue-700", "text-white"));
+});
+
+$("backFromNewCaseBtn").addEventListener("click", showDashboard);
+$("backToDashBtn").addEventListener("click", showDashboard);
+
+// ============================================
+// DASHBOARD: case counts + lists
+// ============================================
+async function loadDashboardCounts() {
+  for (const status of ["pending", "review", "finalized"]) {
+    const { data, error } = await sb.from("cases").select("id").eq("status", status);
+    const count = data ? data.length : 0;
+    $(`count${status.charAt(0).toUpperCase() + status.slice(1)}`).textContent = `${count} cases`;
+  }
+}
+
+document.querySelectorAll(".dash-tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => openCaseList(btn.dataset.status));
+});
+
+async function openCaseList(status) {
+  hideAllScreens();
+  $("caseListScreen").classList.remove("hidden");
+  const titles = { pending: "📋 Pending Cases", review: "🔍 Cases Under Review", finalized: "✅ Finalized (History)" };
+  $("caseListTitle").textContent = titles[status];
+  const container = $("caseListContainer");
+
+  // Review stats for non-judge users
+  if (status === 'review' && currentProfile?.role !== 'judge') {
+    const { data: reviewCases } = await sb.from("cases").select("created_by").eq("status", "review");
+    const { data: allProfiles } = await sb.from("profiles").select("id, full_name, role");
+    if (!reviewCases || reviewCases.length === 0) {
+      container.innerHTML = `<p class="text-slate-400 text-sm">Koi case review mein nahi hai.</p>`;
+      return;
+    }
+    const profileMap = {};
+    (allProfiles || []).forEach(p => profileMap[p.id] = p);
+    const counts = {};
+    reviewCases.forEach(c => {
+      const name = profileMap[c.created_by]?.full_name || "Unknown";
+      const role = profileMap[c.created_by]?.role || "";
+      counts[name] = (counts[name] || 0) + 1;
+    });
+    container.innerHTML = `<div class="bg-white rounded-xl shadow p-4 mb-3"><p class="text-sm font-semibold text-slate-600 mb-3">Review Cases Breakdown</p>
+      ${Object.entries(counts).map(([name, count]) =>
+        `<div class="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
+          <span class="text-sm">${escapeHtml(name)}</span>
+          <span class="text-sm font-bold text-orange-600">${count} cases</span>
+        </div>`
+      ).join("")}
+    </div>`;
+    return;
+  }
+
+  const { data: cases, error } = await sb.from("cases").select("*").eq("status", status).order("updated_at", { ascending: false });
+  if (error || !cases || cases.length === 0) {
+    if (status === "finalized") {
+      container.innerHTML = `<button class="add-template-list-btn w-full bg-gradient-to-r from-violet-600 to-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2 mb-4">📄 Add New Template</button>
+        <p class="text-slate-400 text-sm text-center">Koi finalized case nahi mila. Template add karke reuse karein.</p>`;
+      container.querySelector(".add-template-list-btn")?.addEventListener("click", openTemplateModal);
+    } else {
+      container.innerHTML = `<p class="text-slate-400 text-sm">Koi case nahi mila.</p>`;
+    }
+    return;
+  }
+  const templateBtnHtml = status === "finalized" ? `<button class="add-template-list-btn w-full bg-gradient-to-r from-violet-600 to-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2 mb-4">📄 Add New Template</button>` : "";
+  container.innerHTML = templateBtnHtml + cases.map(c => {
+    const title = c.case_title || `${c.category} Case (${c.case_type === "ex_parte" ? "Ex-parte" : "Contested"})`;
+    const grounds = c.legal_grounds ? `<p class="text-xs text-slate-500 mt-1">${escapeHtml(c.legal_grounds)}</p>` : "";
+    const comment = c.review_comment ? `<p class="text-xs text-amber-600 mt-1 bg-amber-50 p-1.5 rounded">💬 Review feedback: ${escapeHtml(c.review_comment)}</p>` : "";
+    const reuseBtn = status === "finalized" ? `<button class="reuse-btn bg-purple-600 text-white text-xs px-3 py-1 rounded-lg mt-2" data-id="${c.id}">📑 Reuse as Template</button>` : "";
+    const reviewActions = status === "review" && currentProfile?.role === 'judge' ? `
+      <div class="flex gap-2 mt-2">
+        <button class="review-approve-btn bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg" data-id="${c.id}">✅ Approve</button>
+        <button class="review-sendback-btn bg-amber-500 text-white text-xs px-3 py-1.5 rounded-lg" data-id="${c.id}">↩️ Send Back</button>
+      </div>` : "";
+    return `
+      <div class="bg-white rounded-xl shadow p-4">
+        <div class="flex justify-between items-start">
+          <div class="resume-case cursor-pointer flex-1" data-id="${c.id}">
+            <p class="font-semibold">${escapeHtml(title)}</p>
+            <p class="text-xs text-slate-400">${c.category} · ${c.case_type === "ex_parte" ? "Ex-parte" : "Contested"} · Step ${c.current_step}/5</p>
+            ${grounds}${comment}
+          </div>
+          <button class="delete-case-btn text-red-400 hover:text-red-600 text-lg px-2 py-1" data-id="${c.id}" title="Delete case">🗑️</button>
+        </div>
+        ${reuseBtn}${reviewActions}
+      </div>`;
+  }).join("");
+
+  container.querySelector(".add-template-list-btn")?.addEventListener("click", openTemplateModal);
+  container.addEventListener("click", async (e) => {
+    const target = e.target.closest("[data-id]");
+    if (!target) return;
+
+    if (target.classList.contains("resume-case")) {
+      openWizardForCase(target.dataset.id);
+    } else if (target.classList.contains("reuse-btn")) {
+      e.stopPropagation();
+      openReuseFlow(target.dataset.id);
+    } else if (target.classList.contains("delete-case-btn")) {
+      e.stopPropagation();
+      if (!confirm("Is case ko delete karna hai?")) return;
+      const { error } = await sb.from("cases").delete().eq("id", target.dataset.id);
+      if (error) { showToast("Delete fail: " + error.message, "error"); return; }
+      await loadDashboardCounts();
+      openCaseList(status);
+    } else if (target.classList.contains("review-approve-btn")) {
+      e.stopPropagation();
+      await sb.from("cases").update({ status: 'finalized', review_comment: null }).eq("id", target.dataset.id);
+      await loadDashboardCounts();
+      openCaseList(status);
+    } else if (target.classList.contains("review-sendback-btn")) {
+      e.stopPropagation();
+      const comment = prompt("Send back ka karan likhein (comment):");
+      if (!comment) return;
+      await sb.from("cases").update({ status: 'pending', current_step: 5, review_comment: comment }).eq("id", target.dataset.id);
+      await loadDashboardCounts();
+      openCaseList(status);
+    }
+  });
+}
+
+function escapeHtml(str) {
+  return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// ============================================
+// NEW CASE: category + type selection
+// ============================================
+let selectedCaseType = null;
+document.querySelectorAll(".case-type-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    selectedCaseType = btn.dataset.type;
+    document.querySelectorAll(".case-type-btn").forEach(b => b.classList.remove("bg-blue-700", "text-white"));
+    btn.classList.add("bg-blue-700", "text-white");
+  });
+});
+
+$("startCaseBtn").addEventListener("click", async () => {
+  if (!selectedCaseType) { showToast("Contested ya Ex-parte select karein.", "error"); return; }
+  const category = $("newCaseCategory").value;
+  const { data, error } = await sb.from("cases").insert({
+    category, case_type: selectedCaseType, status: "pending",
+    created_by: currentProfile.id, last_updated_by: currentProfile.id, current_step: 1
+  }).select().single();
+  if (error) { showToast("Error: " + error.message, "error"); return; }
+  openWizardForCase(data.id);
+});
+
+$("goToReuseBtn").addEventListener("click", () => {
+  hideAllScreens();
+  $("reuseScreen").classList.remove("hidden");
+  loadFinalizedForReuseSelection();
+});
+
+// (Placeholder functions removed — real implementations are below)
+
+// ============================================
+// SETTINGS + GLOSSARY
+// ============================================
+const DEFAULT_MODELS = { claude: "claude-sonnet-4-6", gemini: "gemini-2.5-flash", openai: "gpt-4o-mini" };
+
+const MODEL_OPTIONS = {
+  claude: [
+    { value: "", label: "Default (Sonnet 4.6)" },
+    { value: "claude-sonnet-4-6", label: "Sonnet 4.6 — Better — Expensive" },
+    { value: "claude-opus-4-7", label: "Opus 4.7 — Best — Most Expensive" },
+    { value: "claude-haiku-4-5", label: "Haiku 4.5 — Good — Cheap" }
+  ],
+  gemini: [
+    { value: "", label: "Default (Flash 2.5)" },
+    { value: "gemini-2.5-flash", label: "Flash 2.5 — Good — Cheap" },
+    { value: "gemini-2.5-pro", label: "Pro 2.5 — Best — Expensive" }
+  ],
+  openai: [
+    { value: "", label: "Default (GPT-5.5 Instant)" },
+    { value: "gpt-5.5-pro", label: "GPT-5.5 Pro — Best — Most Expensive" },
+    { value: "gpt-5.5", label: "GPT-5.5 — Better — Expensive" },
+    { value: "gpt-5.5-instant", label: "GPT-5.5 Instant — Good — Moderate" },
+    { value: "gpt-5.4-pro", label: "GPT-5.4 Pro — Better — Expensive" },
+    { value: "gpt-5.4", label: "GPT-5.4 — Good — Moderate" },
+    { value: "gpt-5.4-mini", label: "GPT-5.4 Mini — Decent — Cheap" }
+  ]
+};
+
+function populateModelDropdown(prov) {
+  const sel = $("modelInput");
+  sel.innerHTML = MODEL_OPTIONS[prov]?.map(o => `<option value="${o.value}">${o.label}</option>`).join("") || "";
+}
+
+function loadProviderFields() {
+  const prov = $("providerSelect").value;
+  populateModelDropdown(prov);
+  let keys = [];
+  const stored = localStorage.getItem(`ai_api_key_${prov}`);
+  if (stored) {
+    try { keys = JSON.parse(stored); }
+    catch { keys = [stored]; }
+  }
+  $("apiKeyInput1").value = keys[0] || "";
+  $("apiKeyInput2").value = keys[1] || "";
+  $("apiKeyInput3").value = keys[2] || "";
+  const savedModel = localStorage.getItem(`ai_model_${prov}`) || "";
+  $("modelInput").value = savedModel;
+}
+
+function getSettings() {
+  const prov = localStorage.getItem("ai_provider") || "claude";
+  let keys = [];
+  const stored = localStorage.getItem(`ai_api_key_${prov}`);
+  if (stored) {
+    try { keys = JSON.parse(stored); }
+    catch { keys = [stored]; }
+  }
+  return {
+    provider: prov,
+    apiKeys: keys.filter(k => k),
+    model: localStorage.getItem(`ai_model_${prov}`) || ""
+  };
+}
+
+$("settingsBtn").addEventListener("click", () => {
+  const s = getSettings();
+  $("providerSelect").value = s.provider;
+  loadProviderFields();
+  $("settingsModal").classList.remove("hidden");
+});
+$("closeSettingsBtn").addEventListener("click", () => $("settingsModal").classList.add("hidden"));
+
+$("glossaryMenuBtn").addEventListener("click", () => {
+  $("hamburgerMenu").classList.add("hidden");
+  loadGlossary();
+  $("glossaryModal").classList.remove("hidden");
+});
+$("closeGlossaryBtn").addEventListener("click", () => $("glossaryModal").classList.add("hidden"));
+
+$("providerSelect").addEventListener("change", loadProviderFields);
+
+function showToast(msg, type = "") {
+  let t = document.getElementById("toast-el");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "toast-el";
+    t.className = "toast";
+    const btn = document.createElement("button");
+    btn.className = "toast-close";
+    btn.textContent = "✕";
+    btn.addEventListener("click", () => t.classList.remove("show"));
+    t.appendChild(btn);
+    document.body.appendChild(t);
+  }
+  const span = t.querySelector("span") || document.createElement("span");
+  span.textContent = msg;
+  if (!t.contains(span)) t.prepend(span);
+  t.className = "toast " + type;
+  requestAnimationFrame(() => {
+    t.classList.add("show");
+    clearTimeout(t._hide);
+    t._hide = setTimeout(() => t.classList.remove("show"), 5000);
+  });
+}
+
+$("saveSettingsBtn").addEventListener("click", () => {
+  const k1 = $("apiKeyInput1").value.trim();
+  const k2 = $("apiKeyInput2").value.trim();
+  const k3 = $("apiKeyInput3").value.trim();
+  if (!k1 && !k2 && !k3) { showToast("Kam az kam ek API key zaroori hai.", "error"); return; }
+  const prov = $("providerSelect").value;
+  localStorage.setItem("ai_provider", prov);
+  localStorage.setItem(`ai_api_key_${prov}`, JSON.stringify([k1, k2, k3]));
+  localStorage.setItem(`ai_model_${prov}`, $("modelInput").value.trim());
+  showToast("Settings save ho gayi.", "success");
+});
+
+let glossaryCache = [];
+async function loadGlossary() {
+  const { data } = await sb.from("glossary_rules").select("*").eq("user_id", currentProfile.id).order("created_at", { ascending: false });
+  glossaryCache = data || [];
+  renderGlossaryList();
+}
+
+function renderGlossaryList() {
+  const list = $("glossaryList");
+  if (glossaryCache.length === 0) { list.innerHTML = `<p class="text-xs text-slate-400">Abhi koi rule nahi hai.</p>`; return; }
+  list.innerHTML = glossaryCache.map(r => `
+    <div class="flex justify-between items-center bg-slate-50 rounded-lg p-2 text-xs">
+      <span><b>${escapeHtml(r.term)}</b>: ${escapeHtml(r.instruction)}</span>
+      <button class="del-glossary-btn text-red-500 px-2" data-id="${r.id}">✕</button>
+    </div>`).join("");
+  document.querySelectorAll(".del-glossary-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      await sb.from("glossary_rules").delete().eq("id", btn.dataset.id);
+      await loadGlossary();
+    });
+  });
+}
+
+$("addGlossaryBtn").addEventListener("click", async () => {
+  const term = $("glossaryTermInput").value.trim();
+  const instruction = $("glossaryInstructionInput").value.trim();
+  if (!term || !instruction) { showToast("Lafz aur instruction dono bharain.", "error"); return; }
+  await sb.from("glossary_rules").insert({ user_id: currentProfile.id, term, instruction });
+  $("glossaryTermInput").value = ""; $("glossaryInstructionInput").value = "";
+  await loadGlossary();
+});
+
+function buildGlossaryInstructions() {
+  if (glossaryCache.length === 0) return "";
+  return "\n\nSPECIAL TERMINOLOGY RULES (hamesha follow karein):\n" + glossaryCache.map(r => `- "${r.term}": ${r.instruction}`).join("\n");
+}
+
+// ============================================
+// AI CALL (multi-provider, glossary-aware)
+// ============================================
+async function callAI(prompt, maxTokens = 2048) {
+  const s = getSettings();
+  if (!s.apiKeys || s.apiKeys.length === 0) throw new Error("API key set nahi hai. Settings (⚙️) mein jaa ke add karein.");
+  const model = s.model || DEFAULT_MODELS[s.provider];
+  const finalPrompt = prompt
+    + "\n\nIMPORTANT: Apna pura jawab sirf English language mein likhein, chahe source documents Urdu mein hon."
+    + buildGlossaryInstructions();
+
+  let lastError = null;
+  for (let i = 0; i < s.apiKeys.length; i++) {
+    const key = s.apiKeys[i];
+    try {
+      if (s.provider === "claude") {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+          body: JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: "user", content: finalPrompt }] })
+        });
+        if (!res.ok) throw new Error("Claude API error: " + (await res.text()));
+        const data = await res.json();
+        return data.content?.[0]?.text || "";
+      }
+      if (s.provider === "gemini") {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt }] }] })
+        });
+        if (!res.ok) throw new Error("Gemini API error: " + (await res.text()));
+        const data = await res.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      }
+      if (s.provider === "openai") {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+          body: JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: "user", content: finalPrompt }] })
+        });
+        if (!res.ok) throw new Error("OpenAI API error: " + (await res.text()));
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content || "";
+      }
+    } catch (err) {
+      lastError = err;
+      console.warn(`callAI Key ${i + 1} failed:`, err);
+      if (i < s.apiKeys.length - 1) {
+        showToast(`API limit reached. Trying Fallback Key ${i + 2}...`, "warning");
+      }
+    }
+  }
+  throw lastError || new Error("Unknown provider");
+}
+
+// ============================================
+// GLOBAL WIZARD STATE
+// ============================================
+let activeCase = null;
+let currentWizStep = 1;
+let saveTimer = null;
+let liveModeOn = false;
+let liveChannel = null;
+
+$("backFromWizardBtn").addEventListener("click", async () => {
+  await stopLiveMode();
+  showDashboard();
+});
+
+// ============================================
+// LIVE TYPE EDITOR (Real-time Collaborative)
+// ============================================
+let liveTypeChannel = null;
+let liveTypeTimer = null;
+let liveTypeIsRemoteUpdate = false;
+
+$("liveTypeBtn").addEventListener("click", async () => {
+  $("liveTypeOverlay").classList.remove("hidden");
+  // Fetch existing content
+  const { data } = await sb.from("live_notes").select("content").eq("id", "live-note-1").single();
+  $("liveTypeTextarea").value = data?.content || "";
+
+  // Subscribe to real-time changes
+  liveTypeChannel = sb.channel("live-notes")
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "live_notes", filter: "id=eq.live-note-1" }, (payload) => {
+      if (payload.new && payload.new.updated_by !== currentProfile?.id && document.activeElement?.id !== "liveTypeTextarea") {
+        liveTypeIsRemoteUpdate = true;
+        $("liveTypeTextarea").value = payload.new.content || "";
+        liveTypeIsRemoteUpdate = false;
+      }
+    })
+    .subscribe();
+});
+
+$("liveTypeCloseBtn").addEventListener("click", async () => {
+  if (liveTypeChannel) { sb.removeChannel(liveTypeChannel); liveTypeChannel = null; }
+  $("liveTypeOverlay").classList.add("hidden");
+});
+
+$("liveTypeTextarea").addEventListener("input", () => {
+  if (liveTypeIsRemoteUpdate) return;
+  clearTimeout(liveTypeTimer);
+  liveTypeTimer = setTimeout(async () => {
+    await sb.from("live_notes").upsert({
+      id: "live-note-1",
+      content: $("liveTypeTextarea").value,
+      updated_by: currentProfile?.id,
+      updated_at: new Date().toISOString()
+    });
+  }, 800);
+});
+
+$("liveTypeWordBtn").addEventListener("click", () => {
+  const text = $("liveTypeTextarea").value;
+  if (!text.trim()) { showToast("Pehle kuch type karein.", "error"); return; }
+  const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+  <head><meta charset='utf-8'><title>Live Type</title></head>
+  <body style="font-family:'Times New Roman';font-size:14pt;line-height:1.6;">${text.split("\n").map(p => `<p>${escapeHtml(p)}</p>`).join("")}</body></html>`;
+  const blob = new Blob(['\ufeff', html], { type: "application/msword" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob); link.download = "live-type.doc"; link.click();
+});
+
+// ============================================
+// OPEN / LOAD WIZARD FOR A CASE
+// ============================================
+async function openWizardForCase(caseId) {
+  const { data: caseData, error } = await sb.from("cases").select("*").eq("id", caseId).single();
+  if (error || !caseData) {   showToast("Case load nahi ho saka.", "error"); return; }
+  activeCase = caseData;
+
+  hideAllScreens();
+  $("wizardScreen").classList.remove("hidden");
+
+  // Populate fields
+  $("plaintText").value = caseData.plaint_text || "";
+  $("factsText").value = caseData.facts_text || "";
+  if (caseData.facts_text) $("factsOutput").classList.remove("hidden");
+  $("wsText").value = caseData.written_statement_text || "";
+  $("admitDenyText").value = caseData.admit_deny_text || "";
+  if (caseData.admit_deny_text) $("admitDenyOutput").classList.remove("hidden");
+  $("issuesText").value = caseData.issues_text || "";
+  $("disputesText").value = caseData.disputes_text || "";
+  if (caseData.disputes_text) $("disputesOutput").classList.remove("hidden");
+  $("evidenceText").value = caseData.evidence_text || "";
+  $("findingsText").value = caseData.findings_text || "";
+  if (caseData.findings_text) $("findingsOutput").classList.remove("hidden");
+  $("shortOrder").value = caseData.short_order || "";
+  $("judgementOutput").value = caseData.judgement_output || "";
+  if (caseData.judgement_output) {
+    $("outputSection").classList.remove("hidden");
+    $("chatSection").classList.remove("hidden");
+    const isJudge = currentProfile?.role === 'judge';
+    $("finalizeBtn").classList.toggle("hidden", !isJudge);
+    $("submitReviewBtn").classList.toggle("hidden", isJudge || caseData.status !== 'pending');
+  }
+  $("wizStatus").value = caseData.status;
+
+  // Show review feedback banner if present
+  const banner = $("reviewFeedbackBanner");
+  if (caseData.review_comment && caseData.status === 'pending') {
+    banner.textContent = "💬 Review Feedback: " + caseData.review_comment;
+    banner.classList.remove("hidden");
+  } else {
+    banner.classList.add("hidden");
+  }
+
+  // Step2 (Written Statement) hidden if ex-parte
+  $("wstep2").classList.toggle("hidden-by-exparte", caseData.case_type === "ex_parte");
+
+  buildUploadWidget("plaint", "plaintText");
+  buildUploadWidget("ws", "wsText");
+  buildUploadWidget("issues", "issuesText");
+  buildUploadWidget("evidence", "evidenceText");
+
+  showWizStep(caseData.current_step || 1);
+  attachAutosaveListeners();
+}
+
+// ============================================
+// AUTOSAVE (debounced, fires on any field change)
+// ============================================
+function attachAutosaveListeners() {
+  const fields = ["plaintText","factsText","wsText","admitDenyText","issuesText","disputesText","evidenceText","findingsText","shortOrder","judgementOutput"];
+  fields.forEach(id => {
+    $(id).oninput = () => scheduleAutosave();
+  });
+  $("wizStatus").onchange = async () => {
+    await saveOrUpdateCase({ status: $("wizStatus").value });
+    await loadDashboardCounts();
+  };
+}
+
+function scheduleAutosave() {
+  $("autosaveIndicator").textContent = "Saving...";
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    await saveOrUpdateCase({
+      plaint_text: $("plaintText").value,
+      facts_text: $("factsText").value,
+      written_statement_text: $("wsText").value,
+      admit_deny_text: $("admitDenyText").value,
+      issues_text: $("issuesText").value,
+      disputes_text: $("disputesText").value,
+      evidence_text: $("evidenceText").value,
+      findings_text: $("findingsText").value,
+      short_order: $("shortOrder").value,
+      judgement_output: $("judgementOutput").value
+    });
+    $("autosaveIndicator").textContent = "✓ Saved";
+    setTimeout(() => $("autosaveIndicator").textContent = "", 1500);
+  }, 2500);
+}
+
+async function saveOrUpdateCase(fields) {
+  if (!activeCase) return;
+  fields.last_updated_by = currentProfile.id;
+  await sb.from("cases").update(fields).eq("id", activeCase.id);
+  Object.assign(activeCase, fields);
+}
+
+async function logAIStep(step, input, output) {
+  if (!activeCase) return;
+  await sb.from("ai_logs").insert({ case_id: activeCase.id, step, input_text: input, output_text: output });
+}
+
+// ============================================
+// STEP NAVIGATION (4 steps if ex-parte, else 5)
+// ============================================
+function getStepSequence() {
+  return activeCase?.case_type === "ex_parte" ? [1, 3, 4, 5] : [1, 2, 3, 4, 5];
+}
+
+function getWizardFields() {
+  return {
+    plaint_text: $("plaintText").value,
+    facts_text: $("factsText").value,
+    written_statement_text: $("wsText").value,
+    admit_deny_text: $("admitDenyText").value,
+    issues_text: $("issuesText").value,
+    disputes_text: $("disputesText").value,
+    evidence_text: $("evidenceText").value,
+    findings_text: $("findingsText").value,
+    short_order: $("shortOrder").value,
+    judgement_output: $("judgementOutput").value
+  };
+}
+
+function showWizStep(n) {
+  currentWizStep = n;
+  document.querySelectorAll(".wiz-step").forEach(el => el.classList.add("hidden"));
+  $(`wstep${n}`).classList.remove("hidden");
+  const seq = getStepSequence();
+  const stepNames = { 1: "Plaint", 2: "Written Statement", 3: "Issues", 4: "Evidence", 5: "Short Order & Final Judgement" };
+  const stepIdx = seq.indexOf(n) + 1;
+  const totalSteps = seq.length;
+  const h2 = $(`wstep${n}`).querySelector("h2");
+  if (h2) h2.textContent = `Step ${stepIdx}/${totalSteps}: ${stepNames[n]}`;
+  $("wizBackBtn").classList.toggle("hidden", seq.indexOf(n) === 0);
+  $("wizNextBtn").classList.toggle("hidden", seq.indexOf(n) === seq.length - 1);
+  // Submit for Review button - har step pe dikhe (non-judge users, case pending ho)
+  $("wizReviewBtn").classList.toggle("hidden", currentProfile?.role === 'judge' || activeCase?.status !== 'pending');
+  saveOrUpdateCase({ current_step: n });
+}
+
+
+$("wizBackBtn").addEventListener("click", async () => {
+  const seq = getStepSequence();
+  const idx = seq.indexOf(currentWizStep);
+  if (idx > 0) {
+    await saveOrUpdateCase(getWizardFields());
+    showWizStep(seq[idx - 1]);
+  }
+});
+$("wizNextBtn").addEventListener("click", async () => {
+  const seq = getStepSequence();
+  const idx = seq.indexOf(currentWizStep);
+  if (idx < seq.length - 1) {
+    await saveOrUpdateCase(getWizardFields());
+    showWizStep(seq[idx + 1]);
+  }
+});
+$("wizReviewBtn").addEventListener("click", async () => {
+  if (!confirm("Case review ke liye submit karein? Judge approve ya send back kar sakta hai.")) return;
+  await saveOrUpdateCase({ status: "review" });
+  $("wizStatus").value = "review";
+  showToast("Case review ke liye submit ho gaya!", "success");
+  await loadDashboardCounts();
+  showDashboard();
+});
+
+// ============================================
+// FULL SCREEN MODE
+// ============================================
+let fsCurrentTarget = null;
+document.addEventListener("click", (e) => {
+  if (e.target.classList.contains("fs-btn")) {
+    fsCurrentTarget = e.target.dataset.target;
+    $("fsTitle").textContent = $(fsCurrentTarget).previousElementSibling?.textContent || "Full Screen";
+    $("fsTextarea").value = $(fsCurrentTarget).value;
+    $("fullscreenOverlay").classList.remove("hidden");
+  }
+});
+$("fsCloseBtn").addEventListener("click", () => {
+  if (fsCurrentTarget) {
+    $(fsCurrentTarget).value = $("fsTextarea").value;
+    $(fsCurrentTarget).dispatchEvent(new Event("input"));
+  }
+  $("fullscreenOverlay").classList.add("hidden");
+});
+
+// ============================================
+// VISION OCR + UPLOAD WIDGET
+// ============================================
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function visionOCR(file) {
+  const s = getSettings();
+  console.log("visionOCR using provider:", s.provider, "model:", s.model || "default");
+  if (!s.apiKeys || s.apiKeys.length === 0) throw new Error("API key set nahi hai. Settings (⚙️) mein jaa ke add karein.");
+  const base64 = await fileToBase64(file);
+  const mimeType = file.type;
+  const instr = `Extract all text from this image accurately (Urdu/English, handwritten or printed).
+
+IMPORTANT RULES:
+- Handle both Pakistani Civil and Family Court documents.
+- Extract full text as-is.
+- For proper nouns (person names, place names): if written in Urdu script, transliterate them into Roman English (e.g. "حنا اعظم" → "Hina Azam", "محمد عدنان" → "Muhammad Adnan")
+- For legal/document terms in Urdu script, keep them in Urdu script (e.g. "نکاح نامہ", "قوم", "بیع نامہ", "اقرار نامہ", "دعویٰ استقرارِ حق", "حکم امتناعی")
+- Do not translate — only transliterate names
+- Return only extracted text, no commentary`;
+
+  let lastError = null;
+  for (let i = 0; i < s.apiKeys.length; i++) {
+    const key = s.apiKeys[i];
+    try {
+      if (s.provider === "gemini") {
+        const model = s.model || DEFAULT_MODELS.gemini;
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: instr }, { inline_data: { mime_type: mimeType, data: base64 } }] }] })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      }
+      if (s.provider === "claude") {
+        const model = s.model || DEFAULT_MODELS.claude;
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST", headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+          body: JSON.stringify({ model, max_tokens: 2000, messages: [{ role: "user", content: [{ type: "text", text: instr }, { type: "image", source: { type: "base64", media_type: mimeType, data: base64 } }] }] })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        return data.content?.[0]?.text || "";
+      }
+      if (s.provider === "openai") {
+        const model = s.model || DEFAULT_MODELS.openai;
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+          body: JSON.stringify({ model, max_tokens: 2000, messages: [{ role: "user", content: [{ type: "text", text: instr }, { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } }] }] })
+        });
+        if (!res.ok) throw new Error("OpenAI " + res.status + ": " + (await res.text()).slice(0, 200));
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content || "";
+      }
+    } catch (err) {
+      lastError = err;
+      console.warn(`visionOCR Key ${i + 1} failed:`, err);
+      if (i < s.apiKeys.length - 1) {
+        showToast(`API limit reached. Trying Fallback Key ${i + 2}...`, "warning");
+      }
+    }
+  }
+  throw lastError || new Error("Unknown provider");
+}
+
+function buildUploadWidget(target, textareaId) {
+  const container = $(`uploadArea-${target}`);
+  container.innerHTML = `
+    <div class="flex gap-2 mb-2">
+      <button type="button" class="cam-btn flex-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg py-2 text-sm font-medium">📷 Camera</button>
+      <button type="button" class="file-btn flex-1 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg py-2 text-sm font-medium">🖼️ Files</button>
+    </div>
+    <input type="file" class="cam-input hidden" accept="image/jpeg,image/png" capture="environment" />
+    <input type="file" class="file-input hidden" accept="image/jpeg,image/png" multiple />
+    <div class="preview-area flex flex-wrap gap-2 mb-2"></div>
+    <div class="ocr-status text-xs text-slate-400"></div>`;
+  const camBtn = container.querySelector(".cam-btn"), fileBtn = container.querySelector(".file-btn");
+  const camInput = container.querySelector(".cam-input"), fileInput = container.querySelector(".file-input");
+  const previewArea = container.querySelector(".preview-area"), statusEl = container.querySelector(".ocr-status");
+  camBtn.onclick = () => camInput.click();
+  fileBtn.onclick = () => fileInput.click();
+  window.imgCounter = previewArea.children.length;
+  camInput.onchange = (e) => processImages(e.target.files, previewArea, statusEl, textareaId);
+  fileInput.onchange = (e) => processImages(e.target.files, previewArea, statusEl, textareaId);
+}
+
+let processingQueue = false;
+
+function removeImageText(wrap, textareaEl) {
+  if (wrap.dataset.insertedAt !== undefined) {
+    const at = parseInt(wrap.dataset.insertedAt);
+    const len = parseInt(wrap.dataset.insertedLen);
+    const prefix = at > 0 ? 2 : 0;
+    const before = textareaEl.value.slice(0, at);
+    const after = textareaEl.value.slice(at + prefix + len);
+    textareaEl.value = before + after;
+    textareaEl.dispatchEvent(new Event("input"));
+  }
+}
+
+function getCurrentFile(wrap) {
+  return wrap._currentFile || null;
+}
+
+function buildContextMenu(wrap, previewArea, statusEl, textareaId, num) {
+  const existing = document.querySelector(".img-context-menu");
+  if (existing) existing.remove();
+
+  const menu = document.createElement("div");
+  menu.className = "img-context-menu";
+  menu.innerHTML = `
+    <button data-action="retry">🔄 Retry OCR</button>
+    <button data-action="replace">📁 Replace Image</button>
+    <button data-action="skip">⏭ Skip OCR</button>`;
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "image/jpeg,image/png";
+  fileInput.style.display = "none";
+  menu.appendChild(fileInput);
+
+  menu.querySelector('[data-action="retry"]').onclick = () => {
+    menu.remove();
+    const f = getCurrentFile(wrap);
+    if (f) runOcrOnImage(wrap, previewArea, statusEl, textareaId, num);
+  };
+  menu.querySelector('[data-action="replace"]').onclick = () => {
+    fileInput.click();
+  };
+  menu.querySelector('[data-action="skip"]').onclick = () => {
+    menu.remove();
+    wrap.dataset.skipped = "1";
+    wrap.querySelector(".ocr-badge").textContent = "⏭";
+    wrap.querySelector(".ocr-badge").className = "ocr-badge absolute bottom-0 right-0 bg-slate-400 text-white text-[10px] px-1 rounded";
+  };
+  fileInput.onchange = (e) => {
+    const newFile = e.target.files[0];
+    if (!newFile) return;
+    menu.remove();
+    openImgEditor(newFile, async (editedFile) => {
+      removeImageText(wrap, $(textareaId));
+      wrap._currentFile = editedFile;
+      wrap.querySelector("img").src = URL.createObjectURL(editedFile);
+      await runOcrOnImage(wrap, previewArea, statusEl, textareaId, num);
+    });
+  };
+  return menu;
+}
+
+function positionContextMenu(menu, x, y) {
+  menu.style.left = x + "px";
+  menu.style.top = y + "px";
+  document.body.appendChild(menu);
+  const rect = menu.getBoundingClientRect();
+  if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + "px";
+  if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + "px";
+}
+
+let longPressTimer = null;
+
+function attachContextMenu(wrap, previewArea, statusEl, textareaId, num) {
+  wrap.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    const menu = buildContextMenu(wrap, previewArea, statusEl, textareaId, num);
+    positionContextMenu(menu, e.clientX, e.clientY);
+  });
+  wrap.addEventListener("touchstart", (e) => {
+    longPressTimer = setTimeout(() => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const menu = buildContextMenu(wrap, previewArea, statusEl, textareaId, num);
+      positionContextMenu(menu, touch.clientX, touch.clientY);
+    }, 600);
+  });
+  wrap.addEventListener("touchend", () => clearTimeout(longPressTimer));
+  wrap.addEventListener("touchmove", () => clearTimeout(longPressTimer));
+}
+
+async function runOcrOnImage(wrap, previewArea, statusEl, textareaId, num) {
+  const file = getCurrentFile(wrap);
+  if (!file) { statusEl.textContent = `❌ Image ${num}: no file`; return; }
+  const textareaEl = $(textareaId);
+  const badge = wrap.querySelector(".ocr-badge");
+  removeImageText(wrap, textareaEl);
+  badge.textContent = "...";
+  badge.className = "ocr-badge absolute bottom-0 right-0 bg-yellow-400 text-white text-[10px] px-1 rounded";
+  statusEl.textContent = `OCR image ${num}...`;
+  try {
+    const text = await visionOCR(file);
+    const insertedAt = textareaEl.value.length;
+    textareaEl.value = (textareaEl.value ? textareaEl.value + "\n\n" : "") + text.trim();
+    wrap.dataset.insertedAt = insertedAt;
+    wrap.dataset.insertedLen = text.trim().length;
+    delete wrap.dataset.skipped;
+    textareaEl.dispatchEvent(new Event("input"));
+    badge.textContent = "✓";
+    badge.className = "ocr-badge absolute bottom-0 right-0 bg-green-500 text-white text-[10px] px-1 rounded";
+    statusEl.textContent = `✅ Image ${num} OCR done.`;
+  } catch (err) {
+    badge.textContent = "✗";
+    badge.className = "ocr-badge absolute bottom-0 right-0 bg-red-500 text-white text-[10px] px-1 rounded";
+    statusEl.textContent = `❌ Image ${num}: ${err.message}`;
+  }
+}
+
+async function processImages(fileList, previewArea, statusEl, textareaId) {
+  const files = Array.from(fileList).filter(f => f.type === "image/jpeg" || f.type === "image/png");
+  if (files.length === 0) { showToast("Sirf JPG/PNG support hain.", "error"); return; }
+  const textareaEl = $(textareaId);
+  // Step 1: Open batch editor — user edits all images, then presses Upload All
+  const editedFiles = await new Promise(resolve => {
+    openBatchEditor(fileList, (results) => resolve(results));
+  });
+  if (!editedFiles || !editedFiles.length) return;
+  // Show thumbnails for all edited images
+  for (const [idx, file] of editedFiles.entries()) {
+    const thumb = document.createElement("div"); thumb.className = "relative w-16 h-16";
+    const thumbImg = document.createElement("img");
+    thumbImg.src = URL.createObjectURL(file);
+    thumbImg.className = "w-16 h-16 object-cover rounded-lg border border-green-400";
+    const label = document.createElement("div");
+    label.className = "absolute -top-1.5 -left-1.5 bg-blue-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold";
+    label.textContent = idx + 1;
+    thumb.appendChild(label); thumb.appendChild(thumbImg);
+    previewArea.appendChild(thumb);
+  }
+  // Step 2: Upload/OCR all edited images
+  for (const [idx, file] of editedFiles.entries()) {
+    const num = idx + 1;
+    const wrap = previewArea.children[idx];
+    if (!wrap) continue;
+    wrap._currentFile = file;
+    // Add OCR badge
+    const badge = document.createElement("div"); badge.className = "ocr-badge absolute bottom-0 right-0 bg-yellow-400 text-white text-[10px] px-1 rounded"; badge.textContent = "...";
+    wrap.appendChild(badge);
+    attachContextMenu(wrap, previewArea, statusEl, textareaId, num);
+    statusEl.textContent = `OCR image ${num} processing...`;
+    try {
+      const text = await visionOCR(file);
+      const insertedAt = textareaEl.value.length;
+      textareaEl.value = (textareaEl.value ? textareaEl.value + "\n\n" : "") + text.trim();
+      wrap.dataset.insertedAt = insertedAt;
+      wrap.dataset.insertedLen = text.trim().length;
+      textareaEl.dispatchEvent(new Event("input"));
+      badge.textContent = "✓";
+      badge.className = "ocr-badge absolute bottom-0 right-0 bg-green-500 text-white text-[10px] px-1 rounded";
+      statusEl.textContent = `✅ Image ${num} OCR done.`;
+    } catch (err) {
+      badge.textContent = "✗";
+      badge.className = "ocr-badge absolute bottom-0 right-0 bg-red-500 text-white text-[10px] px-1 rounded";
+      statusEl.textContent = `❌ Image ${num}: ${err.message}`;
+    }
+  }
+}
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".img-context-menu")) {
+    document.querySelectorAll(".img-context-menu").forEach(m => m.remove());
+  }
+});
+
+// ============================================
+// IMAGE EDITOR (rotate, crop)
+// ============================================
+let imgEditorCallback = null;
+let imgEditorCurrentFile = null;
+let imgEditorRotation = 0;
+let imgEditorCropBox = null;
+let imgEditorCropActive = false;
+
+$("imgEditorClose").addEventListener("click", closeImgEditor);
+if ($("imgEditorCancel")) $("imgEditorCancel").addEventListener("click", closeImgEditor);
+
+function closeImgEditor() {
+  $("imageEditorModal").classList.add("hidden");
+  removeCropOverlay();
+  imgEditorCallback = null;
+  imgEditorCurrentFile = null;
+  imgEditorRotation = 0;
+  imgEditorCropActive = false;
+}
+
+$("imgEditorRotateLeft").addEventListener("click", () => {
+  imgEditorRotation = (imgEditorRotation - 90 + 360) % 360;
+  applyRotation();
+  removeCropOverlay();
+});
+$("imgEditorRotateRight").addEventListener("click", () => {
+  imgEditorRotation = (imgEditorRotation + 90) % 360;
+  applyRotation();
+  removeCropOverlay();
+});
+
+function applyRotation() {
+  $("imgEditorPreview").style.transform = `rotate(${imgEditorRotation}deg)`;
+}
+
+// ---- CROP (simple resize box) ----
+let imgEditorCropSelection = null;
+
+// Calculate actual image display area within a container (object-fit:contain, centered)
+function getImageDisplayRect(img, containerW, containerH) {
+  const cr = img.parentElement.getBoundingClientRect();
+  const ir = img.getBoundingClientRect();
+  return { x: ir.left - cr.left, y: ir.top - cr.top, w: ir.width, h: ir.height };
+}
+
+function applyCropToPreview() {
+  const sel = imgEditorCropSelection;
+  if (!sel) { showToast("Crop selection ready nahi hai", "error"); return; }
+  const container = $("imgEditorPreview").parentElement;
+  const cw = container.clientWidth, ch = container.clientHeight;
+  if (!cw || !ch) { showToast("Container dimensions zero", "error"); return; }
+  const img = $("imgEditorPreview");
+  const dr = getImageDisplayRect(img, cw, ch);
+  const sr = sel.getBoundingClientRect();
+  const cr = container.getBoundingClientRect();
+  let cropX = (sr.left - cr.left - dr.x) / dr.w;
+  let cropY = (sr.top - cr.top - dr.y) / dr.h;
+  let cropW = sr.width / dr.w;
+  let cropH = sr.height / dr.h;
+  cropX = Math.max(0, Math.min(cropX, 1));
+  cropY = Math.max(0, Math.min(cropY, 1));
+  cropW = Math.max(0.01, Math.min(cropW, 1 - cropX));
+  cropH = Math.max(0.01, Math.min(cropH, 1 - cropY));
+  const crop = { x: cropX, y: cropY, w: cropW, h: cropH };
+  if (crop.w < 0.05 || crop.h < 0.05) { showToast("Selection bahut chhota hai", "error"); return; }
+  try {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const rad = imgEditorRotation * Math.PI / 180;
+    let w = img.naturalWidth, h = img.naturalHeight;
+    if (!w || !h) { showToast("Image load nahi hui", "error"); return; }
+    if (imgEditorRotation === 90 || imgEditorRotation === 270) { w = img.naturalHeight; h = img.naturalWidth; }
+    canvas.width = w; canvas.height = h;
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate(rad);
+    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+    const cx = Math.round(crop.x * w), cy = Math.round(crop.y * h);
+    const cw2 = Math.round(crop.w * w), ch2 = Math.round(crop.h * h);
+    const cropCanvas = document.createElement("canvas");
+    cropCanvas.width = cw2; cropCanvas.height = ch2;
+    cropCanvas.getContext("2d").drawImage(canvas, cx, cy, cw2, ch2, 0, 0, cw2, ch2);
+    const dataUrl = cropCanvas.toDataURL(imgEditorCurrentFile?.type || "image/jpeg");
+    const blob = dataURLToBlob(dataUrl);
+    const newFile = new File([blob], imgEditorCurrentFile.name, { type: imgEditorCurrentFile.type });
+    imgEditorCurrentFile = newFile;
+    imgEditorRotation = 0;
+    img.src = dataUrl;
+    img.style.transform = "rotate(0deg)";
+    removeCropOverlay();
+    showToast("Crop applied ✓", "success");
+  } catch (e) {
+    showToast("Crop processing error: " + e.message, "error");
+    removeCropOverlay();
+  }
+}
+function dataURLToBlob(dataUrl) {
+  const parts = dataUrl.split(",");
+  const mime = parts[0].match(/:(.*?);/)[1];
+  const bytes = atob(parts[1]);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+$("imgEditorCrop").addEventListener("click", () => {
+  if (imgEditorCropActive) { applyCropToPreview(); return; }
+  imgEditorCropActive = true;
+  const preview = $("imgEditorPreview");
+  const container = preview.parentElement;
+  container.style.position = "relative";
+
+  const cw = container.clientWidth || 300;
+  const ch = container.clientHeight || 300;
+  const dr = getImageDisplayRect(preview, cw, ch);
+
+  const overlay = document.createElement("div");
+  overlay.id = "cropOverlay";
+  overlay.style.cssText = "position:absolute;inset:0;z-index:10";
+
+  const sel = document.createElement("div");
+  sel.id = "cropSelection";
+  imgEditorCropSelection = sel;
+  // Start with a slightly inset crop area (90% of image)
+  const inset = 0.05;
+  const selX = dr.x + dr.w * inset, selY = dr.y + dr.h * inset;
+  const selW = dr.w * (1 - inset * 2), selH = dr.h * (1 - inset * 2);
+  sel.style.cssText = `position:absolute;left:${selX}px;top:${selY}px;width:${selW}px;height:${selH}px;border:2px solid rgba(255,255,255,0.85);box-shadow:0 0 0 9999px rgba(0,0,0,0.65),inset 0 0 0 1px rgba(255,255,255,0.08);cursor:move;z-index:11;box-sizing:border-box;transition:none`;
+
+  // Rule-of-thirds grid lines
+  ['33.33%','66.66%'].forEach(pos => {
+    const gh = document.createElement('div');
+    gh.style.cssText = `position:absolute;left:0;right:0;top:${pos};height:1px;background:rgba(255,255,255,0.2);pointer-events:none`;
+    sel.appendChild(gh);
+    const gv = document.createElement('div');
+    gv.style.cssText = `position:absolute;top:0;bottom:0;left:${pos};width:1px;background:rgba(255,255,255,0.2);pointer-events:none`;
+    sel.appendChild(gv);
+  });
+
+  // L-shaped corner handles (Android style)
+  ['nw','ne','sw','se'].forEach(dir => {
+    const corner = document.createElement('div');
+    corner.className = `crop-corner ${dir}`;
+    corner.dataset.dir = dir;
+    corner.dataset.pos = dir;
+    sel.appendChild(corner);
+  });
+
+  // Edge midpoint handles
+  ['n','s','w','e'].forEach(dir => {
+    const edge = document.createElement('div');
+    edge.className = `crop-edge ${dir}`;
+    edge.dataset.dir = dir;
+    edge.dataset.pos = dir;
+    sel.appendChild(edge);
+  });
+
+  container.appendChild(overlay);
+  overlay.appendChild(sel);
+
+  // Update crop button to "Done" state
+  const cropBtn = $("imgEditorCrop");
+  cropBtn.classList.add("active");
+  cropBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Done</span>`;
+
+  // Remove any prior global listeners first
+  if (window._cropListeners) {
+    window._cropListeners.forEach(([ev, fn]) => document.removeEventListener(ev, fn, fn._opts));
+    window._cropListeners = [];
+  }
+
+  // Drag logic constrained to image display area
+  const imgLeft = dr.x, imgTop = dr.y, imgRight = dr.x + dr.w, imgBottom = dr.y + dr.h;
+  let dragHandle = null, startX, startY, startR;
+  function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
+
+  function onDown(px, py, handle) {
+    const c = container.getBoundingClientRect();
+    const s = sel.getBoundingClientRect();
+    startX = px; startY = py;
+    startR = { l: s.left - c.left, t: s.top - c.top, r: s.right - c.left, b: s.bottom - c.top, w: s.width, h: s.height };
+    dragHandle = handle || "move";
+  }
+
+  sel.onmousedown = (e) => {
+    const h = e.target.dataset.pos;
+    onDown(e.clientX, e.clientY, h);
+    e.preventDefault();
+  };
+  sel.ontouchstart = (e) => {
+    const t = e.touches[0]; const h = e.target.dataset.pos;
+    onDown(t.clientX, t.clientY, h);
+    e.preventDefault();
+  };
+
+  if (!window._cropListeners) window._cropListeners = [];
+  const doDrag = (dx, dy) => {
+    if (!dragHandle) return;
+    const r = startR;
+    let l = r.l, t = r.t, ri = r.r, b = r.b;
+    if (dragHandle === "move") {
+      l = clamp(r.l + dx, imgLeft, imgRight - r.w);
+      t = clamp(r.t + dy, imgTop, imgBottom - r.h);
+      ri = l + r.w; b = t + r.h;
+    } else {
+      if (dragHandle.includes("w")) l = clamp(r.l + dx, imgLeft, r.r - 60);
+      if (dragHandle.includes("e")) ri = clamp(r.r + dx, r.l + 60, imgRight);
+      if (dragHandle.includes("n")) t = clamp(r.t + dy, imgTop, r.b - 60);
+      if (dragHandle.includes("s")) b = clamp(r.b + dy, r.t + 60, imgBottom);
+    }
+    sel.style.left = l + "px"; sel.style.top = t + "px";
+    sel.style.width = (ri - l) + "px"; sel.style.height = (b - t) + "px";
+  };
+  const onMouseMove = (e) => { doDrag(e.clientX - startX, e.clientY - startY); };
+  const onMouseUp = () => { dragHandle = null; };
+  const onTouchMove = (e) => { e.preventDefault(); const t = e.touches[0]; doDrag(t.clientX - startX, t.clientY - startY); };
+  const onTouchEnd = () => { dragHandle = null; };
+  onTouchMove._opts = { passive: false };
+  onTouchEnd._opts = { passive: true };
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mouseup", onMouseUp);
+  document.addEventListener("touchmove", onTouchMove, onTouchMove._opts);
+  document.addEventListener("touchend", onTouchEnd, onTouchEnd._opts);
+  window._cropListeners = [
+    ["mousemove", onMouseMove],
+    ["mouseup", onMouseUp],
+    ["touchmove", onTouchMove],
+    ["touchend", onTouchEnd]
+  ];
+});
+
+function removeCropOverlay() {
+  const ov = document.getElementById("cropOverlay");
+  if (ov) ov.remove();
+  imgEditorCropSelection = null;
+  imgEditorCropActive = false;
+  const btn = $("imgEditorCrop");
+  btn.classList.remove("active");
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg><span>Crop</span>`;
+  if (window._cropListeners) {
+    window._cropListeners.forEach(([ev, fn]) => document.removeEventListener(ev, fn, fn._opts));
+    window._cropListeners = null;
+  }
+}
+
+$("imgEditorConfirm").addEventListener("click", () => {
+  const img = $("imgEditorPreview");
+  // If no rotation and no active crop overlay, pass through current file directly
+  const crop = imgEditorCropSelection ? (() => {
+    const container = $("imgEditorPreview").parentElement;
+    const cw = container.clientWidth, ch = container.clientHeight;
+    if (!cw || !ch) return null;
+    const img = $("imgEditorPreview");
+    const dr = getImageDisplayRect(img, cw, ch);
+    const sr = imgEditorCropSelection.getBoundingClientRect();
+    const cr = container.getBoundingClientRect();
+    let cx = (sr.left - cr.left - dr.x) / dr.w, cy = (sr.top - cr.top - dr.y) / dr.h;
+    let cw2 = sr.width / dr.w, ch2 = sr.height / dr.h;
+    cx = Math.max(0, Math.min(cx, 1)); cy = Math.max(0, Math.min(cy, 1));
+    cw2 = Math.max(0.01, Math.min(cw2, 1 - cx)); ch2 = Math.max(0.01, Math.min(ch2, 1 - cy));
+    return { x: cx, y: cy, w: cw2, h: ch2 };
+  })() : null;
+  if (imgEditorRotation === 0 && !crop) {
+    const cb = imgEditorCallback;
+    const file = imgEditorCurrentFile;
+    closeImgEditor();
+    if (cb) cb(file);
+    return;
+  }
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const rad = imgEditorRotation * Math.PI / 180;
+  let w = img.naturalWidth, h = img.naturalHeight;
+  if (imgEditorRotation === 90 || imgEditorRotation === 270) { w = img.naturalHeight; h = img.naturalWidth; }
+  canvas.width = w; canvas.height = h;
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+  if (crop && crop.w > 0.05 && crop.h > 0.05) {
+    const cx = Math.round(crop.x * w), cy = Math.round(crop.y * h);
+    const cw = Math.round(crop.w * w), ch = Math.round(crop.h * h);
+    const cropCanvas = document.createElement("canvas");
+    cropCanvas.width = cw; cropCanvas.height = ch;
+    cropCanvas.getContext("2d").drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
+    cropCanvas.toBlob((blob) => {
+      const croppedFile = new File([blob], (imgEditorCurrentFile || {}).name || "image.jpg", { type: imgEditorCurrentFile?.type || "image/jpeg" });
+      const cb = imgEditorCallback;
+      closeImgEditor();
+      if (cb) cb(croppedFile);
+    }, imgEditorCurrentFile?.type || "image/jpeg");
+  } else {
+    canvas.toBlob((blob) => {
+      const rotatedFile = new File([blob], (imgEditorCurrentFile || {}).name || "image.jpg", { type: imgEditorCurrentFile?.type || "image/jpeg" });
+      const cb = imgEditorCallback;
+      closeImgEditor();
+      if (cb) cb(rotatedFile);
+    }, imgEditorCurrentFile?.type || "image/jpeg");
+  }
+});
+
+function openImgEditor(file, callback) {
+  imgEditorCurrentFile = file;
+  imgEditorRotation = 0;
+  imgEditorCallback = callback;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    $("imgEditorPreview").src = e.target.result;
+    $("imgEditorPreview").style.transform = "rotate(0deg)";
+    $("imageEditorModal").classList.remove("hidden");
+  };
+  reader.readAsDataURL(file);
+}
+
+// ============================================
+// BATCH IMAGE EDITOR (multi-image edit screen)
+// ============================================
+let batchState = null;
+const FILTER_PRESETS = {
+  original: { filter: 'none', label: 'Original' },
+  auto: { filter: 'contrast(110%) brightness(105%) saturate(110%)', label: 'Auto' },
+  vivid: { filter: 'contrast(130%) saturate(140%) brightness(105%)', label: 'Vivid' },
+  warm: { filter: 'sepia(25%) saturate(120%) brightness(105%)', label: 'Warm' },
+  cool: { filter: 'hue-rotate(200deg) saturate(90%) brightness(105%)', label: 'Cool' },
+  portrait: { filter: 'brightness(105%) contrast(90%) saturate(85%) sepia(10%)', label: 'Portrait' },
+  dramatic: { filter: 'contrast(160%) saturate(110%) brightness(85%)', label: 'Dramatic' },
+  bw: { filter: 'grayscale(100%) contrast(110%) brightness(105%)', label: 'B&W' },
+  vintage: { filter: 'sepia(70%) contrast(85%) brightness(105%)', label: 'Vintage' },
+  negative: { filter: 'invert(100%)', label: 'Negative' },
+  soft: { filter: 'brightness(110%) contrast(85%) saturate(75%)', label: 'Soft' }
+};
+
+function openBatchEditor(fileList, callback) {
+  const files = Array.from(fileList).filter(f => f.type === "image/jpeg" || f.type === "image/png");
+  if (!files.length) { showToast("Sirf JPG/PNG support hain.", "error"); return; }
+  batchState = {
+    files,
+    edits: files.map(() => ({ rotation: 0, crop: null, filter: 'original', cropAspect: 'free' })),
+    currentIndex: 0,
+    callback
+  };
+  renderFilmstrip();
+  batchSelectImage(0);
+  $("batchEditorModal").classList.remove("hidden");
+}
+
+function closeBatchEditor() {
+  $("batchEditorModal").classList.add("hidden");
+  batchState = null;
+}
+
+$("batchEditorBack").addEventListener("click", closeBatchEditor);
+
+function batchSelectImage(index) {
+  if (!batchState || index < 0 || index >= batchState.files.length) return;
+  batchState.currentIndex = index;
+  const state = batchState;
+  const file = state.files[index];
+  const edit = state.edits[index];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = $("batchPreview");
+    img.src = e.target.result;
+    img.style.transform = `rotate(${edit.rotation}deg)`;
+    img.style.filter = FILTER_PRESETS[edit.filter]?.filter || 'none';
+    removeBatchCrop();
+    $("batchFilterPanel").classList.add("hidden");
+    document.querySelectorAll(".batch-tool-btn").forEach(b => b.classList.remove("active"));
+    $("batchEditorCounter").textContent = `${index + 1}/${state.files.length}`;
+    updateFilmstrip();
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateFilmstrip() {
+  document.querySelectorAll(".filmstrip-item").forEach((el, i) => {
+    el.classList.toggle("active", i === batchState.currentIndex);
+    const edited = batchState.edits[i].rotation !== 0 || batchState.edits[i].crop || batchState.edits[i].filter !== 'original';
+    el.classList.toggle("edited", edited);
+  });
+  // Scroll active into view
+  const active = document.querySelector(".filmstrip-item.active");
+  if (active) active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+}
+
+function renderFilmstrip() {
+  const strip = $("batchFilmstrip");
+  strip.innerHTML = "";
+  batchState.files.forEach((file, i) => {
+    const item = document.createElement("div");
+    item.className = "filmstrip-item";
+    const img = document.createElement("img");
+    img.src = URL.createObjectURL(file);
+    const badge = document.createElement("div");
+    badge.className = "edit-badge";
+    item.appendChild(img);
+    item.appendChild(badge);
+    item.addEventListener("click", () => batchSelectImage(i));
+    strip.appendChild(item);
+  });
+}
+
+// ---- TOOLBAR ----
+document.querySelectorAll(".batch-tool-btn[data-tool]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const tool = btn.dataset.tool;
+    const filterPanel = $("batchFilterPanel");
+    const isActive = btn.classList.contains("active");
+    document.querySelectorAll(".batch-tool-btn").forEach(b => b.classList.remove("active"));
+    filterPanel.classList.add("hidden");
+    removeBatchCrop();
+    if (!isActive) {
+      btn.classList.add("active");
+      if (tool === "crop") { initBatchCrop(); }
+      if (tool === "filter") { renderFilters(); filterPanel.classList.remove("hidden"); }
+    }
+  });
+});
+
+$("batchRotateLeft").addEventListener("click", () => {
+  const state = batchState; if (!state) return;
+  const edit = state.edits[state.currentIndex];
+  edit.rotation = (edit.rotation - 90 + 360) % 360;
+  $("batchPreview").style.transform = `rotate(${edit.rotation}deg)`;
+    removeBatchCrop();
+    $("batchEditorCounter").textContent = `${state.currentIndex + 1}/${state.files.length}`;
+    updateFilmstrip();
+});
+
+$("batchResetImg").addEventListener("click", () => {
+  const state = batchState; if (!state) return;
+  const idx = state.currentIndex;
+  state.edits[idx] = { rotation: 0, crop: null, filter: 'original', cropAspect: 'free' };
+  batchSelectImage(idx);
+});
+
+// ---- ENHANCED CROP ----
+let batchCropActive = false;
+let batchCropHandlers = null;
+
+function initBatchCrop() {
+  const state = batchState; if (!state) return;
+  const img = $("batchPreview");
+  const preview = img.parentElement;
+  const edit = state.edits[state.currentIndex];
+  const overlay = $("batchCropOverlay");
+  const win = $("batchCropWindow");
+  overlay.classList.remove("hidden");
+  const cw = preview.clientWidth || 300, ch = preview.clientHeight || 300;
+  const dr = getImageDisplayRect(img, cw, ch);
+  win.style.left = dr.x + "px";
+  win.style.top = dr.y + "px";
+  win.style.width = dr.w + "px";
+  win.style.height = dr.h + "px";
+  batchCropActive = true;
+  const handleSz = Math.max(36, Math.min(80, Math.min(cw, ch) * 0.1));
+  const half = handleSz / 2;
+  win.querySelectorAll(".crop-handle").forEach(el => {
+    el.style.width = handleSz + "px"; el.style.height = handleSz + "px";
+    const p = el.dataset.dir;
+    if (p) { if (p.includes("n")) el.style.top = -half + "px"; if (p.includes("s")) el.style.bottom = -half + "px"; if (p.includes("w")) el.style.left = -half + "px"; if (p.includes("e")) el.style.right = -half + "px"; }
+  });
+
+  // Clean old handlers
+  if (batchCropHandlers) {
+    document.removeEventListener("mousemove", batchCropHandlers.move);
+    document.removeEventListener("mouseup", batchCropHandlers.up);
+    document.removeEventListener("touchmove", batchCropHandlers.tmove, batchCropHandlers.tOpts);
+    document.removeEventListener("touchend", batchCropHandlers.tend, batchCropHandlers.teOpts);
+  }
+  const imgL = dr.x, imgT = dr.y, imgR = dr.x + dr.w, imgB = dr.y + dr.h;
+  const handlers = { dragHandle: null, startX: 0, startY: 0, startR: null, dragged: false };
+  const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
+
+  function onDown(cx, cy, dir) {
+    const c = preview.getBoundingClientRect();
+    const r = win.getBoundingClientRect();
+    handlers.startX = cx; handlers.startY = cy;
+    handlers.startR = { l: r.left - c.left, t: r.top - c.top, r: r.right - c.left, b: r.bottom - c.top, w: r.width, h: r.height };
+    handlers.dragHandle = dir || "move";
+    handlers.dragged = false;
+  }
+
+  win.onmousedown = (e) => {
+    const dir = e.target.dataset.dir;
+    onDown(e.clientX, e.clientY, dir);
+    e.preventDefault();
+  };
+  win.ontouchstart = (e) => {
+    const t = e.touches[0]; const dir = e.target.dataset.dir;
+    onDown(t.clientX, t.clientY, dir);
+    e.preventDefault();
+  };
+
+  function doMove(dx, dy) {
+    if (!handlers.dragHandle || !handlers.startR) return;
+    handlers.dragged = true;
+    const r = handlers.startR;
+    let l = r.l, t = r.t, ri = r.r, b = r.b;
+    if (handlers.dragHandle === "move") {
+      l = clamp(r.l + dx, imgL, imgR - r.w);
+      t = clamp(r.t + dy, imgT, imgB - r.h);
+      ri = l + r.w; b = t + r.h;
+    } else {
+      const d = handlers.dragHandle;
+      if (d.includes("w")) l = clamp(r.l + dx, imgL, r.r - 40);
+      if (d.includes("e")) ri = clamp(r.r + dx, r.l + 40, imgR);
+      if (d.includes("n")) t = clamp(r.t + dy, imgT, r.b - 40);
+      if (d.includes("s")) b = clamp(r.b + dy, r.t + 40, imgB);
+    }
+    win.style.left = l + "px"; win.style.top = t + "px";
+    win.style.width = (ri - l) + "px"; win.style.height = (b - t) + "px";
+  }
+
+  const onMouseMove = (e) => { if (!handlers.dragHandle) return; doMove(e.clientX - handlers.startX, e.clientY - handlers.startY); };
+  const onMouseUp = () => { if (handlers.dragged) doApplyCrop(); handlers.dragHandle = null; };
+  const onTouchMove = (e) => { if (!handlers.dragHandle) return; e.preventDefault(); const t = e.touches[0]; doMove(t.clientX - handlers.startX, t.clientY - handlers.startY); };
+  const onTouchEnd = () => { if (handlers.dragged) doApplyCrop(); handlers.dragHandle = null; };
+  const tOpts = { passive: false };
+  const teOpts = { passive: true };
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mouseup", onMouseUp);
+  document.addEventListener("touchmove", onTouchMove, tOpts);
+  document.addEventListener("touchend", onTouchEnd, teOpts);
+  batchCropHandlers = { move: onMouseMove, up: onMouseUp, tmove: onTouchMove, tend: onTouchEnd, tOpts, teOpts };
+}
+
+function removeBatchCrop() {
+  $("batchCropOverlay").classList.add("hidden");
+  batchCropActive = false;
+}
+
+function doApplyCrop() {
+  const state = batchState; if (!state) return;
+  const img = $("batchPreview");
+  const win = $("batchCropWindow");
+  const preview = img.parentElement;
+  const cw = preview.clientWidth, ch = preview.clientHeight;
+  if (!cw || !ch) return;
+  const dr = getImageDisplayRect(img, cw, ch);
+  const l = (parseFloat(win.style.left) || 0) - dr.x;
+  const t = (parseFloat(win.style.top) || 0) - dr.y;
+  const w = Math.min(parseFloat(win.style.width) || cw, dr.w);
+  const h = Math.min(parseFloat(win.style.height) || ch, dr.h);
+  const selL = Math.max(0, l), selT = Math.max(0, t);
+  const selW = Math.min(w, dr.w - selL), selH = Math.min(h, dr.h - selT);
+  if (selW < 20 || selH < 20) { showToast("Selection bahut chhota", "error"); return; }
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  if (!iw || !ih) { showToast("Image load nahi hui", "error"); return; }
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round((selW / dr.w) * iw);
+  canvas.height = Math.round((selH / dr.h) * ih);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, (selL / dr.w) * iw, (selT / dr.h) * ih, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL(state.files[state.currentIndex].type || "image/jpeg");
+  const blob = dataURLToBlob(dataUrl);
+  const croppedFile = new File([blob], state.files[state.currentIndex].name, { type: state.files[state.currentIndex].type });
+  state.files[state.currentIndex] = croppedFile;
+  state.edits[state.currentIndex].crop = null;
+  state.edits[state.currentIndex].rotation = 0;
+  img.src = dataUrl;
+  img.style.transform = "rotate(0deg)";
+  img.style.filter = FILTER_PRESETS[state.edits[state.currentIndex].filter].filter;
+  showToast("Crop applied ✓", "success");
+  removeBatchCrop();
+  document.querySelectorAll(".batch-tool-btn").forEach(b => b.classList.remove("active"));
+  updateFilmstrip();
+  // Clean up event listeners to prevent re-crop on next click
+  if (batchCropHandlers) {
+    document.removeEventListener("mousemove", batchCropHandlers.move);
+    document.removeEventListener("mouseup", batchCropHandlers.up);
+    document.removeEventListener("touchmove", batchCropHandlers.tmove, batchCropHandlers.tOpts);
+    document.removeEventListener("touchend", batchCropHandlers.tend, batchCropHandlers.teOpts);
+    batchCropHandlers = null;
+  }
+}
+
+// ---- FILTERS ----
+let batchPendingFilter = 'original';
+
+function renderFilters() {
+  const scroll = $("batchFilterScroll");
+  const state = batchState; if (!state) return;
+  const img = $("batchPreview");
+  batchPendingFilter = state.edits[state.currentIndex].filter;
+  scroll.innerHTML = "";
+  const thumbSize = 60;
+  const canvas = document.createElement("canvas");
+  canvas.width = thumbSize; canvas.height = thumbSize;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, thumbSize, thumbSize);
+  Object.entries(FILTER_PRESETS).forEach(([key, preset]) => {
+    const div = document.createElement("div");
+    div.className = "filter-preset" + (key === batchPendingFilter ? " active" : "");
+    const thumb = document.createElement("div");
+    thumb.className = "thumb";
+    const c = document.createElement("canvas");
+    c.width = thumbSize; c.height = thumbSize;
+    const cx = c.getContext("2d");
+    cx.filter = preset.filter;
+    cx.drawImage(canvas, 0, 0);
+    thumb.appendChild(c);
+    const label = document.createElement("span");
+    label.className = "label";
+    label.textContent = preset.label;
+    div.appendChild(thumb);
+    div.appendChild(label);
+    div.addEventListener("click", () => {
+      const img = $("batchPreview");
+      batchPendingFilter = key;
+      state.edits[state.currentIndex].filter = key;
+      img.style.filter = preset.filter;
+      document.querySelectorAll(".filter-preset").forEach(p => p.classList.remove("active"));
+      div.classList.add("active");
+      updateFilmstrip();
+    });
+    scroll.appendChild(div);
+  });
+}
+
+$("batchApplyFilter").addEventListener("click", () => {
+  const state = batchState; if (!state) return;
+  const img = $("batchPreview");
+  state.edits[state.currentIndex].filter = batchPendingFilter;
+  img.style.filter = FILTER_PRESETS[batchPendingFilter].filter;
+  $("batchFilterPanel").classList.add("hidden");
+  document.querySelectorAll(".batch-tool-btn").forEach(b => b.classList.remove("active"));
+  updateFilmstrip();
+});
+
+// ---- UPLOAD ALL ----
+$("batchUploadBtn").addEventListener("click", batchUploadAll);
+
+async function batchUploadAll() {
+  const state = batchState; if (!state) return;
+  const btn = $("batchUploadBtn");
+  btn.disabled = true;
+  btn.textContent = "Processing...";
+  closeBatchEditor();
+  const results = [];
+  for (let i = 0; i < state.files.length; i++) {
+    try {
+      const result = await applyBatchEdits(state.files[i], state.edits[i]);
+      results.push(result);
+    } catch (e) {
+      showToast(`Image ${i + 1} error: ${e.message}`, "error");
+      results.push(state.files[i]);
+    }
+  }
+  if (state.callback) state.callback(results);
+}
+
+async function applyBatchEdits(file, edit) {
+  if (!edit.rotation && !edit.crop && edit.filter === 'original') return file;
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if (edit.rotation === 90 || edit.rotation === 270) { w = img.naturalHeight; h = img.naturalWidth; }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.translate(w / 2, h / 2);
+        if (edit.rotation) ctx.rotate(edit.rotation * Math.PI / 180);
+        if (edit.filter && edit.filter !== 'original') {
+          ctx.filter = FILTER_PRESETS[edit.filter].filter;
+        }
+        ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+        if (edit.crop) {
+          const cx = Math.round(edit.crop.x * w), cy = Math.round(edit.crop.y * h);
+          const cw = Math.round(edit.crop.w * w), ch = Math.round(edit.crop.h * h);
+          const cropCanvas = document.createElement("canvas");
+          cropCanvas.width = cw; cropCanvas.height = ch;
+          cropCanvas.getContext("2d").drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
+          const dataUrl = cropCanvas.toDataURL(file.type || "image/jpeg");
+          const blob = dataURLToBlob(dataUrl);
+          resolve(new File([blob], file.name, { type: file.type }));
+        } else {
+          canvas.toBlob(blob => {
+            resolve(new File([blob], file.name, { type: file.type }));
+          }, file.type || "image/jpeg");
+        }
+      } catch (e) { reject(e); }
+    };
+    img.onerror = () => reject(new Error("Image load failed"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// ============================================
+// STEP AI ACTIONS
+// ============================================
+function setBtnLoading(btnId, spinId, isLoading) {
+  $(btnId).disabled = isLoading;
+  $(spinId).classList.toggle("hidden", !isLoading);
+}
+
+$("extractFactsBtn").addEventListener("click", async () => {
+  const inputText = $("plaintText").value.trim();
+  if (!inputText) { showToast("Plaint text khali hai.", "error"); return; }
+
+  const prompt = `TASK:
+You are a senior Pakistani court legal translator. Convert the given Urdu/Roman Urdu plaint into formal legal English, suitable for use in a court judgment. This is a translation task — preserve every substantive line of the plaint in legal English, maintaining the same sequence and paragraph flow as the original.
+
+-------------------------------------
+
+OUTPUT STRUCTURE (strict order):
+
+PARTIES
+(Names only — no walid/binti, no address, no caste, no CNIC)
+- Plaintiff No.1: [name]
+- Plaintiff No.2 / Minor Plaintiff: [name] (Minor) — if applicable
+- Defendant No.1: [name]
+
+NATURE OF SUIT
+(One line only — what kind of suit this is)
+Example: "Suit for dissolution of marriage, recovery of maintenance, and recovery of delivery and medical expenses."
+
+FACTS
+(Translate every substantive line/paragraph of the plaint into formal legal English, in the same sequence as the original. End with claims and relief as part of the natural paragraph flow — do NOT create separate headings for Claims and Relief. Instead, after the last fact, write the claims and prayer as continuing paragraphs, like this:)
+
+....[last fact]....
+
+The plaintiff claims: (i) dissolution of marriage; (ii) maintenance for plaintiff at PKR [X]/month; (iii) maintenance for minor at PKR [X]/month with [Y]% annual increment; (iv) [other claims with amounts].
+
+It is therefore prayed that a decree be passed in favour of the plaintiff(s) for [all reliefs with amounts], along with costs of the suit.
+
+-------------------------------------
+
+STRICT TRANSLATION RULES:
+
+1. TRANSLATE EVERY LINE
+- Har substantive line/para ko legal English mein convert karein
+- Original sequence same rakhein — koi line skip na karein (siwaye documents ke, neeche Rule 2)
+- Ye translation hai, extraction nahi — har baat jo plaint mein hai wo output mein aani chahiye
+
+2. SKIP ONLY THESE (document references & administrative):
+- Nikah Nama, B-Form, dowry list, court fee, stamp, diary number, signature, advocate name, jurisdiction para, cause of action para
+- "Copy attached", "annexed herewith", "as per list" — ye phrases skip karein
+- "This honorable court has jurisdiction" — skip
+- Reason: ye judicial drafting mein automatically assumed hotay hain
+
+3. LEGAL LANGUAGE CONVERSION
+- Emotional/religious phrases → neutral legal equivalents:
+  ❌ "within the bounds of Allah" → ✅ remove entirely
+  ❌ "extreme aversion" → ✅ "reconciliation is not possible"
+  ❌ "cruel behavior" → ✅ "subjected to physical and verbal abuse"
+  ❌ "man of means" → ✅ "financially capable" or state assets neutrally
+  ❌ "plaintiff prefers death" → ✅ remove / "reconciliation is not possible"
+  ❌ "for the sake of honor" → ✅ remove
+- Use standard legal phrasing:
+  ✅ "It is submitted that..."
+  ✅ "The plaintiff states that..."
+  ✅ "The defendant allegedly..."
+  ✅ "The minor plaintiff is in the custody of..."
+
+4. NAME ACCURACY & SCRIPT (CRITICAL)
+- All names (plaintiff, defendant, minor) → Roman English only
+- Urdu script names → transliterate: "حنا اعظم" → "Hina Azam"
+- Once written in full, use consistently throughout
+- PKR amounts, dates → copy exactly as in original
+- Legal terms: Nikah, Iddat, Khula, Mehr, Rukhsati → keep in Roman English as-is
+
+5. CLAIMS FORMAT (within paragraph, not a separate section)
+- After last fact, write claims as a numbered inline list:
+  "The plaintiff claims: (i) dissolution of marriage; (ii) maintenance for Plaintiff No.1 at PKR [X]/month [+ iddat expenses if claimed]; (iii) maintenance for [minor name] at PKR [X]/month with [Y]% annual increment from [date]; (iv) delivery expenses of PKR [X]; (v) medical expenses of PKR [X]."
+- Include ALL amounts/percentages/dates mentioned in original
+
+6. RELIEF (last paragraph, no heading)
+- "It is therefore prayed that a decree be passed in favour of the plaintiff(s) for [list all reliefs with amounts], along with costs of the suit. Any other relief deemed just and equitable may also be granted."
+
+7. CONSISTENCY
+- No repetition
+- Chronological order maintain karein
+- No legal conclusions or arguments — facts only (until claims paragraph)
+
+-------------------------------------
+
+INPUT (Urdu/Roman Urdu Plaint):
+${inputText}
+
+-------------------------------------
+
+OUTPUT:
+Provide ONLY the structured output as described. No explanation. No preamble. No extra headings beyond PARTIES, NATURE OF SUIT, and FACTS.`;
+
+  setBtnLoading("extractFactsBtn", "spin-extractFacts", true);
+  try {
+    const result = await callAI(prompt, 2500);
+    await logAIStep("facts_extraction", prompt, result);
+    $("factsText").value = result;
+    $("factsText").dispatchEvent(new Event("input"));
+    $("factsOutput").classList.remove("hidden");
+  } catch (err) { showToast("Error: " + err.message, "error"); }
+  finally { setBtnLoading("extractFactsBtn", "spin-extractFacts", false); }
+});
+
+$("extractAdmitDenyBtn").addEventListener("click", async () => {
+  const ws = $("wsText").value.trim(), facts = $("factsText").value.trim();
+  if (!ws || !facts) { showToast("WS aur Facts dono zaroori hain.", "error"); return; }
+
+  const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Compare the Plaint Facts and Written Statement strictly on a para-to-response basis.
+
+========================
+CORE INSTRUCTION
+
+- Handle both Civil and Family cases.
+- Transliterate any Urdu script proper nouns to Roman English.
+- Keep legal terms (e.g., Nikah, Khula, Mehr, Stay Order, Specific Performance) in Roman English as-is.
+- Each Plaint para must be evaluated ONLY against explicit and specific statements in the Written Statement.
+
+Do NOT rely on:
+
+- Assumptions
+- Implications
+- Similar wording
+- Legal interpretation
+
+Match ONLY when the Written Statement clearly refers to the SAME factual assertion.
+
+========================
+STRICT MATCHING RULE
+
+A match exists ONLY if:
+
+- The Written Statement explicitly addresses the SAME fact
+- AND clearly accepts or contradicts it
+
+If the Written Statement:
+
+- uses general denial (e.g. "all allegations denied")
+- discusses something similar but not identical
+- omits the fact entirely
+
+→ Then classify as:
+NOT SPECIFICALLY DENIED
+
+========================
+CLASSIFICATION RULES
+
+ADMIT:
+
+- Fact is clearly and explicitly accepted
+
+DENY:
+
+- Fact is clearly and explicitly contradicted
+
+PARTIAL ADMIT:
+
+- A SINGLE para contains BOTH:
+  - clear admission of one part
+  - AND clear denial of another part of the SAME fact
+
+NOT SPECIFICALLY DENIED:
+
+- No direct response to that exact fact
+- OR only general/blanket denial is present
+
+========================
+REASON RULE (VERY STRICT)
+
+- Copy ONLY the exact relevant line(s) from Written Statement
+- DO NOT paraphrase
+- DO NOT summarize
+- If no exact line exists, write:
+  No specific reference found in Written Statement
+
+========================
+INPUT
+
+PLAINT FACTS (para-wise):
+${facts}
+
+WRITTEN STATEMENT:
+${ws}
+
+========================
+OUTPUT FORMAT (STRICT)
+
+Para X:
+Status: ADMIT / DENY / PARTIAL ADMIT / NOT SPECIFICALLY DENIED
+Reason: <exact quoted line OR "No specific reference found in Written Statement">
+
+========================
+CRITICAL RULES
+
+- Evaluate EACH para independently
+- DO NOT merge paras
+- DO NOT skip any para
+- DO NOT infer connections
+- DO NOT generate explanations
+- DO NOT add headings beyond given format
+
+========================
+STYLE
+
+Plain text only
+No markdown
+No asterisks
+No introductory or concluding sentences
+Start directly with Para 1`;
+
+  setBtnLoading("extractAdmitDenyBtn", "spin-extractAdmitDeny", true);
+  try {
+    const result = await callAI(prompt, 2200);
+    await logAIStep("admit_deny", prompt, result);
+    $("admitDenyText").value = result; $("admitDenyText").dispatchEvent(new Event("input"));
+    $("admitDenyOutput").classList.remove("hidden");
+  } catch (err) { showToast("Error: " + err.message, "error"); }
+  finally { setBtnLoading("extractAdmitDenyBtn", "spin-extractAdmitDeny", false); }
+});
+
+$("mapDisputesBtn").addEventListener("click", async () => {
+  const issues = $("issuesText").value.trim();
+  if (!issues) { showToast("Issues paste/upload karein.", "error"); return; }
+  const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to map disputes issue-wise using ONLY the given Issues, Facts, and Admit/Deny data.
+
+========================
+CORE INSTRUCTION
+
+- Handle both Civil and Family cases appropriately.
+- Transliterate any Urdu script proper nouns to Roman English.
+- Keep legal terms in Roman English as-is.
+
+For EACH issue:
+
+- Identify ONLY those facts which are directly relevant to that issue
+- Use Admit/Deny status to determine whether the fact is disputed
+
+DO NOT:
+
+- Create new issues
+- Rephrase or modify issues
+- Add legal interpretation
+- Infer beyond given text
+
+========================
+DISPUTE IDENTIFICATION RULE
+
+A fact is DISPUTED only if:
+
+- Its status is DENY or PARTIAL ADMIT
+
+A fact is NOT disputed if:
+
+- Status is ADMIT
+
+If status is:
+
+- NOT SPECIFICALLY DENIED → treat as DISPUTED
+
+========================
+MAPPING RULE
+
+- Link facts to issues ONLY when clearly connected
+- Do NOT force-fit facts into issues
+- If no fact relates to an issue, write:
+  [No relevant disputed fact found]
+
+========================
+STANCE RULE (STRICT)
+
+For each disputed fact:
+
+Plaintiff Stance:
+
+- Extract directly from Facts (relevant para only)
+- DO NOT summarize beyond given wording
+
+Defendant Stance:
+
+- Based ONLY on Admit/Deny result:
+  - DENY → "Denied"
+  - PARTIAL ADMIT → "Partially admitted"
+  - NOT SPECIFICALLY DENIED → "No specific denial"
+
+DO NOT invent explanations
+
+========================
+INPUT
+
+ISSUES:
+${issues}
+
+FACTS:
+${$("factsText").value.trim()}
+
+ADMIT/DENY:
+${$("admitDenyText").value.trim()}
+
+========================
+OUTPUT FORMAT (STRICT)
+
+Issue X:
+Disputed Facts:
+
+1. 
+
+Fact: <relevant fact para or line>
+Plaintiff Stance: <from facts>
+Defendant Stance: Denied / Partially admitted / No specific denial
+
+(repeat for each disputed fact)
+
+========================
+CRITICAL RULES
+
+- Process EACH issue separately
+- DO NOT merge issues
+- DO NOT skip any issue
+- DO NOT include non-disputed facts
+- DO NOT explain reasoning
+- DO NOT generate new content
+
+========================
+STYLE
+
+Plain text only
+No markdown
+No asterisks
+No introductory or concluding sentences`;
+  setBtnLoading("mapDisputesBtn", "spin-mapDisputes", true);
+  try {
+    const result = await callAI(prompt, 2000);
+    await logAIStep("dispute_mapping", prompt, result);
+    $("disputesText").value = result; $("disputesText").dispatchEvent(new Event("input"));
+    $("disputesOutput").classList.remove("hidden");
+  } catch (err) { showToast("Error: " + err.message, "error"); }
+  finally { setBtnLoading("mapDisputesBtn", "spin-mapDisputes", false); }
+});
+
+$("analyzeEvidenceBtn").addEventListener("click", async () => {
+  const evidence = $("evidenceText").value.trim();
+  if (!evidence) { showToast("Evidence khali hai.", "error"); return; }
+  const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to analyze evidence issue-wise using ONLY the provided Issues, Disputes, and Evidence.
+
+========================
+CORE INSTRUCTION
+
+- Handle both Civil and Family cases appropriately.
+- Transliterate any Urdu script proper nouns to Roman English.
+- Keep legal terms in Roman English as-is.
+
+For EACH issue:
+
+- Analyze ONLY the disputed facts linked to that issue
+- Use ONLY the provided evidence
+- Do NOT use legal principles, assumptions, or external knowledge
+
+========================
+EVIDENCE USAGE RULE
+
+- Refer ONLY to evidence explicitly provided
+- DO NOT assume existence of any document, witness, or fact
+- DO NOT extend or interpret evidence beyond its literal meaning
+
+If evidence is:
+
+- Missing
+- Irrelevant
+- Insufficient
+
+→ Clearly state:
+Evidence is insufficient to prove or disprove the disputed fact
+
+========================
+ANALYSIS STRUCTURE (STRICT)
+
+For EACH issue:
+
+Issue X:
+
+Analysis:
+
+- Examine each disputed fact briefly
+- Link it ONLY with relevant evidence (if available)
+- No assumptions, no legal theory
+
+Reasoning:
+
+- Explain outcome strictly based on:
+  - Whether evidence supports plaintiff
+  - OR supports defendant
+  - OR is insufficient
+
+Finding:
+
+- Clearly conclude ONE of:
+  - In favour of Plaintiff
+  - In favour of Defendant
+  - Not proved due to insufficient evidence
+
+========================
+DISPUTE HANDLING RULE
+
+- Consider ONLY disputed facts from input
+- Ignore admitted facts
+- Do NOT introduce new facts
+
+========================
+INPUT
+
+ISSUES:
+${$("issuesText").value.trim()}
+
+DISPUTES:
+${$("disputesText").value.trim()}
+
+EVIDENCE:
+${evidence}
+
+========================
+CRITICAL RULES
+
+- DO NOT generate new facts
+- DO NOT assume missing links
+- DO NOT apply legal doctrines
+- DO NOT exaggerate evidence
+- DO NOT merge issues
+- DO NOT skip any issue
+
+========================
+STYLE
+
+Plain text only
+No markdown
+No asterisks
+No introductory or concluding sentences`;
+  setBtnLoading("analyzeEvidenceBtn", "spin-analyzeEvidence", true);
+  try {
+    const result = await callAI(prompt, 3000);
+    await logAIStep("evidence_analysis", prompt, result);
+    $("findingsText").value = result; $("findingsText").dispatchEvent(new Event("input"));
+    $("findingsOutput").classList.remove("hidden");
+  } catch (err) { showToast("Error: " + err.message, "error"); }
+  finally { setBtnLoading("analyzeEvidenceBtn", "spin-analyzeEvidence", false); }
+});
+
+$("generateFinalBtn").addEventListener("click", async () => {
+  const shortOrder = $("shortOrder").value.trim();
+  if (!shortOrder) { showToast("Short Order zaroori hai.", "error"); return; }
+  const prompt = `You are a senior judge drafting a formal court judgement for Pakistani Civil and Family Courts using ONLY the provided inputs.
+
+========================
+CORE INSTRUCTION
+
+- Handle both Civil and Family cases accurately.
+- Transliterate any Urdu script proper nouns to Roman English.
+- Keep legal terms (e.g., Nikah, Iddat, Khula, Mehr, Rukhsati, Specific Performance, Stay Order, Declaration, Injunction) in Roman English as-is.
+- Use ONLY the given FACTS, ISSUES, FINDINGS, and SHORT ORDER
+- DO NOT generate new facts, issues, or findings
+- DO NOT modify or reinterpret findings
+- DO NOT apply external legal knowledge
+
+========================
+STRUCTURE (STRICT)
+
+Write the judgement in EXACTLY this order:
+
+1. Introduction
+2. Facts
+3. Issues
+4. Findings
+5. Final Order
+
+Do NOT change headings or order
+
+========================
+SECTION RULES
+
+INTRODUCTION:
+
+- Briefly state nature of case using given data only
+- No new facts
+
+FACTS:
+
+- Summarize from FACTS input only
+- Do NOT add or infer anything
+
+ISSUES:
+
+- List EXACTLY as provided
+- Do NOT rephrase
+
+FINDINGS:
+
+- Use FINDINGS input strictly
+- Do NOT alter conclusions
+- Do NOT add new reasoning
+
+FINAL ORDER:
+
+- Use SHORT ORDER as final decision
+- Do NOT modify outcome
+- Only convert into formal court language if needed
+
+========================
+LANGUAGE RULE
+
+- Formal court style
+- Clear and concise
+- No decorative or creative writing
+
+========================
+INPUT
+
+FACTS:
+${$("factsText").value.trim()}
+
+ADMIT/DENY:
+${$("admitDenyText").value.trim()}
+
+ISSUES:
+${$("issuesText").value.trim()}
+
+FINDINGS:
+${$("findingsText").value.trim()}
+
+SHORT ORDER:
+${shortOrder}
+
+========================
+CRITICAL RULES
+
+- DO NOT change meaning of any input
+- DO NOT introduce new material
+- DO NOT omit any section
+- DO NOT merge sections
+- DO NOT add explanations outside structure
+
+========================
+STYLE
+
+Plain text only
+No markdown
+No asterisks
+No introductory or concluding sentences
+Judgement must start directly with Introduction`;
+  setBtnLoading("generateFinalBtn", "spin-generateFinal", true);
+  try {
+    const result = await callAI(prompt, 3500);
+    await logAIStep("final_judgement", prompt, result);
+    $("judgementOutput").value = result; $("judgementOutput").dispatchEvent(new Event("input"));
+    $("outputSection").classList.remove("hidden");
+    $("chatSection").classList.remove("hidden");
+    $("finalizeBtn").classList.remove("hidden");
+    $("chatLog").innerHTML = "";
+  } catch (err) { showToast("Error: " + err.message, "error"); }
+  finally { setBtnLoading("generateFinalBtn", "spin-generateFinal", false); }
+});
+
+// SUBMIT FOR REVIEW
+$("submitReviewBtn").addEventListener("click", async () => {
+  if (!confirm("Case review ke liye submit karein? Judge approve ya send back kar sakta hai.")) return;
+  await saveOrUpdateCase({ status: "review" });
+  $("wizStatus").value = "review";
+  showToast("Case review ke liye submit ho gaya!", "success");
+  await loadDashboardCounts();
+});
+
+// FINALIZE: extract title + legal grounds, set status
+$("finalizeBtn").addEventListener("click", async () => {
+  const judgement = $("judgementOutput").value.trim();
+  if (!judgement) return;
+  const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to extract ONLY the case title and legal grounds from the given judgement.
+
+========================
+CORE INSTRUCTION
+
+- Handle both Civil and Family cases.
+- Transliterate any Urdu script proper nouns to Roman English.
+- Extract information ONLY from the given judgement text
+- DO NOT generate, assume, or infer anything
+- DO NOT create new titles or legal grounds
+
+========================
+TITLE RULE (STRICT)
+
+- Create a SHORT title using:
+  
+  - Nature of case (if clearly mentioned)
+  - Plaintiff vs Defendant (names if available)
+
+- If names are not clearly available, write:
+  [Not specified in judgement]
+
+- DO NOT:
+  
+  - Add extra facts
+  - Add dates or locations
+  - Use creative wording
+
+========================
+GROUNDS RULE (STRICT)
+
+- Extract ONLY explicitly mentioned:
+  
+  - Laws
+  - Ordinances
+  - Sections
+
+- If multiple are mentioned:
+  
+  - List all in one line, separated by commas
+
+- If NO law or section is clearly mentioned:
+  
+  - Write:
+    [Not specified in judgement]
+
+- DO NOT guess or add legal provisions
+
+========================
+INPUT
+
+Judgement:
+${judgement}
+
+========================
+OUTPUT FORMAT (STRICT)
+
+TITLE: <text>
+GROUNDS: <text>
+
+========================
+CRITICAL RULES
+
+- DO NOT explain anything
+- DO NOT add extra lines
+- DO NOT rephrase laws
+- DO NOT include anything outside judgement
+
+========================
+STYLE
+
+Plain text only
+No markdown
+No asterisks
+No introductory or concluding sentences`;
+  try {
+    const result = await callAI(prompt, 300);
+    const titleMatch = result.match(/TITLE:\s*(.+)/i);
+    const groundsMatch = result.match(/GROUNDS:\s*(.+)/i);
+    await saveOrUpdateCase({
+      status: "finalized",
+      case_title: titleMatch ? titleMatch[1].trim() : "Untitled Case",
+      legal_grounds: groundsMatch ? groundsMatch[1].trim() : ""
+    });
+    $("wizStatus").value = "finalized";
+    showToast("Case finalize ho gaya!", "success");
+    await loadDashboardCounts();
+  } catch (err) { showToast("Error: " + err.message, "error"); }
+});
+
+// ============================================
+// CHAT REFINE
+// ============================================
+function addChatBubble(text, isUser) {
+  const log = $("chatLog");
+  const div = document.createElement("div");
+  div.className = `p-2 rounded-lg text-sm max-w-[85%] ${isUser ? "chat-bubble-user ml-auto" : "chat-bubble-ai"}`;
+  div.textContent = text; log.appendChild(div); log.scrollTop = log.scrollHeight;
+}
+$("chatSendBtn").addEventListener("click", sendChatMessage);
+$("chatInput").addEventListener("keypress", (e) => { if (e.key === "Enter") sendChatMessage(); });
+async function sendChatMessage() {
+  const instruction = $("chatInput").value.trim();
+  if (!instruction) return;
+  addChatBubble(instruction, true); $("chatInput").value = "";
+  addChatBubble("Soch raha hoon...", false);
+  $("chatSendBtn").disabled = true;
+  try {
+    const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to update the given judgement STRICTLY according to the provided instruction.
+
+========================
+CORE INSTRUCTION
+
+- Handle both Civil and Family cases.
+- Transliterate any Urdu script proper nouns to Roman English.
+- Retain exact legal terminology.
+- Make ONLY the changes requested in the INSTRUCTION.
+- DO NOT change the structure, facts, or findings unless explicitly asked.
+- DO NOT hallucinate laws or references.
+
+========================
+MODIFICATION RULE
+
+- Modify ONLY the specific part affected by the instruction
+- Keep all other parts EXACTLY unchanged
+
+========================
+PRESERVATION RULE
+
+- Maintain:
+  - Original structure
+  - Headings
+  - Order of sections
+  - Existing findings and facts (unless instruction explicitly changes them)
+
+========================
+CONFLICT RULE
+
+If the instruction:
+
+- contradicts existing judgement
+- OR requires unsupported changes
+
+→ Apply ONLY if clearly stated
+Otherwise:
+→ keep original text unchanged
+
+========================
+NO REGENERATION RULE
+
+- DO NOT:
+  - rewrite full judgement
+  - rephrase unaffected sections
+  - add new facts or reasoning
+
+========================
+INPUT
+
+Instruction:
+${instruction}
+
+Existing Judgement:
+${$("judgementOutput").value}
+
+========================
+OUTPUT RULES
+
+- Output FULL updated judgement
+- DO NOT explain changes
+- DO NOT highlight edits
+- DO NOT add comments
+
+========================
+STYLE
+
+Plain text only
+No markdown
+No asterisks
+No introductory or concluding sentences`;
+    const refined = await callAI(prompt, 3500);
+    await logAIStep("refine", instruction, refined);
+    $("chatLog").lastChild.remove();
+    addChatBubble("✅ Update kar diya.", false);
+    $("judgementOutput").value = refined; $("judgementOutput").dispatchEvent(new Event("input"));
+  } catch (err) { $("chatLog").lastChild.remove(); addChatBubble("❌ " + err.message, false); }
+  finally { $("chatSendBtn").disabled = false; }
+}
+
+// ============================================
+// COPY & WORD DOWNLOAD
+// ============================================
+$("copyBtn").addEventListener("click", () => {
+  navigator.clipboard.writeText($("judgementOutput").value);
+  $("copyBtn").textContent = "Copied!"; setTimeout(() => $("copyBtn").textContent = "Copy", 1500);
+});
+$("downloadBtn").addEventListener("click", () => downloadAsWord($("judgementOutput").value));
+function downloadAsWord(text) {
+  const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+  <head><meta charset='utf-8'><title>Judgement</title></head>
+  <body style="font-family:'Times New Roman'; font-size:14pt; line-height:1.6;">
+    ${text.split("\n").map(p => `<p>${escapeHtml(p)}</p>`).join("")}
+  </body></html>`;
+  const blob = new Blob(['\ufeff', html], { type: "application/msword" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob); link.download = "judgement.doc"; link.click();
+}
+
+// ============================================
+// LIVE MODE (presence + periodic sync)
+// ============================================
+$("liveModeToggle").addEventListener("click", async () => {
+  liveModeOn = !liveModeOn;
+  $("liveModeToggle").textContent = liveModeOn ? "🟢 Live: ON" : "🔴 Live: OFF";
+  if (liveModeOn) await startLiveMode(); else await stopLiveMode();
+});
+
+async function startLiveMode() {
+  if (!activeCase) return;
+  await sb.from("live_sessions").upsert({ case_id: activeCase.id, active_user_id: currentProfile.id, active_user_name: currentProfile.full_name, last_ping: new Date().toISOString() });
+
+  liveChannel = sb.channel(`case-${activeCase.id}`)
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "cases", filter: `id=eq.${activeCase.id}` }, (payload) => {
+      if (payload.new.last_updated_by !== currentProfile.id) {
+        ["plaint_text","facts_text","written_statement_text","admit_deny_text","issues_text","disputes_text","evidence_text","findings_text","short_order","judgement_output"].forEach((col, i) => {
+          const ids = ["plaintText","factsText","wsText","admitDenyText","issuesText","disputesText","evidenceText","findingsText","shortOrder","judgementOutput"];
+          if (document.activeElement.id !== ids[i] && payload.new[col] !== undefined) $(ids[i]).value = payload.new[col];
+        });
+        $("liveIndicator").textContent = `🟢 ${payload.new.last_updated_by === currentProfile.id ? "You" : "Other user"} updated this case just now`;
+        $("liveIndicator").classList.remove("hidden");
+      }
+    })
+    .on("postgres_changes", { event: "*", schema: "public", table: "live_sessions", filter: `case_id=eq.${activeCase.id}` }, (payload) => {
+      if (payload.new && payload.new.active_user_id !== currentProfile.id) {
+        $("liveIndicator").textContent = `🟢 ${payload.new.active_user_name} is also viewing this case`;
+        $("liveIndicator").classList.remove("hidden");
+      }
+    })
+    .subscribe();
+}
+
+async function stopLiveMode() {
+  if (liveChannel) { sb.removeChannel(liveChannel); liveChannel = null; }
+  if (activeCase) await sb.from("live_sessions").delete().eq("case_id", activeCase.id).eq("active_user_id", currentProfile.id);
+  $("liveIndicator").classList.add("hidden");
+}
+
+// ============================================
+// REUSE FLOW
+// ============================================
+$("backFromReuseListBtn").addEventListener("click", showDashboard);
+$("backFromReuseFormBtn").addEventListener("click", () => { hideAllScreens(); $("reuseScreen").classList.remove("hidden"); });
+
+async function loadFinalizedForReuseSelection() {
+  const { data: cases } = await sb.from("cases").select("*").eq("status", "finalized").order("updated_at", { ascending: false });
+  const container = $("reuseListContainer");
+  if (!cases || cases.length === 0) { container.innerHTML = `<p class="text-slate-400 text-sm">Koi finalized judgement nahi mili.</p>`; return; }
+  container.innerHTML = cases.map(c => `
+    <div class="bg-white rounded-xl shadow p-4 cursor-pointer reuse-select" data-id="${c.id}">
+      <p class="font-semibold">${escapeHtml(c.case_title || c.category + " Case")}</p>
+      <p class="text-xs text-slate-500">${escapeHtml(c.legal_grounds || "")}</p>
+      <p class="text-xs text-slate-400 mt-1">${c.category}</p>
+    </div>`).join("");
+  document.querySelectorAll(".reuse-select").forEach(el => el.addEventListener("click", () => openReuseFlow(el.dataset.id)));
+}
+
+let reuseSourceCase = null;
+async function openReuseFlow(judgementId) {
+  const { data: source } = await sb.from("cases").select("*").eq("id", judgementId).single();
+  if (!source) { showToast("Judgement nahi mili.", "error"); return; }
+  reuseSourceCase = source;
+
+  hideAllScreens();
+  $("reuseFormScreen").classList.remove("hidden");
+  $("reuseFieldsContainer").innerHTML = `<p class="text-sm text-slate-400">AI fields nikal raha hai...</p>`;
+  $("reuseOutputSection").classList.add("hidden");
+
+  const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to identify ONLY case-specific (variable) fields from the given judgement for template reuse.
+
+========================
+CORE INSTRUCTION
+
+- Handle both Civil and Family judgements.
+- Keep legal terminology as-is.
+- A "variable field" is any data point that changes from case to case (e.g., Plaintiff name, Defendant name, Marriage date, Property address, Dower amount, Suit value, Contract date, Recovery amount).
+- Extract ONLY the field name/label, NOT the actual value from the text.
+- DO NOT include static headings (like Introduction, Facts, Issues).
+
+========================
+FIELD STANDARDIZATION RULE
+
+Use consistent and clear labels:
+
+- Plaintiff Name
+- Defendant Name
+- Case Date
+- Marriage Date
+- Amount
+- Address
+- etc.
+
+DO NOT create multiple labels for same concept
+
+========================
+DEDUPLICATION RULE
+
+- If a value appears multiple times, include it ONLY once
+- Each field must be unique
+
+========================
+PLACEHOLDER RULE
+
+- Extract ACTUAL example value from judgement
+- DO NOT write generic placeholders like "Enter name"
+- Use real value as sample
+
+========================
+INPUT
+
+Judgement:
+${source.judgement_output}
+
+========================
+OUTPUT FORMAT (STRICT)
+
+Return ONLY valid JSON array:
+
+[
+{"label": "Plaintiff Name", "placeholder": "Ali Ahmed"},
+{"label": "Defendant Name", "placeholder": "Sara Bibi"}
+]
+
+========================
+CRITICAL RULES
+
+- Output ONLY JSON
+- NO explanation
+- NO extra text
+- NO trailing commas
+- Ensure valid JSON format
+
+========================
+STYLE
+
+Plain JSON only`;
+
+  try {
+    const result = await callAI(prompt, 1500);
+    const match = result.match(/\[[\s\S]*\]/);
+    const fields = match ? JSON.parse(match[0]) : [];
+    renderReuseFields(fields);
+  } catch (err) {
+    $("reuseFieldsContainer").innerHTML = `<p class="text-red-500 text-sm">AI field detect nahi kar saka: ${err.message}. Manually add karein.</p>`;
+  }
+}
+
+function renderReuseFields(fields) {
+  const container = $("reuseFieldsContainer");
+  container.innerHTML = "";
+  fields.forEach(f => addReuseFieldRow(f.label, f.placeholder));
+  if (fields.length === 0) addReuseFieldRow("", "");
+}
+
+function addReuseFieldRow(label = "", placeholder = "") {
+  const row = document.createElement("div");
+  row.className = "reuse-field-row";
+  row.innerHTML = `
+    <input type="text" class="reuse-label w-full border rounded-lg p-2 text-sm font-medium mb-1" value="${escapeHtml(label)}" placeholder="Field name" />
+    <input type="text" class="reuse-value w-full border rounded-lg p-2 text-sm" placeholder="${escapeHtml(placeholder)}" />`;
+  $("reuseFieldsContainer").appendChild(row);
+}
+
+$("addReuseFieldBtn").addEventListener("click", () => addReuseFieldRow());
+
+$("generateFromReuseBtn").addEventListener("click", async () => {
+  const rows = document.querySelectorAll(".reuse-field-row");
+  const filledData = Array.from(rows).map(r => ({
+    label: r.querySelector(".reuse-label").value.trim(),
+    value: r.querySelector(".reuse-value").value.trim()
+  })).filter(f => f.label);
+
+  const judgeNote = $("judgeNoteText").value.trim();
+  const dataText = filledData.map(f => `${f.label}: ${f.value || "[not provided]"}`).join("\n");
+
+  const prompt = `You are a senior Pakistani judge. Your task is to generate a new judgement for Civil and Family Courts by STRICTLY reusing the structure, wording pattern, and legal reasoning of the TEMPLATE judgement.
+
+========================
+CORE INSTRUCTION
+
+- Adapt the template for the new case (Civil or Family) by substituting the old variables with the NEW DATA provided.
+- Transliterate any Urdu script names to Roman English.
+- Maintain existing legal terms.
+- Use the EXACT same headings, formatting style, and flow as the TEMPLATE.
+- Only change the case-specific details (names, dates, amounts, specific facts) using the NEW DATA provided.
+
+- Reuse:
+  
+  - Section order
+  - Legal reasoning
+  - Sentence patterns
+  - Formal tone
+
+- Replace ONLY case-specific details using NEW CASE DATA
+
+========================
+REPLACEMENT RULE (STRICT)
+
+Replace ALL variable elements including:
+
+- Names
+- Dates
+- Amounts
+- Addresses
+- Case-specific facts
+
+WITH values from NEW CASE DETAILS
+
+DO NOT leave any old case-specific value from template
+
+========================
+NO CHANGE RULE
+
+- DO NOT change:
+  
+  - Legal reasoning structure
+  - Logic flow
+  - Standard legal language
+
+- DO NOT:
+  
+  - Add new arguments
+  - Add new legal principles
+  - Modify conclusions unless required by new data
+
+========================
+DATA USAGE RULE
+
+- Use ONLY provided NEW CASE DETAILS
+- DO NOT assume or invent missing values
+
+If any required value is missing:
+→ keep placeholder:
+[Data not provided]
+
+========================
+JUDGE NOTE PRIORITY
+
+- Follow JUDGE NOTE strictly
+- If conflict occurs:
+  JUDGE NOTE overrides template
+
+========================
+CONSISTENCY RULE
+
+- Ensure all replaced values remain consistent throughout judgement
+- Same name/date must not vary
+
+========================
+INPUT
+
+TEMPLATE JUDGEMENT:
+${reuseSourceCase.judgement_output}
+
+NEW CASE DETAILS:
+${dataText}
+
+JUDGE NOTE:
+${judgeNote || "(koi additional note nahi)"}
+
+========================
+OUTPUT RULES
+
+- Output FULL judgement
+- Same structure as template
+- No explanation
+- No comments
+
+========================
+STYLE
+
+Formal Pakistani court style
+Plain text only
+No markdown
+No asterisks
+No introductory sentences`;
+
+  setBtnLoading("generateFromReuseBtn", "spin-generateFromReuse", true);
+  try {
+    const result = await callAI(prompt, 3500);
+    $("reuseJudgementOutput").value = result;
+    $("reuseOutputSection").classList.remove("hidden");
+  } catch (err) { showToast("Error: " + err.message, "error"); }
+  finally { setBtnLoading("generateFromReuseBtn", "spin-generateFromReuse", false); }
+});
+
+$("saveReuseCaseBtn").addEventListener("click", async () => {
+  const { data, error } = await sb.from("cases").insert({
+    category: reuseSourceCase.category,
+    case_type: "contested",
+    status: "pending",
+    judgement_output: $("reuseJudgementOutput").value,
+    reused_from_judgement_id: reuseSourceCase.id,
+    created_by: currentProfile.id,
+    last_updated_by: currentProfile.id,
+    current_step: 5
+  }).select().single();
+  if (error) { showToast("Error: " + error.message, "error"); return; }
+  showToast("Naya case Pending mein save ho gaya!", "success");
+  openWizardForCase(data.id);
+});
+
+// ============================================
+// TEMPLATE FEATURE (Add / Upload / Paste)
+// ============================================
+function openTemplateModal() {
+  $("templateTitle").value = "";
+  $("templateJudgementText").value = "";
+  $("templateModal").classList.remove("hidden");
+}
+
+$("closeTemplateBtn").addEventListener("click", () => $("templateModal").classList.add("hidden"));
+$("addTemplateFromNewCase").addEventListener("click", openTemplateModal);
+
+$("templateUploadArea").addEventListener("click", () => $("templateFileInput").click());
+
+$("templateFileInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    if (text.trim().length > 10) {
+      $("templateJudgementText").value = text.trim();
+      showToast("File load ho gayi!", "success");
+    } else {
+      showToast("File mein kafi kam text hai.", "error");
+    }
+  } catch (err) {
+    showToast("File read nahi ho saki: " + err.message, "error");
+  }
+  $("templateFileInput").value = "";
+});
+
+// Drag & drop support
+$("templateUploadArea").addEventListener("dragover", (e) => { e.preventDefault(); e.currentTarget.style.borderColor = "#2563eb"; e.currentTarget.style.background = "#eff6ff"; });
+$("templateUploadArea").addEventListener("dragleave", (e) => { e.currentTarget.style.borderColor = ""; e.currentTarget.style.background = ""; });
+$("templateUploadArea").addEventListener("drop", async (e) => {
+  e.preventDefault();
+  e.currentTarget.style.borderColor = ""; e.currentTarget.style.background = "";
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    if (text.trim().length > 10) {
+      $("templateJudgementText").value = text.trim();
+      showToast("File load ho gayi!", "success");
+    }
+  } catch (err) { showToast("File read error.", "error"); }
+});
+
+$("saveTemplateBtn").addEventListener("click", async () => {
+  const title = $("templateTitle").value.trim();
+  const text = $("templateJudgementText").value.trim();
+  if (!title) { showToast("Title zaroori hai.", "error"); return; }
+  if (!text) { showToast("Judgement text zaroori hai. Paste ya upload karein.", "error"); return; }
+
+  $("saveTemplateBtn").disabled = true;
+  $("spin-saveTemplate").classList.remove("hidden");
+
+  try {
+    // Try to extract legal grounds via AI
+    let legalGrounds = "General";
+    try {
+      const s = getSettings();
+      if (s.apiKey) {
+        const lgPrompt = `Extract legal grounds (laws, sections, ordinances) from this judgement. Return ONLY a short comma-separated list of relevant laws/sections. If none found, return "General".\n\nJudgement (first 2000 chars):\n${text.substring(0, 2000)}\n\nOutput only the grounds, nothing else.`;
+        legalGrounds = await callAI(lgPrompt, 200);
+      }
+    } catch (e) { legalGrounds = "General"; }
+
+    const { data, error } = await sb.from("cases").insert({
+      category: $("templateCategory").value,
+      case_type: $("templateCaseType").value,
+      case_title: title,
+      legal_grounds: legalGrounds.trim().substring(0, 500),
+      status: "finalized",
+      judgement_output: text,
+      created_by: currentProfile.id,
+      last_updated_by: currentProfile.id,
+      current_step: 5
+    }).select().single();
+
+    if (error) throw error;
+
+    showToast("✅ Template save ho gaya! Ab ise Reuse se use kar sakte hain.", "success");
+    $("templateModal").classList.add("hidden");
+    $("templateTitle").value = "";
+    $("templateJudgementText").value = "";
+    await loadDashboardCounts();
+  } catch (err) {
+    showToast("Error: " + err.message, "error");
+  } finally {
+    $("saveTemplateBtn").disabled = false;
+    $("spin-saveTemplate").classList.add("hidden");
+  }
+});
+</script>
+</body>
+</html>
