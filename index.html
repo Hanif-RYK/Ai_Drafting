@@ -5,23 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>AI Drafting System</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   /* ---- Base ---- */
-  html { font-size: 16px; overflow-x: hidden; width: 100%; }
+  html { font-size: 16px; overflow-x: hidden; width: 100vw; }
   *, *::before, *::after { box-sizing: border-box; }
   body {
     font-family: 'Inter', sans-serif;
     background: radial-gradient(circle at top left, #e2e8f0 0%, #cbd5e1 100%);
     min-height: 100vh;
     overflow-x: hidden;
-    width: 100%;
-    max-width: 100%;
+    width: 100vw;
     margin: 0;
     color: #1e293b;
+    position: relative;
   }
 
   /* ---- Ambient Glows ---- */
@@ -32,12 +32,6 @@
     overflow: hidden;
     z-index: 0;
   }
-  @keyframes floatBlob {
-    0% { transform: translate(0, 0) scale(1); }
-    33% { transform: translate(30px, -50px) scale(1.1); }
-    66% { transform: translate(-20px, 20px) scale(0.9); }
-    100% { transform: translate(0, 0) scale(1); }
-  }
   .glow-blob-1 {
     position: absolute;
     top: -10%;
@@ -46,8 +40,8 @@
     height: 60%;
     border-radius: 50%;
     background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0) 70%);
-    filter: blur(80px);
-    animation: floatBlob 20s ease-in-out infinite alternate;
+    transform: translate3d(0,0,0);
+    will-change: transform;
   }
   .glow-blob-2 {
     position: absolute;
@@ -57,28 +51,8 @@
     height: 50%;
     border-radius: 50%;
     background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0) 70%);
-    filter: blur(80px);
-    animation: floatBlob 25s ease-in-out infinite alternate-reverse;
-  }
-
-  /* ---- Stepper Steps UI ---- */
-  .step-dot {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    transition: all 0.3s ease;
-  }
-  .step-dot .dot-circle {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 9999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.875rem;
-    font-weight: 700;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translate3d(0,0,0);
+    will-change: transform;
   }
 
   /* ---- Scrollbar Customization ---- */
@@ -135,12 +109,19 @@
     box-shadow: 0 4px 15px rgba(148, 163, 184, 0.05);
   }
 
-  /* ---- Fullscreen Overlay ---- */
   .fullscreen-mode {
-    position: fixed; inset: 0;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100%;
+    height: 100dvh;
     background: #f8fafc;
-    z-index: 60; overflow-y: auto; padding: 0.75rem;
-    -webkit-overflow-scrolling: touch;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem;
+    overflow: hidden;
+    overscroll-behavior: contain;
   }
 
   /* ---- App Container ---- */
@@ -156,10 +137,10 @@
 
   /* ---- Header Card ---- */
   .header-card {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    position: relative;
+    z-index: 99;
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.8);
     border-radius: 1.5rem;
     padding: 1.25rem 1.5rem;
     box-shadow: 0 8px 32px rgba(148, 163, 184, 0.08);
@@ -216,26 +197,72 @@
     letter-spacing: 0.05em;
   }
 
-  /* ---- Hamburger Dropdown Menu ---- */
-  .hamburger-menu {
-    position: absolute;
-    top: 60px;
-    left: 0;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    border-radius: 1.25rem;
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.1), inset 0 0 0 1px rgba(255,255,255,0.4);
-    padding: 0.6rem;
-    min-width: 220px;
-    z-index: 50;
-    animation: menuPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-    transform-origin: top left;
+  /* ---- Sidebar Overlay ---- */
+  .sidebar-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 99998;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
-  @keyframes menuPop {
-    0% { opacity: 0; transform: scale(0.9) translateY(-10px); }
-    100% { opacity: 1; transform: scale(1) translateY(0); }
+  .sidebar-overlay.active {
+    display: block;
+    opacity: 1;
+  }
+
+  /* ---- Sidebar Menu Panel ---- */
+  .sidebar-menu {
+    position: fixed;
+    top: 0; left: -300px;
+    width: 280px; height: 100%;
+    background: #ffffff;
+    border-right: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: 10px 0 30px rgba(15, 23, 42, 0.15);
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 99999;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+  .sidebar-menu.active {
+    left: 0;
+  }
+  
+  .sidebar-header {
+    padding: 1.25rem 1rem;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+  }
+  .sidebar-header h2 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #2563eb;
+    margin: 0;
+  }
+  .close-sidebar {
+    background: rgba(15, 23, 42, 0.05);
+    border: none;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease;
+  }
+  .close-sidebar:hover {
+    background: rgba(15, 23, 42, 0.1);
   }
   .menu-item {
     width: 100%;
@@ -273,10 +300,8 @@
 
   /* ---- Dashboard Cards ---- */
   .dash-card {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.8);
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.8);
     border-radius: 1.5rem;
     padding: 1.5rem;
     box-shadow: 0 4px 20px rgba(148, 163, 184, 0.08);
@@ -388,17 +413,17 @@
   .btn-new-case {
     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     color: #fff;
-    border-radius: 1.25rem;
-    padding: 1.15rem;
-    font-size: 1.15rem;
+    border-radius: 0.85rem;
+    padding: 0.75rem;
+    font-size: 0.95rem;
     font-weight: 700;
     text-align: center;
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     border: none;
     width: 100%;
-    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
-    margin-top: 0.5rem;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+    margin-top: 0;
   }
   .btn-new-case:hover {
     transform: translateY(-2px);
@@ -479,10 +504,8 @@
 
   /* ---- Wizard Steps ---- */
   .wiz-step {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.8);
     border-radius: 1.5rem;
     box-shadow: 0 8px 32px rgba(148, 163, 184, 0.08);
     padding: 1.5rem;
@@ -626,10 +649,9 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* ---- Navigation Buttons (Left-Right) ---- */
   .wiz-nav {
     display: flex;
-    justify-content: space-evenly;
+    justify-content: space-between;
     align-items: center;
     margin-top: 0.75rem;
     margin-bottom: 1.5rem;
@@ -641,7 +663,8 @@
     border-radius: 0.75rem;
     font-size: 0.9rem;
     font-weight: 600;
-    border: none;
+    border: 1px solid transparent;
+    height: 3rem;
     cursor: pointer;
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     display: inline-flex;
@@ -679,9 +702,7 @@
   /* ---- Image Context Menu ---- */
   .img-context-menu {
     position: fixed;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: #ffffff;
     border: 1px solid rgba(226, 232, 240, 0.8);
     border-radius: 0.75rem;
     box-shadow: 0 8px 32px rgba(148, 163, 184, 0.15);
@@ -812,11 +833,23 @@
     margin-bottom: 0.5rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+    background: #f8fafc;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    width: 100%;
+    flex-shrink: 0;
   }
   .fs-title {
     font-weight: 700;
     color: #0f172a;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 0.75rem;
+    flex: 1;
+    text-align: left;
   }
   .fs-close-btn {
     background: rgba(0, 0, 0, 0.03);
@@ -832,11 +865,17 @@
   .fs-close-btn:hover { background: rgba(0, 0, 0, 0.06); }
   .fs-textarea {
     width: 100%;
-    height: 80vh;
+    flex: 1;
     line-height: 1.7;
     resize: none;
     direction: auto;
     text-align: start;
+    overflow-y: auto;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding-top: 0.5rem;
+    overscroll-behavior: contain;
   }
 
   /* Image editor full image display */
@@ -853,10 +892,8 @@
 
   /* ---- Modals Skinning ---- */
   .fixed.inset-0.bg-black\/50 > div.bg-white {
-    background: rgba(255, 255, 255, 0.9) !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(226, 232, 240, 0.8) !important;
     color: #1e293b !important;
     box-shadow: 0 25px 60px rgba(148, 163, 184, 0.2) !important;
     border-radius: 1.5rem !important;
@@ -864,10 +901,8 @@
 
   /* ---- Auth screens ---- */
   #loginScreen .bg-white {
-    background: rgba(255, 255, 255, 0.8) !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(226, 232, 240, 0.8) !important;
     color: #1e293b !important;
     box-shadow: 0 25px 60px rgba(148, 163, 184, 0.2) !important;
     border-radius: 2rem !important;
@@ -894,10 +929,8 @@
 
   /* ---- New Case Screen ---- */
   #newCaseScreen .bg-white, #reuseFormScreen .bg-white {
-    background: rgba(255, 255, 255, 0.6) !important;
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(226, 232, 240, 0.8) !important;
     color: #1e293b !important;
     box-shadow: 0 12px 35px rgba(148, 163, 184, 0.08) !important;
     border-radius: 1.5rem !important;
@@ -959,6 +992,53 @@
     transform: translateY(-2px) !important;
     box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3) !important;
   }
+  #orderWriterBtn {
+    background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%) !important;
+    box-shadow: 0 4px 15px rgba(8, 145, 178, 0.25) !important;
+    border-radius: 1.25rem !important;
+    border: none !important;
+  }
+  #orderWriterBtn:hover {
+    background: linear-gradient(135deg, #22d3ee 0%, #0891b2 100%) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 25px rgba(8, 145, 178, 0.35) !important;
+  }
+  /* Order Writer Modal */
+  .order-field-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 0.35rem;
+    display: block;
+  }
+  .order-field-input {
+    width: 100%;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.95rem;
+    background: #f8fafc;
+    transition: border 0.2s;
+    outline: none;
+    font-family: inherit;
+  }
+  .order-field-input:focus {
+    border-color: #0891b2;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(8,145,178,0.1);
+  }
+  .order-output-box {
+    width: 100%;
+    min-height: 180px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    font-size: 0.9rem;
+    font-family: 'Times New Roman', serif;
+    line-height: 1.7;
+    background: #f8fafc;
+    resize: vertical;
+  }
   #startCaseBtn {
     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
     box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2) !important;
@@ -983,7 +1063,7 @@
     .dash-card { padding: 1.25rem; }
     .dash-card .card-count { font-size: 1.75rem; }
     .wiz-step { padding: 1.25rem; }
-    .hamburger-menu { left: 0; right: auto; min-width: 150px; }
+    .sidebar-menu { width: 260px; }
   }
   /* ---- Batch Editor ---- */
   .batch-modal { background: #f1f5f9; }
@@ -1091,8 +1171,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px;
-    background: rgba(255,255,255,0.98);
-    backdrop-filter: blur(16px);
+    background: #ffffff;
     border-bottom: 1px solid #e2e8f0;
   }
   .img-editor-topbar button {
@@ -1278,37 +1357,50 @@
 <!-- ===================== MAIN APP ===================== -->
 <div id="mainApp" class="hidden app-container" style="max-width:100%;overflow-x:hidden;">
 
+  <!-- Sidebar Overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- Sidebar Menu (slide out) -->
+  <div id="sidebarMenu" class="sidebar-menu">
+    <div class="sidebar-header">
+      <h2>☰ AI Drafting</h2>
+      <button class="close-sidebar" id="closeSidebarBtn">&times;</button>
+    </div>
+    <div class="px-4 py-3 border-b border-slate-100 bg-slate-50">
+      <p class="font-bold text-sm text-slate-800" id="menuUserName"></p>
+      <p class="text-xs text-blue-600 font-semibold" id="menuUserRole"></p>
+    </div>
+    <div class="flex-1 p-2 flex flex-col gap-1">
+      <button id="adminPanelBtn" class="menu-item hidden">
+        🛡️ Admin Panel
+      </button>
+      <button id="judgePanelBtn" class="menu-item hidden">
+        👨‍⚖️ Judge Panel
+      </button>
+      <button id="settingsBtn" class="menu-item">
+        ⚙️ AI Settings
+      </button>
+      <button id="glossaryMenuBtn" class="menu-item">
+        📖 Glossary & Presets
+      </button>
+      <button id="dictionaryMenuBtn" class="menu-item">
+        📂 Shortcuts Dictionary
+      </button>
+    </div>
+    <div class="p-2 border-t border-slate-100">
+      <button id="logoutBtn" class="menu-item logout">
+        🚪 Logout
+      </button>
+    </div>
+  </div>
+
   <!-- ====== HEADER CARD ====== -->
   <div class="header-card">
-    <div style="position: relative;">
-      <button class="hamburger-btn" id="menuBtn">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-      <!-- Dropdown Menu -->
-      <div id="hamburgerMenu" class="hidden hamburger-menu">
-        <div class="px-3 py-2 border-b border-slate-100 mb-1">
-          <p class="font-bold text-sm text-slate-800" id="menuUserName"></p>
-          <p class="text-xs text-blue-600 font-semibold" id="menuUserRole"></p>
-        </div>
-        <button id="adminPanelBtn" class="menu-item hidden">
-          🛡️ Admin Panel
-        </button>
-        <button id="judgePanelBtn" class="menu-item hidden">
-          👨‍⚖️ Judge Panel
-        </button>
-        <button id="settingsBtn" class="menu-item">
-          ⚙️ AI Settings
-        </button>
-        <button id="glossaryMenuBtn" class="menu-item">
-          📖 Glossary
-        </button>
-        <button id="logoutBtn" class="menu-item logout">
-          🚪 Logout
-        </button>
-      </div>
-    </div>
+    <button class="hamburger-btn" id="menuBtn">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
     <div class="header-title-group">
       <div class="header-title">AI Drafting System</div>
       <div class="header-date" id="currentDate"></div>
@@ -1345,9 +1437,114 @@
       <div class="card-icon-box">✅</div>
     </button>
 
-    <div style="display:flex;gap:0.75rem;align-items:stretch;">
-      <button id="liveTypeBtn" style="background:#7c3aed;color:#fff;border:none;border-radius:1.25rem;padding:1.15rem 1.5rem;font-size:1.15rem;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 6px 20px rgba(124,58,237,0.3);margin-top:0.5rem;">✍️ Live</button>
-      <button id="newCaseBtn" class="btn-new-case" style="flex:1;">+ Start New Case</button>
+    <div style="display:flex;gap:0.75rem;align-items:stretch;margin-top:0.75rem;">
+      <button id="liveTypeBtn" style="flex:1;background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);color:#fff;border:none;border-radius:0.85rem;padding:0.75rem;font-size:0.95rem;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,0.15);">✍️ Live Editor</button>
+      <button id="orderWriterBtn" class="btn-new-case" style="flex:1;">⚖️ Order Writer</button>
+      <button id="newCaseBtn" class="btn-new-case" style="flex:1;">+ New Case</button>
+    </div>
+
+    <!-- Recent Feedback Panel (Visible for non-judges when there is feedback) -->
+    <div id="recentFeedbackPanel" class="hidden mt-4 bg-white rounded-2xl shadow-lg p-5">
+      <h3 class="font-bold text-base text-slate-800 mb-3 flex items-center gap-2">
+        <span>💬 Recent Judge Feedback</span>
+        <span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full font-bold" id="feedbackCount">0</span>
+      </h3>
+      <div id="feedbackList" class="space-y-3 max-h-60 overflow-y-auto">
+        <!-- Render feedbacks here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Writer Modal -->
+  <!-- Order Writer Screen -->
+  <div id="orderWriterScreen" class="hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <button id="backFromOrderWriterBtn" class="btn-back-dashboard" style="margin:0;">← Dashboard</button>
+      <button id="owLoadOrderBtnTop" class="hidden" style="background:#0f766e;color:#fff;border:none;border-radius:0.75rem;padding:0.65rem 1rem;font-weight:600;font-size:0.85rem;cursor:pointer;">📥 Load Order</button>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-lg p-5">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+        <h2 style="font-size:1.15rem;font-weight:700;color:#0e7490;margin:0;">⚖️ Order Writer</h2>
+      </div>
+
+      <!-- Field 0: Case Number / Case Title -->
+      <div style="margin-bottom:1rem;">
+        <label class="order-field-label">📁 Case Number / Case Title (Optional)</label>
+        <input id="owCaseTitle" class="order-field-input" type="text" />
+      </div>
+
+      <!-- Field 1: Today case fixed for -->
+      <div style="margin-bottom:1rem;">
+        <label class="order-field-label">📌 Today case fixed for</label>
+        <input id="owFixedFor" class="order-field-input" type="text" />
+      </div>
+
+      <!-- Field 2: Today Proceeding -->
+      <div style="margin-bottom:1rem;">
+        <label class="order-field-label">📋 Today proceeding (kya hua)</label>
+        <textarea id="owProceeding" class="order-field-input" rows="3"></textarea>
+      </div>
+
+      <!-- Field 4: Next Date -->
+      <div style="margin-bottom:1rem;">
+        <label class="order-field-label">📅 Next date</label>
+        <input id="owNextDate" class="order-field-input" type="date" />
+      </div>
+
+      <!-- Field 5: Special Directions (Optional Dropdown) -->
+      <div style="margin-bottom:1rem;">
+        <label class="order-field-label">📢 Special Warning / Direction (Optional)</label>
+        <select id="owDirective" class="order-field-input" style="width:100%;">
+          <option value="">(None)</option>
+        </select>
+      </div>
+
+      <!-- Field 3: Next Purpose (Next Date Fixed For) -->
+      <div style="margin-bottom:1.25rem;">
+        <label class="order-field-label">🔜 Next date fixed for (Optional — khali chorne pe aaj wala purpose assume hoga)</label>
+        <input id="owNextPurpose" class="order-field-input" type="text" />
+      </div>
+
+      <!-- Generate Button -->
+      <button id="generateOrderBtn" style="width:100%;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;border:none;border-radius:0.85rem;padding:0.85rem;font-size:1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-bottom:1rem;">
+        <span id="spin-order" class="spinner hidden"></span>
+        ✨ Generate Order
+      </button>
+
+      <!-- Output -->
+      <div id="owOutputSection" class="hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+          <label class="order-field-label" style="margin:0;">📄 Generated Order</label>
+          <button class="fs-btn" data-target="owOutput" type="button">⛶</button>
+        </div>
+        <textarea id="owOutput" class="order-output-box"></textarea>
+        <div id="owActionGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.75rem;">
+          <button id="owCopyBtn" style="background:#0891b2;color:#fff;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;">📋 Copy</button>
+          <button id="owSendStenoBtn" style="background:#7c3aed;color:#fff;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;" class="hidden">📤 Send to Steno</button>
+          <button id="owSendSteno2Btn" style="background:#2563eb;color:#fff;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;" class="hidden">📤 Send to 2nd Steno</button>
+          <button id="owClearBtn" style="background:#f1f5f9;color:#475569;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;">🔄 New Order</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Writer Inbox Modal -->
+  <div id="owInboxModal" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:70;display:flex;align-items:center;justify-content:center;padding:1rem;">
+    <div style="background:#fff;border-radius:1.5rem;width:100%;max-width:540px;max-height:85vh;overflow-y:auto;padding:1.5rem;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);display:flex;flex-direction:column;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;border-bottom:1px solid #e2e8f0;padding-bottom:0.75rem;">
+        <h3 id="owInboxTitle" style="font-size:1.2rem;font-weight:700;color:#0f766e;margin:0;">📥 Received Orders</h3>
+        <button id="closeOwInboxBtn" style="background:#f1f5f9;border:none;border-radius:50%;width:2rem;height:2rem;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+      </div>
+      
+      <div id="owInboxList" style="display:flex;flex-direction:column;gap:1rem;margin-bottom:1.25rem;overflow-y:auto;max-height:50vh;padding-right:0.25rem;">
+        <!-- Received orders will be rendered here -->
+      </div>
+      
+      <div style="display:flex;gap:0.75rem;margin-top:auto;">
+        <button id="owInboxClearAllBtn" style="flex:1;background:#ef4444;color:#fff;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;">🗑️ Clear All</button>
+        <button id="owInboxCloseBtn" style="flex:1;background:#f1f5f9;color:#475569;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;">Close</button>
+      </div>
     </div>
   </div>
 
@@ -1407,34 +1604,7 @@
     </div>
     <div id="autosaveIndicator" style="font-size:0.75rem;color:#94a3b8;text-align:right;min-height:1.1rem;margin-bottom:0.25rem;"></div>
 
-    <!-- Stepper Progress Bar -->
-    <div class="mb-6 px-1 py-3 bg-white/80 border border-slate-200/60 rounded-2xl flex justify-between items-center relative overflow-hidden backdrop-blur-md shadow-sm">
-      <!-- Background progress track line -->
-      <div class="absolute left-6 right-6 top-[28px] h-0.5 bg-slate-200 z-0"></div>
-      <div id="stepperProgressLine" class="absolute left-6 top-[28px] h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300 z-0" style="width: 0%;"></div>
-      
-      <!-- Steps -->
-      <div class="step-dot active z-10 flex flex-col items-center gap-1 cursor-pointer" data-step="1" style="width: 20%;">
-        <div class="dot-circle bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-400">1</div>
-        <span class="text-[9px] font-semibold text-slate-400 tracking-wider">PLAINT</span>
-      </div>
-      <div class="step-dot z-10 flex flex-col items-center gap-1 cursor-pointer" data-step="2" style="width: 20%;">
-        <div class="dot-circle bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-400">2</div>
-        <span class="text-[9px] font-semibold text-slate-400 tracking-wider">STATEMENT</span>
-      </div>
-      <div class="step-dot z-10 flex flex-col items-center gap-1 cursor-pointer" data-step="3" style="width: 20%;">
-        <div class="dot-circle bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-400">3</div>
-        <span class="text-[9px] font-semibold text-slate-400 tracking-wider">ISSUES</span>
-      </div>
-      <div class="step-dot z-10 flex flex-col items-center gap-1 cursor-pointer" data-step="4" style="width: 20%;">
-        <div class="dot-circle bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-400">4</div>
-        <span class="text-[9px] font-semibold text-slate-400 tracking-wider">EVIDENCE</span>
-      </div>
-      <div class="step-dot z-10 flex flex-col items-center gap-1 cursor-pointer" data-step="5" style="width: 20%;">
-        <div class="dot-circle bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-400">5</div>
-        <span class="text-[9px] font-semibold text-slate-400 tracking-wider">DECISION</span>
-      </div>
-    </div>
+
 
     <!-- Review feedback banner -->
     <div id="reviewFeedbackBanner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 text-sm text-amber-800"></div>
@@ -1560,6 +1730,12 @@
       <button id="submitReviewBtn" class="hidden w-full mt-3 bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition text-base">📤 Submit for Review</button>
 
       <button id="finalizeBtn" class="hidden w-full mt-4 btn-finalize">✅ Finalize Case (extract Title + Legal Grounds)</button>
+
+      <!-- Judge Direct Review Actions -->
+      <div id="judgeReviewActions" class="hidden flex gap-3 mt-4">
+        <button id="wizApproveBtn" class="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition text-base">✅ Approve & Finalize</button>
+        <button id="wizSendBackBtn" class="flex-1 bg-amber-500 text-white py-3 rounded-xl font-bold hover:bg-amber-600 transition text-base">↩️ Send Back to Steno</button>
+      </div>
     </div>
 
     <!-- LEFT-RIGHT NAVIGATION -->
@@ -1664,19 +1840,63 @@
 </div>
 
 <div id="glossaryModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-  <div class="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl">
-    <h3 class="font-bold text-xl mb-4 text-slate-800">AI Correction Rules (Glossary)</h3>
-    <p class="text-xs text-slate-400 mb-3">Jab AI koi lafz/term ghalat handle kare, yahan rule add karein.</p>
+  <div class="bg-white rounded-2xl p-6 w-full max-w-md max-h-[92vh] overflow-y-auto shadow-2xl">
+    <h3 class="font-bold text-xl mb-1 text-slate-800">📖 Glossary & Presets</h3>
+    <p class="text-xs text-slate-400 mb-4">Manage AI Correction Rules and Order Writer presets.</p>
 
-    <div id="glossaryList" class="space-y-2 mb-3 max-h-32 overflow-y-auto"></div>
-
-    <div class="flex gap-2 mb-3">
-      <input id="glossaryTermInput" type="text" placeholder="Lafz (e.g. qom)" class="w-1/3 border-2 border-slate-200 rounded-xl p-3 text-sm focus:border-blue-500 focus:outline-none" />
-      <input id="glossaryInstructionInput" type="text" placeholder="Instruction" class="flex-1 border-2 border-slate-200 rounded-xl p-3 text-sm focus:border-blue-500 focus:outline-none" />
+    <!-- SECTION 1: Glossary Rules -->
+    <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1rem;">
+      <h4 class="font-bold text-sm text-slate-700 mb-2">📋 AI Correction Rules (Glossary)</h4>
+      <div id="glossaryList" class="space-y-2 mb-3 max-h-32 overflow-y-auto"></div>
+      
+      <div class="space-y-2 mb-3">
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Lafz / Term (e.g. qom)</label>
+          <input id="glossaryTermInput" type="text" placeholder="Lafz (e.g. qom)" class="w-full border-2 border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 bg-white focus:border-blue-500 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Instruction / Rule</label>
+          <input id="glossaryInstructionInput" type="text" placeholder="Instruction (e.g. transliterate as Caste)" class="w-full border-2 border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 bg-white focus:border-blue-500 focus:outline-none" />
+        </div>
+      </div>
+      <button id="addGlossaryBtn" class="w-full bg-slate-700 text-white py-2 rounded-xl text-xs font-bold hover:bg-slate-800 transition">+ Rule Add Karein</button>
     </div>
-    <button id="addGlossaryBtn" class="w-full bg-slate-700 text-white py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition">+ Rule Add Karein</button>
+
+    <!-- SECTION 2: Warning Presets -->
+    <div style="padding-bottom: 0.5rem;">
+      <h4 class="font-bold text-sm text-slate-700 mb-2">📢 Order Writer Warning Presets</h4>
+      <div id="presetList" class="space-y-2 mb-3 max-h-32 overflow-y-auto"></div>
+      <div class="flex flex-col gap-2 mb-2">
+        <input id="presetTitleInput" type="text" placeholder="Preset Title (e.g. Last Chance Plaintiff)" class="w-full border-2 border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 bg-white focus:border-blue-500 focus:outline-none" />
+        <textarea id="presetTextInput" rows="2" placeholder="Warning text (use {proceeding} and {legal_reference} where needed)" class="w-full border-2 border-slate-200 rounded-xl p-2.5 text-xs text-slate-800 bg-white focus:border-blue-500 focus:outline-none"></textarea>
+      </div>
+      <button id="addPresetBtn" class="w-full bg-cyan-700 text-white py-2 rounded-xl text-xs font-bold hover:bg-cyan-800 transition">+ Preset Add Karein</button>
+    </div>
 
     <button id="closeGlossaryBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition mt-4">Close</button>
+  </div>
+</div>
+
+<div id="dictionaryModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+  <div class="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl">
+    <h3 class="font-bold text-xl mb-2 text-slate-800">Shorthand Dictionary</h3>
+    <p class="text-xs text-slate-400 mb-3">Har textarea me short-form likh kar Space/Enter press karein, ye auto-expand ho jayega.</p>
+
+    <div id="dictionaryList" class="space-y-2 mb-3 max-h-48 overflow-y-auto"></div>
+
+    <div class="space-y-3 mb-3">
+      <div>
+        <label class="block text-xs font-bold text-slate-600 mb-1">Short Form (e.g. cp.)</label>
+        <input id="dictShortcutInput" type="text" placeholder="cp." class="w-full border-2 border-slate-200 rounded-xl p-3 text-sm focus:border-blue-500 focus:outline-none text-slate-800 bg-white" />
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-600 mb-1">Full Meaning / Expansion</label>
+        <input id="dictExpansionInput" type="text" placeholder="learned counsel for the plaintiff" class="w-full border-2 border-slate-200 rounded-xl p-3 text-sm focus:border-blue-500 focus:outline-none text-slate-800 bg-white" />
+      </div>
+    </div>
+    <button id="addDictBtn" class="w-full bg-slate-700 text-white py-2 rounded-xl text-sm font-bold hover:bg-slate-800 transition">+ Shortcut Add Karein</button>
+
+    <button id="closeDictionaryBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition mt-4">Close</button>
   </div>
 </div>
 
@@ -1806,7 +2026,23 @@
   // Show current date in header
   const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', dateOptions);
-const $ = (id) => document.getElementById(id);
+const $ = (id) => {
+  if (id === "hamburgerMenu") {
+    return {
+      classList: {
+        add: (cls) => { if (cls === "hidden") closeSidebar(); },
+        remove: (cls) => { if (cls === "hidden") openSidebar(); },
+        toggle: (cls) => {
+          if (cls === "hidden") {
+            if ($("sidebarMenu").classList.contains("active")) closeSidebar();
+            else openSidebar();
+          }
+        }
+      }
+    };
+  }
+  return document.getElementById(id);
+};
 let currentUser = null;   // { id, email }
 let currentProfile = null; // { id, full_name, role }
 
@@ -1894,13 +2130,23 @@ async function onLoginSuccess(user) {
   showDashboard();
 }
 
-// Hamburger menu toggle
-$("menuBtn").addEventListener("click", () => {
-  $("hamburgerMenu").classList.toggle("hidden");
-});
-document.addEventListener("click", (e) => {
-  if (!e.target.closest("#menuBtn") && !e.target.closest("#hamburgerMenu")) {
-    $("hamburgerMenu").classList.add("hidden");
+// Sidebar menu functions
+function openSidebar() {
+  $("sidebarMenu").classList.add("active");
+  $("sidebarOverlay").classList.add("active");
+}
+function closeSidebar() {
+  $("sidebarMenu").classList.remove("active");
+  $("sidebarOverlay").classList.remove("active");
+}
+$("menuBtn").addEventListener("click", openSidebar);
+$("sidebarOverlay").addEventListener("click", closeSidebar);
+$("closeSidebarBtn").addEventListener("click", closeSidebar);
+
+// Close sidebar when clicking menu options
+$("sidebarMenu").addEventListener("click", (e) => {
+  if (e.target.closest(".menu-item")) {
+    closeSidebar();
   }
 });
 
@@ -2123,7 +2369,10 @@ $("registerBtn").addEventListener("click", async () => {
 // SCREEN NAVIGATION
 // ============================================
 function hideAllScreens() {
-  ["dashboardScreen", "caseListScreen", "newCaseScreen", "wizardScreen", "reuseScreen"].forEach(id => $(id).classList.add("hidden"));
+  ["dashboardScreen", "caseListScreen", "newCaseScreen", "wizardScreen", "reuseScreen", "reuseFormScreen", "orderWriterScreen"].forEach(id => {
+    const el = $(id);
+    if (el) el.classList.add("hidden");
+  });
   if ($("liveTypeOverlay")) $("liveTypeOverlay").classList.add("hidden");
 }
 
@@ -2147,10 +2396,63 @@ $("backToDashBtn").addEventListener("click", showDashboard);
 // DASHBOARD: case counts + lists
 // ============================================
 async function loadDashboardCounts() {
-  for (const status of ["pending", "review", "finalized"]) {
-    const { data, error } = await sb.from("cases").select("id").eq("status", status);
-    const count = data ? data.length : 0;
-    $(`count${status.charAt(0).toUpperCase() + status.slice(1)}`).textContent = `${count} cases`;
+  try {
+    const promises = ["pending", "review", "finalized"].map(async (status) => {
+      const { data, error } = await sb.from("cases").select("id").eq("status", status);
+      if (!error && data) {
+        $(`count${status.charAt(0).toUpperCase() + status.slice(1)}`).textContent = `${data.length} cases`;
+      }
+    });
+    await Promise.all(promises);
+
+    // Load recent feedback panel for non-judges
+    if (currentProfile?.role !== 'judge') {
+      const { data: feedbackCases, error: feedbackErr } = await sb.from("cases")
+        .select("id, case_title, category, case_type, review_comment")
+        .eq("status", "pending")
+        .not("review_comment", "is", null)
+        .eq("created_by", currentProfile.id);
+        
+      if (!feedbackErr && feedbackCases && feedbackCases.length > 0) {
+        $("feedbackCount").textContent = feedbackCases.length;
+        $("feedbackList").innerHTML = feedbackCases.map(c => {
+          const caseName = c.case_title || `${c.category} Case`;
+          return `
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-2 relative">
+              <div style="padding-right:1.5rem;">
+                <p class="font-bold text-xs text-amber-800 uppercase tracking-wide">Case: ${escapeHtml(caseName)}</p>
+                <p class="text-sm text-slate-700 mt-1">💬 "${escapeHtml(c.review_comment)}"</p>
+              </div>
+              <div class="flex gap-2 mt-1">
+                <button class="fix-case-btn bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition" data-id="${c.id}">🛠️ Fix Draft</button>
+                <button class="dismiss-feedback-btn bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs px-3 py-1.5 rounded-lg font-semibold transition" data-id="${c.id}">✕ Dismiss</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+        
+        // Bind click events
+        $("feedbackList").querySelectorAll(".fix-case-btn").forEach(btn => {
+          btn.onclick = () => openWizardForCase(btn.dataset.id);
+        });
+        
+        $("feedbackList").querySelectorAll(".dismiss-feedback-btn").forEach(btn => {
+          btn.onclick = async () => {
+            if (!confirm("Kya aap feedback ko clear karna chahte hain?")) return;
+            await sb.from("cases").update({ review_comment: null }).eq("id", btn.dataset.id);
+            await loadDashboardCounts();
+          };
+        });
+        
+        $("recentFeedbackPanel").classList.remove("hidden");
+      } else {
+        $("recentFeedbackPanel").classList.add("hidden");
+      }
+    } else {
+      $("recentFeedbackPanel").classList.add("hidden");
+    }
+  } catch (err) {
+    console.error("Dashboard counts fetch fail:", err);
   }
 }
 
@@ -2164,6 +2466,12 @@ async function openCaseList(status) {
   const titles = { pending: "📋 Pending Cases", review: "🔍 Cases Under Review", finalized: "✅ Finalized (History)" };
   $("caseListTitle").textContent = titles[status];
   const container = $("caseListContainer");
+  
+  // Show loading skeleton while fetching
+  container.innerHTML = `<div class="animate-pulse flex flex-col gap-3">
+    <div class="h-24 bg-slate-100 rounded-xl"></div>
+    <div class="h-24 bg-slate-100 rounded-xl"></div>
+  </div>`;
 
   // Review stats for non-judge users
   if (status === 'review' && currentProfile?.role !== 'judge') {
@@ -2178,7 +2486,6 @@ async function openCaseList(status) {
     const counts = {};
     reviewCases.forEach(c => {
       const name = profileMap[c.created_by]?.full_name || "Unknown";
-      const role = profileMap[c.created_by]?.role || "";
       counts[name] = (counts[name] || 0) + 1;
     });
     container.innerHTML = `<div class="bg-white rounded-xl shadow p-4 mb-3"><p class="text-sm font-semibold text-slate-600 mb-3">Review Cases Breakdown</p>
@@ -2219,7 +2526,7 @@ async function openCaseList(status) {
         <div class="flex justify-between items-start">
           <div class="resume-case cursor-pointer flex-1" data-id="${c.id}">
             <p class="font-semibold">${escapeHtml(title)}</p>
-            <p class="text-xs text-slate-400">${c.category} · ${c.case_type === "ex_parte" ? "Ex-parte" : "Contested"} · Step ${c.current_step}/5</p>
+            <p class="text-xs text-slate-400">${escapeHtml(c.category)} · ${c.case_type === "ex_parte" ? "Ex-parte" : "Contested"} · Step ${c.current_step}/5</p>
             ${grounds}${comment}
           </div>
           <button class="delete-case-btn text-red-400 hover:text-red-600 text-lg px-2 py-1" data-id="${c.id}" title="Delete case">🗑️</button>
@@ -2371,6 +2678,7 @@ $("closeSettingsBtn").addEventListener("click", () => $("settingsModal").classLi
 $("glossaryMenuBtn").addEventListener("click", () => {
   $("hamburgerMenu").classList.add("hidden");
   loadGlossary();
+  renderPresetList();
   $("glossaryModal").classList.remove("hidden");
 });
 $("closeGlossaryBtn").addEventListener("click", () => $("glossaryModal").classList.add("hidden"));
@@ -2414,6 +2722,9 @@ $("saveSettingsBtn").addEventListener("click", () => {
 });
 
 let glossaryCache = [];
+let editingGlossaryId = null;
+let editingPresetIdx = null;
+
 async function loadGlossary() {
   const { data } = await sb.from("glossary_rules").select("*").eq("user_id", currentProfile.id).order("created_at", { ascending: false });
   glossaryCache = data || [];
@@ -2423,15 +2734,55 @@ async function loadGlossary() {
 function renderGlossaryList() {
   const list = $("glossaryList");
   if (glossaryCache.length === 0) { list.innerHTML = `<p class="text-xs text-slate-400">Abhi koi rule nahi hai.</p>`; return; }
-  list.innerHTML = glossaryCache.map(r => `
-    <div class="flex justify-between items-center bg-slate-50 rounded-lg p-2 text-xs">
-      <span><b>${escapeHtml(r.term)}</b>: ${escapeHtml(r.instruction)}</span>
-      <button class="del-glossary-btn text-red-500 px-2" data-id="${r.id}">✕</button>
+  
+  list.innerHTML = glossaryCache.map((r, idx) => `
+    <div class="border border-slate-100 rounded-xl mb-1.5 overflow-hidden">
+      <div class="glossary-header flex justify-between items-center bg-slate-50 p-2.5 text-xs font-semibold text-slate-800 cursor-pointer hover:bg-slate-100 transition">
+        <span>📝 ${escapeHtml(r.term)}</span>
+        <span class="chevron text-[10px] text-slate-400">▼</span>
+      </div>
+      <div class="glossary-body hidden bg-white p-3 border-t border-slate-100 text-xs text-slate-600">
+        <p class="mb-2.5 leading-relaxed" style="text-align:left;">${escapeHtml(r.instruction)}</p>
+        <div class="flex gap-2 justify-start">
+          <button class="edit-glossary-btn bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition" data-id="${r.id}" data-term="${escapeHtml(r.term)}" data-instruction="${escapeHtml(r.instruction)}">✏️ Edit</button>
+          <button class="del-glossary-btn bg-red-50 hover:bg-red-100 text-red-600 font-bold px-3 py-1.5 rounded-lg transition" data-id="${r.id}">🗑️ Delete</button>
+        </div>
+      </div>
     </div>`).join("");
-  document.querySelectorAll(".del-glossary-btn").forEach(btn => {
-    btn.addEventListener("click", async () => {
+
+  list.querySelectorAll(".glossary-header").forEach(header => {
+    header.addEventListener("click", () => {
+      const body = header.nextElementSibling;
+      const chevron = header.querySelector(".chevron");
+      const isHidden = body.classList.contains("hidden");
+      
+      list.querySelectorAll(".glossary-body").forEach(b => b.classList.add("hidden"));
+      list.querySelectorAll(".chevron").forEach(c => c.textContent = "▼");
+      
+      if (isHidden) {
+        body.classList.remove("hidden");
+        chevron.textContent = "▲";
+      }
+    });
+  });
+
+  list.querySelectorAll(".del-glossary-btn").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm("Kya aap is AI correction rule ko delete karna chahte hain?")) return;
       await sb.from("glossary_rules").delete().eq("id", btn.dataset.id);
       await loadGlossary();
+    });
+  });
+
+  list.querySelectorAll(".edit-glossary-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      $("glossaryTermInput").value = btn.dataset.term;
+      $("glossaryInstructionInput").value = btn.dataset.instruction;
+      editingGlossaryId = btn.dataset.id;
+      $("addGlossaryBtn").textContent = "💾 Update Rule";
+      $("glossaryTermInput").focus();
     });
   });
 }
@@ -2440,15 +2791,250 @@ $("addGlossaryBtn").addEventListener("click", async () => {
   const term = $("glossaryTermInput").value.trim();
   const instruction = $("glossaryInstructionInput").value.trim();
   if (!term || !instruction) { showToast("Lafz aur instruction dono bharain.", "error"); return; }
-  await sb.from("glossary_rules").insert({ user_id: currentProfile.id, term, instruction });
+  
+  if (editingGlossaryId) {
+    await sb.from("glossary_rules").update({ term, instruction }).eq("id", editingGlossaryId);
+    showToast("Rule update ho gaya!", "success");
+    editingGlossaryId = null;
+    $("addGlossaryBtn").textContent = "+ Rule Add Karein";
+  } else {
+    await sb.from("glossary_rules").insert({ user_id: currentProfile.id, term, instruction });
+    showToast("Rule add ho gaya!", "success");
+  }
+  
   $("glossaryTermInput").value = ""; $("glossaryInstructionInput").value = "";
   await loadGlossary();
+});
+
+function renderPresetList() {
+  const directives = getDirectives();
+  const list = $("presetList");
+  if (directives.length === 0) { list.innerHTML = `<p class="text-xs text-slate-400">Abhi koi preset nahi hai.</p>`; return; }
+  
+  list.innerHTML = directives.map((d, idx) => `
+    <div class="border border-slate-100 rounded-xl mb-1.5 overflow-hidden">
+      <div class="preset-header flex justify-between items-center bg-slate-50 p-2.5 text-xs font-semibold text-slate-800 cursor-pointer hover:bg-slate-100 transition">
+        <span>📢 ${escapeHtml(d.label)}</span>
+        <span class="chevron text-[10px] text-slate-400">▼</span>
+      </div>
+      <div class="preset-body hidden bg-white p-3 border-t border-slate-100 text-xs text-slate-600">
+        <p class="mb-2.5 leading-relaxed" style="text-align:left;">${escapeHtml(d.text)}</p>
+        <div class="flex gap-2 justify-start">
+          <button class="edit-preset-btn bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition" data-idx="${idx}" data-label="${escapeHtml(d.label)}" data-text="${escapeHtml(d.text)}">✏️ Edit</button>
+          <button class="del-preset-btn bg-red-50 hover:bg-red-100 text-red-600 font-bold px-3 py-1.5 rounded-lg transition" data-idx="${idx}">🗑️ Delete</button>
+        </div>
+      </div>
+    </div>`).join("");
+
+  list.querySelectorAll(".preset-header").forEach(header => {
+    header.addEventListener("click", () => {
+      const body = header.nextElementSibling;
+      const chevron = header.querySelector(".chevron");
+      const isHidden = body.classList.contains("hidden");
+      
+      list.querySelectorAll(".preset-body").forEach(b => b.classList.add("hidden"));
+      list.querySelectorAll(".chevron").forEach(c => c.textContent = "▼");
+      
+      if (isHidden) {
+        body.classList.remove("hidden");
+        chevron.textContent = "▲";
+      }
+    });
+  });
+
+  list.querySelectorAll(".del-preset-btn").forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      if (!confirm("Kya aap is preset ko delete karna chahte hain?")) return;
+      const current = getDirectives();
+      current.splice(Number(btn.dataset.idx), 1);
+      localStorage.setItem("ow_directives_v7", JSON.stringify(current));
+      renderPresetList();
+      loadDirectiveDropdown();
+      showToast("Preset deleted.", "success");
+    };
+  });
+
+  list.querySelectorAll(".edit-preset-btn").forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      $("presetTitleInput").value = btn.dataset.label;
+      $("presetTextInput").value = btn.dataset.text;
+      editingPresetIdx = Number(btn.dataset.idx);
+      $("addPresetBtn").textContent = "💾 Update Preset";
+      $("presetTitleInput").focus();
+    };
+  });
+}
+
+$("addPresetBtn").addEventListener("click", () => {
+  const label = $("presetTitleInput").value.trim();
+  const text = $("presetTextInput").value.trim();
+  if (!label || !text) { showToast("Preset Title aur Warning Text dono zaroori hain.", "error"); return; }
+
+  const current = getDirectives();
+  
+  if (editingPresetIdx !== null) {
+    current[editingPresetIdx] = { label, text };
+    localStorage.setItem("ow_directives_v7", JSON.stringify(current));
+    editingPresetIdx = null;
+    $("addPresetBtn").textContent = "+ Preset Add Karein";
+    showToast("Preset update ho gaya!", "success");
+  } else {
+    if (current.some(d => d.label.toLowerCase() === label.toLowerCase())) {
+      showToast("Ye preset title pehle se mojood hai.", "error");
+      return;
+    }
+    current.push({ label, text });
+    localStorage.setItem("ow_directives_v7", JSON.stringify(current));
+    showToast("Preset add ho gaya!", "success");
+  }
+
+  $("presetTitleInput").value = "";
+  $("presetTextInput").value = "";
+  renderPresetList();
+  loadDirectiveDropdown();
 });
 
 function buildGlossaryInstructions() {
   if (glossaryCache.length === 0) return "";
   return "\n\nSPECIAL TERMINOLOGY RULES (hamesha follow karein):\n" + glossaryCache.map(r => `- "${r.term}": ${r.instruction}`).join("\n");
 }
+
+// ============================================
+// SHORTHAND DICTIONARY LOGIC
+// ============================================
+const DEFAULT_DICTIONARY = [
+  { shortcut: "cp.", expanded: "learned counsel for the plaintiff" },
+  { shortcut: "cd.", expanded: "learned counsel for the defendant" },
+  { shortcut: "cpa.", expanded: "learned counsel for the plaintiff sought an adjournment" },
+  { shortcut: "cda.", expanded: "learned counsel for the defendant sought an adjournment" }
+];
+
+let memoryDictionary = null;
+
+function getDictionary() {
+  if (memoryDictionary) return memoryDictionary;
+  try {
+    const stored = localStorage.getItem("ow_dictionary");
+    if (!stored) {
+      try { localStorage.setItem("ow_dictionary", JSON.stringify(DEFAULT_DICTIONARY)); } catch(e){}
+      memoryDictionary = [...DEFAULT_DICTIONARY];
+      return memoryDictionary;
+    }
+    const parsed = JSON.parse(stored);
+    if (Array.isArray(parsed)) {
+      memoryDictionary = parsed;
+      return memoryDictionary;
+    }
+    throw new Error("Not an array");
+  } catch(e) {
+    try { localStorage.setItem("ow_dictionary", JSON.stringify(DEFAULT_DICTIONARY)); } catch(err){}
+    memoryDictionary = [...DEFAULT_DICTIONARY];
+    return memoryDictionary;
+  }
+}
+
+function saveDictionary(dict) {
+  memoryDictionary = dict;
+  try {
+    localStorage.setItem("ow_dictionary", JSON.stringify(dict));
+  } catch(e) {
+    console.error("LocalStorage write failed:", e);
+  }
+}
+
+function renderDictionaryList() {
+  const dict = getDictionary();
+  const list = $("dictionaryList");
+  if (dict.length === 0) { list.innerHTML = `<p class="text-xs text-slate-400">Abhi koi shortcut nahi hai.</p>`; return; }
+  list.innerHTML = dict.map((item, idx) => `
+    <div class="flex justify-between items-center bg-slate-100 rounded-lg p-2 text-xs text-slate-800">
+      <span><b>${escapeHtml(item.shortcut)}</b>: ${escapeHtml(item.expanded)}</span>
+      <button class="del-dict-btn text-red-500 hover:text-red-700 px-2" data-idx="${idx}">✕</button>
+    </div>`).join("");
+  
+  list.querySelectorAll(".del-dict-btn").forEach(btn => {
+    btn.onclick = () => {
+      const current = getDictionary();
+      current.splice(Number(btn.dataset.idx), 1);
+      saveDictionary(current);
+      renderDictionaryList();
+    };
+  });
+}
+
+$("dictionaryMenuBtn").addEventListener("click", () => {
+  $("hamburgerMenu").classList.add("hidden");
+  renderDictionaryList();
+  $("dictionaryModal").classList.remove("hidden");
+});
+
+$("closeDictionaryBtn").addEventListener("click", () => $("dictionaryModal").classList.add("hidden"));
+
+$("addDictBtn").addEventListener("click", () => {
+  const shortcut = $("dictShortcutInput").value.trim();
+  const expanded = $("dictExpansionInput").value.trim();
+  if (!shortcut || !expanded) { showToast("Shortcut aur expansion dono zaroori hain.", "error"); return; }
+  
+  const current = getDictionary();
+  const existingIdx = current.findIndex(item => item.shortcut.toLowerCase() === shortcut.toLowerCase());
+  
+  if (existingIdx !== -1) {
+    if (confirm(`"${shortcut}" shortcut pehle se mojood hai. Kya aap iski explanation ko update karna chahte hain?`)) {
+      current[existingIdx].expanded = expanded;
+      saveDictionary(current);
+      $("dictShortcutInput").value = "";
+      $("dictExpansionInput").value = "";
+      renderDictionaryList();
+      showToast("Shortcut update ho gaya!", "success");
+    }
+    return;
+  }
+  
+  current.push({ shortcut, expanded });
+  saveDictionary(current);
+  $("dictShortcutInput").value = "";
+  $("dictExpansionInput").value = "";
+  renderDictionaryList();
+  showToast("Shortcut add ho gaya!", "success");
+});
+
+// Auto-expand keyboard handler for all textareas (reliable on mobile virtual keyboards)
+document.addEventListener("input", (e) => {
+  const el = e.target;
+  if (el.tagName !== "TEXTAREA" && !(el.tagName === "INPUT" && el.type === "text")) return;
+  if (el._replacing) return;
+
+  const val = el.value;
+  const pos = el.selectionStart;
+
+  // Look at the character just before the cursor (space or enter)
+  const lastChar = val.charAt(pos - 1);
+  if (lastChar === " " || lastChar === "\n") {
+    const textBeforeSpace = val.substring(0, pos - 1);
+    const words = textBeforeSpace.split(/[\s\n]+/);
+    const lastWord = words[words.length - 1];
+
+    if (!lastWord) return;
+
+    const dict = getDictionary();
+    const match = dict.find(item => item.shortcut.toLowerCase() === lastWord.toLowerCase());
+    if (match) {
+      const startPart = textBeforeSpace.substring(0, textBeforeSpace.length - lastWord.length);
+      const endPart = val.substring(pos);
+      
+      el._replacing = true;
+      el.value = startPart + match.expanded + lastChar + endPart;
+      
+      const newCursorPos = startPart.length + match.expanded.length + 1;
+      el.setSelectionRange(newCursorPos, newCursorPos);
+      
+      el.dispatchEvent(new Event("input"));
+      el._replacing = false;
+    }
+  }
+});
 
 // ============================================
 // AI CALL (multi-provider, glossary-aware)
@@ -2466,14 +3052,19 @@ async function callAI(prompt, maxTokens = 2048) {
     const key = s.apiKeys[i];
     try {
       if (s.provider === "claude") {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
+        const res = await fetch("http://localhost:3000/api/ai", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-          body: JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: "user", content: finalPrompt }] })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider: "anthropic",
+            apiKey: key,
+            model,
+            messages: [{ role: "user", content: finalPrompt }]
+          })
         });
         if (!res.ok) throw new Error("Claude API error: " + (await res.text()));
         const data = await res.json();
-        return data.content?.[0]?.text || "";
+        return data.text || "";
       }
       if (s.provider === "gemini") {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
@@ -2527,6 +3118,7 @@ let liveTypeIsRemoteUpdate = false;
 
 $("liveTypeBtn").addEventListener("click", async () => {
   $("liveTypeOverlay").classList.remove("hidden");
+  document.body.style.overflow = "hidden"; // Disable background scrolling
   // Fetch existing content
   const { data } = await sb.from("live_notes").select("content").eq("id", "live-note-1").single();
   $("liveTypeTextarea").value = data?.content || "";
@@ -2546,6 +3138,7 @@ $("liveTypeBtn").addEventListener("click", async () => {
 $("liveTypeCloseBtn").addEventListener("click", async () => {
   if (liveTypeChannel) { sb.removeChannel(liveTypeChannel); liveTypeChannel = null; }
   $("liveTypeOverlay").classList.add("hidden");
+  document.body.style.overflow = ""; // Enable background scrolling
 });
 
 $("liveTypeTextarea").addEventListener("input", () => {
@@ -2602,7 +3195,9 @@ async function openWizardForCase(caseId) {
     $("outputSection").classList.remove("hidden");
     $("chatSection").classList.remove("hidden");
     const isJudge = currentProfile?.role === 'judge';
-    $("finalizeBtn").classList.toggle("hidden", !isJudge);
+    const isReview = caseData.status === 'review';
+    $("judgeReviewActions").classList.toggle("hidden", !(isJudge && isReview));
+    $("finalizeBtn").classList.toggle("hidden", !isJudge || isReview);
     $("submitReviewBtn").classList.toggle("hidden", isJudge || caseData.status !== 'pending');
   }
   $("wizStatus").value = caseData.status;
@@ -2643,7 +3238,6 @@ function attachAutosaveListeners() {
 }
 
 function scheduleAutosave() {
-  $("autosaveIndicator").textContent = "Saving...";
   clearTimeout(saveTimer);
   const currentCase = activeCase;
   const payload = {
@@ -2659,26 +3253,40 @@ function scheduleAutosave() {
     judgement_output: $("judgementOutput").value
   };
   saveTimer = setTimeout(async () => {
+    $("autosaveIndicator").textContent = "Saving...";
     if (activeCase !== currentCase) {
-      if (currentCase) await sb.from("cases").update(payload).eq("id", currentCase);
+      if (currentCase?.id) await sb.from("cases").update(payload).eq("id", currentCase.id);
       return;
     }
     await saveOrUpdateCase(payload);
     $("autosaveIndicator").textContent = "✓ Saved";
-    setTimeout(() => $("autosaveIndicator").textContent = "", 1500);
-  }, 2500);
+    setTimeout(() => {
+      if ($("autosaveIndicator").textContent === "✓ Saved") $("autosaveIndicator").textContent = "";
+    }, 1500);
+  }, 2000);
 }
 
 async function saveOrUpdateCase(fields) {
   if (!activeCase) return;
-  fields.last_updated_by = currentProfile.id;
-  await sb.from("cases").update(fields).eq("id", activeCase.id);
-  Object.assign(activeCase, fields);
+  try {
+    fields.last_updated_by = currentProfile?.id;
+    const { error } = await sb.from("cases").update(fields).eq("id", activeCase.id);
+    if (error) throw error;
+    Object.assign(activeCase, fields);
+  } catch (err) {
+    console.error("Save failed:", err);
+    showToast("Data save karne mein masla aya: " + err.message, "error");
+  }
 }
 
 async function logAIStep(step, input, output) {
   if (!activeCase) return;
-  await sb.from("ai_logs").insert({ case_id: activeCase.id, step, input_text: input, output_text: output });
+  try {
+    const { error } = await sb.from("ai_logs").insert({ case_id: activeCase.id, step, input_text: input, output_text: output });
+    if (error) console.error("Log AI step failed:", error);
+  } catch (err) {
+    console.error("Log AI step exception:", err);
+  }
 }
 
 // ============================================
@@ -2719,51 +3327,7 @@ function showWizStep(n) {
   $("wizReviewBtn").classList.toggle("hidden", currentProfile?.role === 'judge' || activeCase?.status !== 'pending');
   saveOrUpdateCase({ current_step: n });
 
-  // Update Stepper Progress UI
-  const stepIdxProgress = seq.indexOf(n);
-  const percent = (stepIdxProgress / (seq.length - 1)) * 100;
-  const progressLine = document.getElementById("stepperProgressLine");
-  if (progressLine) progressLine.style.width = `${percent}%`;
-  
-  const isExParte = activeCase?.case_type === "ex_parte";
-  const wsDot = document.querySelector('.step-dot[data-step="2"]');
-  if (wsDot) {
-    if (isExParte) {
-      wsDot.style.display = 'none';
-      document.querySelectorAll('.step-dot').forEach(el => {
-        if (el.dataset.step !== "2") el.style.width = "25%";
-      });
-    } else {
-      wsDot.style.display = 'flex';
-      document.querySelectorAll('.step-dot').forEach(el => {
-        el.style.width = "20%";
-      });
-    }
-  }
 
-  document.querySelectorAll(".step-dot").forEach(el => {
-    const sVal = parseInt(el.dataset.step);
-    const dot = el.querySelector(".dot-circle");
-    const label = el.querySelector("span");
-    const isCompleted = seq.indexOf(sVal) < seq.indexOf(n) && seq.includes(sVal);
-    const isActive = sVal === n;
-    
-    if (isActive) {
-      el.classList.add("active");
-      dot.className = "dot-circle bg-blue-600 border border-blue-400 flex items-center justify-center font-bold text-sm text-white shadow-[0_0_12px_rgba(37,99,235,0.3)] scale-110 transition-all duration-300";
-      label.className = "text-[9px] font-bold text-blue-600 tracking-wider transition-all duration-300";
-    } else if (isCompleted) {
-      el.classList.remove("active");
-      dot.className = "dot-circle bg-emerald-500 border border-emerald-400 flex items-center justify-center font-bold text-sm text-white shadow-[0_0_12px_rgba(16,185,129,0.2)] transition-all duration-300";
-      label.className = "text-[9px] font-semibold text-emerald-600 tracking-wider transition-all duration-300";
-      dot.innerHTML = "✓";
-    } else {
-      el.classList.remove("active");
-      dot.className = "dot-circle bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-400 transition-all duration-300";
-      label.className = "text-[9px] font-semibold text-slate-400 tracking-wider transition-all duration-300";
-      dot.innerHTML = sVal;
-    }
-  });
 }
 
 
@@ -2784,23 +3348,12 @@ $("wizNextBtn").addEventListener("click", async () => {
   }
 });
 
-// Step dots interactive clicks
-document.querySelectorAll(".step-dot").forEach(el => {
-  el.addEventListener("click", async () => {
-    const targetStep = parseInt(el.dataset.step);
-    const seq = getStepSequence();
-    if (seq.includes(targetStep)) {
-      await saveOrUpdateCase(getWizardFields());
-      showWizStep(targetStep);
-    }
-  });
-});
+
 $("wizReviewBtn").addEventListener("click", async () => {
   if (!confirm("Case review ke liye submit karein? Judge approve ya send back kar sakta hai.")) return;
   await saveOrUpdateCase({ status: "review" });
   $("wizStatus").value = "review";
   showToast("Case review ke liye submit ho gaya!", "success");
-  await loadDashboardCounts();
   showDashboard();
 });
 
@@ -2811,9 +3364,17 @@ let fsCurrentTarget = null;
 document.addEventListener("click", (e) => {
   if (e.target.classList.contains("fs-btn")) {
     fsCurrentTarget = e.target.dataset.target;
-    $("fsTitle").textContent = $(fsCurrentTarget).previousElementSibling?.textContent || "Full Screen";
+    // Get title label safely without the button character
+    const parent = e.target.parentElement;
+    let titleText = "Full Screen";
+    if (parent) {
+      const label = parent.querySelector("label") || parent.querySelector("span");
+      if (label) titleText = label.textContent;
+    }
+    $("fsTitle").textContent = titleText;
     $("fsTextarea").value = $(fsCurrentTarget).value;
     $("fullscreenOverlay").classList.remove("hidden");
+    document.body.style.overflow = "hidden"; // Disable background scrolling
   }
 });
 $("fsCloseBtn").addEventListener("click", () => {
@@ -2822,6 +3383,7 @@ $("fsCloseBtn").addEventListener("click", () => {
     $(fsCurrentTarget).dispatchEvent(new Event("input"));
   }
   $("fullscreenOverlay").classList.add("hidden");
+  document.body.style.overflow = ""; // Enable background scrolling
 });
 
 // ============================================
@@ -2868,13 +3430,18 @@ IMPORTANT RULES:
       }
       if (s.provider === "claude") {
         const model = s.model || DEFAULT_MODELS.claude;
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST", headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-          body: JSON.stringify({ model, max_tokens: 2000, messages: [{ role: "user", content: [{ type: "text", text: instr }, { type: "image", source: { type: "base64", media_type: mimeType, data: base64 } }] }] })
+        const res = await fetch("http://localhost:3000/api/ai", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider: "anthropic",
+            apiKey: key,
+            model,
+            messages: [{ role: "user", content: [{ type: "text", text: instr }, { type: "image", source: { type: "base64", media_type: mimeType, data: base64 } }] }]
+          })
         });
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        return data.content?.[0]?.text || "";
+        return data.text || "";
       }
       if (s.provider === "openai") {
         const model = s.model || DEFAULT_MODELS.openai;
@@ -2913,7 +3480,6 @@ function buildUploadWidget(target, textareaId) {
   const previewArea = container.querySelector(".preview-area"), statusEl = container.querySelector(".ocr-status");
   camBtn.onclick = () => camInput.click();
   fileBtn.onclick = () => fileInput.click();
-  window.imgCounter = previewArea.children.length;
   camInput.onchange = (e) => processImages(e.target.files, previewArea, statusEl, textareaId);
   fileInput.onchange = (e) => processImages(e.target.files, previewArea, statusEl, textareaId);
 }
@@ -3738,24 +4304,34 @@ async function batchUploadAll() {
   const btn = $("batchUploadBtn");
   btn.disabled = true;
   btn.textContent = "Processing...";
-  closeBatchEditor();
-  const results = [];
-  for (let i = 0; i < state.files.length; i++) {
-    try {
-      const result = await applyBatchEdits(state.files[i], state.edits[i]);
-      results.push(result);
-    } catch (e) {
-      showToast(`Image ${i + 1} error: ${e.message}`, "error");
-      results.push(state.files[i]);
+  $("batchEditorModal").classList.add("hidden");
+
+  try {
+    const results = [];
+    for (let i = 0; i < state.files.length; i++) {
+      btn.textContent = `Processing ${i + 1}/${state.files.length}...`;
+      await new Promise(r => setTimeout(r, 10)); // Yield main thread to prevent freeze
+      try {
+        const result = await applyBatchEdits(state.files[i], state.edits[i]);
+        results.push(result);
+      } catch (e) {
+        showToast(`Image ${i + 1} error: ${e.message}`, "error");
+        results.push(state.files[i]);
+      }
     }
+    if (state.callback) state.callback(results);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Upload All";
+    batchState = null;
   }
-  if (state.callback) state.callback(results);
 }
 
 async function applyBatchEdits(file, edit) {
   if (!edit.rotation && !edit.crop && edit.filter === 'original') return file;
   return new Promise((resolve, reject) => {
     const img = new Image();
+    img.onerror = () => reject(new Error("Image corrupt ya invalid hai"));
     img.onload = () => {
       try {
         let w = img.naturalWidth, h = img.naturalHeight;
@@ -3785,7 +4361,6 @@ async function applyBatchEdits(file, edit) {
         }
       } catch (e) { reject(e); }
     };
-    img.onerror = () => reject(new Error("Image load failed"));
     img.src = URL.createObjectURL(file);
   });
 }
@@ -4355,7 +4930,11 @@ Judgement must start directly with Introduction`;
     $("judgementOutput").value = result; $("judgementOutput").dispatchEvent(new Event("input"));
     $("outputSection").classList.remove("hidden");
     $("chatSection").classList.remove("hidden");
-    $("finalizeBtn").classList.remove("hidden");
+    const isJudge = currentProfile?.role === 'judge';
+    const isReview = activeCase?.status === 'review';
+    $("judgeReviewActions").classList.toggle("hidden", !(isJudge && isReview));
+    $("finalizeBtn").classList.toggle("hidden", !isJudge || isReview);
+    $("submitReviewBtn").classList.toggle("hidden", isJudge || activeCase?.status !== 'pending');
     $("chatLog").innerHTML = "";
   } catch (err) { showToast("Error: " + err.message, "error"); }
   finally { setBtnLoading("generateFinalBtn", "spin-generateFinal", false, "judgementOutput"); }
@@ -4368,6 +4947,134 @@ $("submitReviewBtn").addEventListener("click", async () => {
   $("wizStatus").value = "review";
   showToast("Case review ke liye submit ho gaya!", "success");
   await loadDashboardCounts();
+});
+
+// JUDGE APPROVE FROM WIZARD
+$("wizApproveBtn").addEventListener("click", async () => {
+  const judgement = $("judgementOutput").value.trim();
+  if (!judgement) { showToast("Judgement draft empty hai.", "error"); return; }
+  if (!confirm("Kya aap is draft ko approve aur finalize karna chahte hain?")) return;
+
+  const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to extract ONLY the case title and legal grounds from the given judgement.
+
+========================
+CORE INSTRUCTION
+
+- Handle both Civil and Family cases.
+- Transliterate any Urdu script proper nouns to Roman English.
+- Extract information ONLY from the given judgement text
+- DO NOT generate, assume, or infer anything
+- DO NOT create new titles or legal grounds
+
+========================
+TITLE RULE (STRICT)
+
+- Create a SHORT title using:
+  
+  - Nature of case (if clearly mentioned)
+  - Plaintiff vs Defendant (names if available)
+
+- If names are not clearly available, write:
+  [Not specified in judgement]
+
+- DO NOT:
+  
+  - Add extra facts
+  - Add dates or locations
+  - Use creative wording
+
+========================
+GROUNDS RULE (STRICT)
+
+- Extract ONLY explicitly mentioned:
+  
+  - Laws
+  - Ordinances
+  - Sections
+
+- If multiple are mentioned:
+  
+  - List all in one line, separated by commas
+
+- If NO law or section is clearly mentioned:
+  
+  - Write:
+    [Not specified in judgement]
+
+- DO NOT guess or add legal provisions
+
+========================
+INPUT
+
+Judgement:
+${judgement}
+
+========================
+OUTPUT FORMAT (STRICT)
+
+TITLE: <text>
+GROUNDS: <text>
+
+========================
+CRITICAL RULES
+
+- DO NOT explain anything
+- DO NOT add extra lines
+- DO NOT rephrase laws
+- DO NOT include anything outside judgement
+
+========================
+STYLE
+
+Plain text only
+No markdown
+No asterisks
+No introductory or concluding sentences`;
+
+  try {
+    showToast("Extracting title & legal grounds...", "info");
+    const result = await callAI(prompt, 300);
+    const titleMatch = result.match(/TITLE:\s*(.+)/i);
+    const groundsMatch = result.match(/GROUNDS:\s*(.+)/i);
+    
+    await saveOrUpdateCase({
+      judgement_output: judgement,
+      status: "finalized",
+      review_comment: null,
+      case_title: titleMatch ? titleMatch[1].trim() : "Untitled Case",
+      legal_grounds: groundsMatch ? groundsMatch[1].trim() : ""
+    });
+    
+    $("wizStatus").value = "finalized";
+    showToast("Case approved and finalized!", "success");
+    await loadDashboardCounts();
+    showDashboard();
+  } catch (err) {
+    showToast("Approve error: " + err.message, "error");
+  }
+});
+
+// JUDGE SEND BACK FROM WIZARD
+$("wizSendBackBtn").addEventListener("click", async () => {
+  const judgement = $("judgementOutput").value.trim();
+  const comment = prompt("Send back karne ki wajah / correction instructions likhein:");
+  if (!comment) return;
+  
+  try {
+    await saveOrUpdateCase({
+      judgement_output: judgement,
+      status: "pending",
+      current_step: 5,
+      review_comment: comment
+    });
+    
+    $("wizStatus").value = "pending";
+    showToast("Case Steno ko send back ho gaya!", "success");
+    await loadDashboardCounts();
+    showDashboard();
+  } catch (err) {
+    showToast("Send back error: " + err.message, "error");
+  }
 });
 
 // FINALIZE: extract title + legal grounds, set status
@@ -4634,7 +5341,7 @@ async function loadFinalizedForReuseSelection() {
     <div class="bg-white rounded-xl shadow p-4 cursor-pointer reuse-select" data-id="${c.id}">
       <p class="font-semibold">${escapeHtml(c.case_title || c.category + " Case")}</p>
       <p class="text-xs text-slate-500">${escapeHtml(c.legal_grounds || "")}</p>
-      <p class="text-xs text-slate-400 mt-1">${c.category}</p>
+      <p class="text-xs text-slate-400 mt-1">${escapeHtml(c.category)}</p>
     </div>`).join("");
   document.querySelectorAll(".reuse-select").forEach(el => el.addEventListener("click", () => openReuseFlow(el.dataset.id)));
 }
@@ -4725,7 +5432,7 @@ Plain JSON only`;
     const fields = match ? JSON.parse(match[0]) : [];
     renderReuseFields(fields);
   } catch (err) {
-    $("reuseFieldsContainer").innerHTML = `<p class="text-red-500 text-sm">AI field detect nahi kar saka: ${err.message}. Manually add karein.</p>`;
+    $("reuseFieldsContainer").innerHTML = `<p class="text-red-500 text-sm">AI field detect nahi kar saka: ${escapeHtml(err.message)}. Manually add karein.</p>`;
   }
 }
 
@@ -4977,6 +5684,340 @@ $("saveTemplateBtn").addEventListener("click", async () => {
     $("saveTemplateBtn").disabled = false;
     $("spin-saveTemplate").classList.add("hidden");
   }
+});
+
+// ============================================
+// ORDER WRITER
+// ============================================
+const DEFAULT_DIRECTIVES = [
+  { label: "Last & Final Chance", text: "It is made clear that this is the last and final opportunity granted to the party to {proceeding}." },
+  { label: "Last & Final Chance (Multiple Opportunities)", text: "It is made clear that the party has already availed multiple opportunities but failed to {proceeding}, which shows that the party has no interest in pursuing their case. However, in the interest of justice, one last and final opportunity is granted." },
+  { label: "Last & Final Chance (Multiple Opportunities + Right Closed)", text: "It is made clear that this is the last and final opportunity granted to the party. The party has already availed multiple opportunities but failed to {proceeding}. In case of failure on the next date, the right to {proceeding} shall stand closed under {legal_reference} and no excuse in this regard shall be entertained." }
+];
+
+function getDirectives() {
+  const stored = localStorage.getItem("ow_directives_v7");
+  if (!stored) {
+    localStorage.setItem("ow_directives_v7", JSON.stringify(DEFAULT_DIRECTIVES));
+    return DEFAULT_DIRECTIVES;
+  }
+  try {
+    const parsed = JSON.parse(stored);
+    if (Array.isArray(parsed)) return parsed;
+    throw new Error("Not an array");
+  } catch {
+    localStorage.setItem("ow_directives_v7", JSON.stringify(DEFAULT_DIRECTIVES));
+    return DEFAULT_DIRECTIVES;
+  }
+}
+
+function loadDirectiveDropdown() {
+  const directives = getDirectives();
+  const select = $("owDirective");
+  select.innerHTML = `<option value="">(None)</option>` + 
+    directives.map((d, idx) => `<option value="${idx}">${escapeHtml(d.label)}</option>`).join("");
+}
+
+$("orderWriterBtn").addEventListener("click", () => {
+  const today = new Date().toISOString().split("T")[0];
+  $("owNextDate").min = today;
+  $("owNextDate").value = "";
+  $("owCaseTitle").value = "";
+  $("owFixedFor").value = "";
+  $("owProceeding").value = "";
+  $("owNextPurpose").value = "";
+  $("owOutput").value = "";
+  $("owOutputSection").classList.add("hidden");
+  loadDirectiveDropdown();
+
+  // Toggle steno load button next to back button vs send buttons in action grid
+  const isSteno = currentProfile?.role === 'steno';
+  $("owLoadOrderBtnTop").classList.toggle("hidden", !isSteno);
+  $("owSendStenoBtn").classList.toggle("hidden", isSteno);
+  $("owSendSteno2Btn").classList.toggle("hidden", isSteno);
+
+  hideAllScreens();
+  $("orderWriterScreen").classList.remove("hidden");
+});
+
+$("backFromOrderWriterBtn").addEventListener("click", () => {
+  showDashboard();
+});
+
+$("generateOrderBtn").addEventListener("click", async () => {
+  const caseTitle  = $("owCaseTitle").value.trim();
+  const fixedFor    = $("owFixedFor").value.trim();
+  const proceeding  = $("owProceeding").value.trim();
+  let nextFor       = $("owNextPurpose").value.trim();
+  const nextDateRaw = $("owNextDate").value;
+
+  if (!fixedFor)    { showToast("'Today case fixed for' field bharen.", "error"); return; }
+  if (!proceeding)  { showToast("'Today proceeding' field bharen.", "error"); return; }
+  if (!nextDateRaw) { showToast("Next date select karen.", "error"); return; }
+
+  const nextDateFormatted = nextDateRaw.split("-").reverse().join("-");
+  const todayFormatted = new Date().toLocaleDateString("en-GB").replaceAll("/", "-");
+
+  // If nextFor is empty, assume today's fixedFor (but tell AI not to write "same purpose")
+  const isSamePurpose = !nextFor;
+  if (isSamePurpose) {
+    nextFor = fixedFor;
+  }
+
+  // Get selected directive if any
+  const directives = getDirectives();
+  const selectedIdx = $("owDirective").value;
+  const selectedDirective = selectedIdx !== "" ? directives[selectedIdx] : null;
+
+  const prompt = `You are a Pakistani court official drafting a formal court order. Convert the following case details into a proper, concise legal court order in English.
+
+TODAY'S DATE: ${todayFormatted}
+
+INPUT FIELDS RELATIONSHIP & WORKFLOW:
+1. "Today case fixed for" (Core Reference): This is the main scheduled purpose of the case for today. Read and understand this core field carefully as it is the primary reference.
+2. "Today's proceeding" (Actual Court Events): This describes what actually happened in court today. Read this carefully to identify:
+   - What actions were taken by each party (plaintiff/defendant).
+   - Who completed their turn (e.g. plaintiff argued or produced evidence).
+   - Who requested more time / sought an adjournment (e.g. defendant asked for an adjournment).
+3. "Next purpose" / "Warning Preset" (Future Action): This is the purpose for the next date, specified either directly in the next date purpose field or via a selected warning preset.
+Synthesize these fields carefully, translate any Urdu or Roman Urdu terms, and convert them into proper formal legal English.
+
+CASE DETAILS:
+${caseTitle ? `- Case Title/Number: ${caseTitle}` : ""}
+- Today this case was fixed for: ${fixedFor}
+- Today's proceeding: ${proceeding}
+- Next date: ${nextDateFormatted}
+- Next purpose: ${nextFor}
+
+STRICT RULES:
+1. ALL input fields may be in Urdu, Roman Urdu, or English — you MUST translate and convert everything into formal legal English.
+2. Do NOT copy-paste any Urdu or Roman Urdu text into the output — translate it fully.
+3. Write in formal Pakistani court order style.
+4. Adjournment request phrasing:
+   - If NO warning directive is selected: use "sought an adjournment, which is granted/allowed." (If a reason is mentioned in Today's proceeding, include it simply, e.g., "sought an adjournment due to [reason], which is granted.").
+   - If a warning directive IS selected: connect the selected warning directive text smoothly into the adjournment sentence (e.g. "...sought an adjournment, which is allowed/granted, but [warning directive text]..."). Do NOT write it as separate disjointed sentences.
+5. If Case Title/Number is provided above, you MUST write it at the very top of the output in this format: "Case: [Case Title]" followed by a line break, then "Dated: [Date]" on the next line. If not provided, start directly with "Dated: [Date]".
+6. End with the adjournment line: "Case is adjourned to [date] for [purpose]." (Make sure the [purpose] is specific, e.g. "Case is adjourned to 31-07-2026 for final arguments by the defendant" if the plaintiff has already argued today).
+7. Keep it concise — 3 to 7 lines only.
+8. Do NOT add case number, judge name, or party names unless provided in the Case Title field.
+9. Plain text only — no markdown, no asterisks, no headings.
+10. CRITICAL DATE FORMAT RULE: You MUST write all dates (including today's date and the next date) strictly in the numeric format "DD-MM-YYYY" (e.g., "26-07-2026"). Do NOT write months in words or use ordinal suffixes (e.g., do NOT use "26th July, 2026" or "26 July 2026").
+
+${isSamePurpose ? "11. CRITICAL: The next purpose is the same as today's purpose. Do NOT use the words 'same purpose' in the final output. Instead, write the actual purpose (e.g., 'evidence of the plaintiff', 'arguments', etc.)." : ""}
+13. CRITICAL TURN-TAKING RULE (Next Purpose specificity):
+    - Carefully analyze today's proceeding text. If one party (e.g., plaintiff) has addressed arguments or produced evidence today, and the case is adjourned because the other party (e.g., defendant) sought an adjournment, the next purpose in the adjournment line (Rule 6) MUST reflect this turn-taking.
+    - E.g., if plaintiff addressed arguments and defendant sought an adjournment, the next purpose in the adjournment line MUST be specific (e.g., "final arguments by/of the defendant" or "arguments of the defendant"), instead of just writing the generic case purpose "final arguments".
+    - Apply this same specific logic if the defendant completed their turn and the plaintiff is to perform theirs on the next date.
+${selectedDirective ? `12. MANDATORY CLAUSE: You MUST adapt and integrate this warning instruction: "${selectedDirective.text}"
+    - Replace the placeholder "the party" with "the plaintiff" or "the defendant" (whoever is seeking the adjournment or whose turn it is).
+    - Replace the placeholder "{proceeding}" or any generic phrase like "complete the proceeding" or "do so" with the specific purpose (e.g., "produce evidence", "submit written statement", "address arguments") based on what today's case was fixed for ("Today this case was fixed for: ${fixedFor}").
+    - ONLY if the placeholder "{legal_reference}" is present in the warning instruction, replace it with the exact legal provision:
+      - If closing the turn to produce evidence: specify "Order XVII Rule 3 CPC".
+      - If closing the turn to submit a written statement (Civil case): specify "Order VIII Rule 10 CPC".
+      - If closing the turn to submit a written statement (Family case): specify "Section 9 of the Family Courts Act, 1964".
+      - If other/generic: refer to the relevant legal provisions.
+    - CRITICAL: If a placeholder (like "{legal_reference}") is NOT present in the selected warning instruction, do NOT invent or add it. Stick strictly to the selected warning instruction's text and structure.
+    - INTEGRATION FLOW: Blend the warning directly into the adjournment sentence (e.g. "...sought an adjournment, which is granted, but [warning text]...") to make the legal transition smooth and standard.` : ""}`;
+
+  $("generateOrderBtn").disabled = true;
+  $("spin-order").classList.remove("hidden");
+  try {
+    const result = await callAI(prompt, 600);
+    $("owOutput").value = result.trim();
+    $("owOutputSection").classList.remove("hidden");
+    $("owOutput").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } catch (err) {
+    showToast("Order generate nahi ho saka: " + err.message, "error");
+  } finally {
+    $("generateOrderBtn").disabled = false;
+    $("spin-order").classList.add("hidden");
+  }
+});
+
+$("owCopyBtn").addEventListener("click", () => {
+  navigator.clipboard.writeText($("owOutput").value);
+  $("owCopyBtn").textContent = "✅ Copied!";
+  setTimeout(() => $("owCopyBtn").textContent = "📋 Copy", 1500);
+});
+
+// Send order to Steno 1
+$("owSendStenoBtn").addEventListener("click", async () => {
+  const text = $("owOutput").value.trim();
+  const caseTitle = $("owCaseTitle").value.trim() || "Untitled Case";
+  if (!text) return;
+  $("owSendStenoBtn").disabled = true;
+  try {
+    const orderId = `order-steno-${Date.now()}`;
+    const payload = JSON.stringify({
+      case_title: caseTitle,
+      order_text: text,
+      sent_at: new Date().toISOString()
+    });
+    const { error } = await sb.from("live_notes").upsert({
+      id: orderId,
+      content: payload,
+      updated_by: currentProfile?.id,
+      updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    showToast("Order Steno 1 ko send ho gaya!", "success");
+  } catch (e) {
+    showToast("Send error: " + e.message, "error");
+  } finally {
+    $("owSendStenoBtn").disabled = false;
+  }
+});
+
+// Send order to Steno 2
+$("owSendSteno2Btn").addEventListener("click", async () => {
+  const text = $("owOutput").value.trim();
+  const caseTitle = $("owCaseTitle").value.trim() || "Untitled Case";
+  if (!text) return;
+  $("owSendSteno2Btn").disabled = true;
+  try {
+    const orderId = `order-steno2-${Date.now()}`;
+    const payload = JSON.stringify({
+      case_title: caseTitle,
+      order_text: text,
+      sent_at: new Date().toISOString()
+    });
+    const { error } = await sb.from("live_notes").upsert({
+      id: orderId,
+      content: payload,
+      updated_by: currentProfile?.id,
+      updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    showToast("Order Steno 2 ko send ho gaya!", "success");
+  } catch (e) {
+    showToast("Send error: " + e.message, "error");
+  } finally {
+    $("owSendSteno2Btn").disabled = false;
+  }
+});
+
+let activeInboxKey = "";
+
+async function openInbox(stenoKey) {
+  activeInboxKey = stenoKey;
+  $("owInboxTitle").textContent = stenoKey === "order-steno" ? "📥 Steno 1 Received Orders" : "📥 Steno 2 Received Orders";
+  $("owInboxModal").classList.remove("hidden");
+  await refreshInboxList();
+}
+
+async function refreshInboxList() {
+  const listContainer = $("owInboxList");
+  listContainer.innerHTML = `<p class="text-xs text-slate-400">Loading shared orders...</p>`;
+  
+  try {
+    const { data, error } = await sb.from("live_notes")
+      .select("*")
+      .like("id", `${activeInboxKey}-%`);
+      
+    if (error) throw error;
+    
+    if (!data || data.length === 0) {
+      listContainer.innerHTML = `<p class="text-xs text-slate-400">Koi shared order nahi mila.</p>`;
+      return;
+    }
+    
+    const orders = data.map(item => {
+      try {
+        const parsed = JSON.parse(item.content);
+        return { id: item.id, ...parsed };
+      } catch {
+        return { id: item.id, case_title: "Error Parsing", order_text: item.content, sent_at: item.updated_at };
+      }
+    });
+    
+    orders.sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at));
+    
+    listContainer.innerHTML = orders.map(order => {
+      const timeStr = new Date(order.sent_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+      const dateStr = new Date(order.sent_at).toLocaleDateString("en-GB");
+      
+      return `
+        <div class="bg-slate-50 border rounded-xl p-3" style="display:flex;flex-direction:column;gap:0.5rem;position:relative;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
+            <div style="flex:1;">
+              <p class="font-bold text-sm text-slate-800" style="margin:0;">${escapeHtml(order.case_title)}</p>
+              <p class="text-[10px] text-slate-400" style="margin:2px 0 0 0;">Sent on ${dateStr} at ${timeStr}</p>
+            </div>
+            <button class="inbox-del-btn text-red-500 hover:text-red-700 font-bold text-sm" style="background:none;border:none;cursor:pointer;padding:0 5px;" data-id="${order.id}">✕</button>
+          </div>
+          <pre style="font-family:\'Times New Roman\', serif;font-size:0.85rem;white-space:pre-wrap;background:#fff;border:1px solid #e2e8f0;padding:0.5rem;border-radius:0.5rem;max-height:120px;overflow-y:auto;margin:0;line-height:1.4;">${escapeHtml(order.order_text)}</pre>
+          <div style="display:flex;gap:0.5rem;">
+            <button class="inbox-copy-btn bg-teal-600 text-white text-xs px-3 py-1.5 rounded font-semibold" style="border:none;cursor:pointer;" data-text="${escapeHtml(order.order_text)}">📋 Copy</button>
+            <button class="inbox-load-btn bg-slate-700 text-white text-xs px-3 py-1.5 rounded font-semibold" style="border:none;cursor:pointer;" data-id="${order.id}" data-text="${escapeHtml(order.order_text)}">📥 Load to Editor</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+    
+    listContainer.querySelectorAll(".inbox-del-btn").forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm("Is shared order ko inbox se clear kar dein?")) return;
+        await sb.from("live_notes").delete().eq("id", btn.dataset.id);
+        await refreshInboxList();
+        showToast("Shared order cleared.", "success");
+      };
+    });
+    
+    listContainer.querySelectorAll(".inbox-copy-btn").forEach(btn => {
+      btn.onclick = () => {
+        navigator.clipboard.writeText(btn.dataset.text);
+        btn.textContent = "✅ Copied!";
+        setTimeout(() => btn.textContent = "📋 Copy", 1500);
+        showToast("Order copied to clipboard!", "success");
+      };
+    });
+    
+    listContainer.querySelectorAll(".inbox-load-btn").forEach(btn => {
+      btn.onclick = () => {
+        $("owOutput").value = btn.dataset.text;
+        $("owOutputSection").classList.remove("hidden");
+        $("owInboxModal").classList.add("hidden");
+        showToast("Order loaded into editor!", "success");
+      };
+    });
+    
+  } catch (e) {
+    listContainer.innerHTML = `<p class="text-xs text-red-500">Error loading inbox: ${escapeHtml(e.message)}</p>`;
+  }
+}
+
+$("closeOwInboxBtn").onclick = () => $("owInboxModal").classList.add("hidden");
+$("owInboxCloseBtn").onclick = () => $("owInboxModal").classList.add("hidden");
+$("owInboxModal").addEventListener("click", (e) => {
+  if (e.target === $("owInboxModal")) $("owInboxModal").classList.add("hidden");
+});
+
+$("owInboxClearAllBtn").onclick = async () => {
+  if (!confirm("Kya aap sach me is inbox ke saare orders delete karna chahte hain?")) return;
+  try {
+    const { error } = await sb.from("live_notes").delete().like("id", `${activeInboxKey}-%`);
+    if (error) throw error;
+    await refreshInboxList();
+    showToast("Inbox cleared completely!", "success");
+  } catch (e) {
+    showToast("Clear error: " + e.message, "error");
+  }
+};
+
+$("owLoadOrderBtnTop").onclick = () => {
+  const stenoKey = currentProfile?.is_admin ? "order-steno" : "order-steno2";
+  openInbox(stenoKey);
+};
+
+$("owClearBtn").addEventListener("click", () => {
+  $("owCaseTitle").value = "";
+  $("owFixedFor").value = "";
+  $("owProceeding").value = "";
+  $("owNextPurpose").value = "";
+  $("owNextDate").value = "";
+  $("owOutput").value = "";
+  $("owOutputSection").classList.add("hidden");
+  $("owCaseTitle").focus();
 });
 </script>
 <script>
