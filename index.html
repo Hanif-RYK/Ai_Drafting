@@ -2109,11 +2109,7 @@ async function onLoginSuccess(user) {
     await sb.auth.signOut();
     return;
   }
-  if (profile.status === 'admin_approved') {
-    showLoginError("⏳ Admin ne approve kar diya hai. Ab judge approval ka wait karein.");
-    await sb.auth.signOut();
-    return;
-  }
+
   if (profile.status === 'rejected') {
     showLoginError("❌ Account reject kar diya gaya hai.");
     await sb.auth.signOut();
@@ -2170,9 +2166,7 @@ function showAdminBtnIfAdmin() {
 }
 
 function showJudgeBtnIfJudge() {
-  if (currentProfile && currentProfile.role === 'judge') {
-    $("judgePanelBtn").classList.remove("hidden");
-  }
+  // Judge approval is removed. Judge does not need the Judge Panel.
 }
 
 $("adminPanelBtn").addEventListener("click", async () => {
@@ -2201,9 +2195,9 @@ document.addEventListener("click", async (e) => {
   if (target.classList.contains("approve-user-btn")) {
     const id = target.dataset.id;
     const role = target.dataset.role;
-    // Judge gets full approval, others need judge approval too
-    const newStatus = role === 'judge' ? 'active' : 'admin_approved';
-    await sb.from("profiles").update({ status: newStatus, approved_by_admin: true }).eq("id", id);
+    // All approved users (judge, 2nd steno, user) become active directly
+    const newStatus = 'active';
+    await sb.from("profiles").update({ status: newStatus, approved_by_admin: true, approved_by_judge: true }).eq("id", id);
     target.closest(".bg-slate-50")?.remove();
   }
   if (target.classList.contains("reject-user-btn")) {
@@ -2314,20 +2308,8 @@ $("registerBtn").addEventListener("click", async () => {
 
     const { data: existingAdmins } = await sb.from("profiles").select("id").eq("is_admin", true).limit(1);
     const isFirstAdmin = regSelectedRole === 'steno' && (!existingAdmins || existingAdmins.length === 0);
-    const { data: stenoProfile } = stenoEmail ? await sb.from("profiles").select("id").eq("email", stenoEmail).single().catch(() => ({ data: null })) : { data: null };
 
-    let status = 'pending';
-    let needsJudgeApproval = false;
-
-    if (isFirstAdmin) {
-      status = 'active';
-    } else if (regSelectedRole === 'judge') {
-      status = 'pending';
-    } else {
-      // 2nd steno or user - needs admin + judge approval
-      status = 'pending';
-      needsJudgeApproval = true;
-    }
+    const status = isFirstAdmin ? 'active' : 'pending';
 
     const profileData = {
       id: data.user.id, full_name: name, role: regSelectedRole,
@@ -2335,19 +2317,15 @@ $("registerBtn").addEventListener("click", async () => {
       status: status, is_admin: isFirstAdmin || false,
       steno_email: stenoEmail || null,
       judge_id: null,
-      approved_by_admin: false, approved_by_judge: false
+      approved_by_admin: isFirstAdmin || false, approved_by_judge: true
     };
-    if (needsJudgeApproval && stenoProfile) {
-      profileData.judge_id = null; // will be set when judge approves
-    }
 
     const { error: profileError } = await sb.from("profiles").insert(profileData);
     if (profileError) throw profileError;
 
     let msg = "✅ Register ho gaya! Admin approval ka wait karein.";
     if (isFirstAdmin) msg = "✅ Admin register ho gaya! Ab login karein.";
-    else if (regSelectedRole === 'judge') msg = "✅ Register ho gaya! Steno (admin) approval ka wait karein. Phir judge role accept karna hoga.";
-    else msg = "✅ Register ho gaya! Pehle steno admin approve karein, phir judge approve kare ga.";
+    else msg = "✅ Register ho gaya! Steno admin approval ka wait karein.";
     $("regSuccess").textContent = msg;
     $("regSuccess").classList.remove("hidden");
     $("loginError").classList.add("hidden");
