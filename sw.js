@@ -7,7 +7,8 @@ self.addEventListener('install', event => {
         './index.html',
         './manifest.json',
         './icon.svg',
-        './supabase.js'
+        './styles.css',
+        './app.js'
       ]);
     }).then(() => self.skipWaiting())
   );
