@@ -47,7 +47,7 @@ async function checkExistingSession() {
 $("loginBtn").addEventListener("click", async () => {
   const email = $("loginEmail").value.trim();
   const password = $("loginPassword").value;
-  if (!email || !password) { showLoginError("Email aur password dono bharain."); return; }
+  if (!email || !password) { showLoginError("Please enter your email and password."); return; }
 
   $("loginBtn").disabled = true;
   $("spin-login").classList.remove("hidden");
@@ -71,18 +71,18 @@ function showLoginError(msg) {
 async function onLoginSuccess(user) {
   const { data: profile, error } = await sb.from("profiles").select("*").eq("id", user.id).maybeSingle();
   if (error || !profile) {
-    showLoginError("Profile nahi mila. Pehle profiles table mein apna UUID add karein.");
+    showLoginError("Profile not found. Please contact your court admin.");
     await sb.auth.signOut();
     return;
   }
   if (profile.status === 'pending') {
-    showLoginError("⏳ Account pending hai. Approval ka wait karein.");
+    showLoginError("⏳ Your account is pending. Please wait for approval.");
     await sb.auth.signOut();
     return;
   }
 
   if (profile.status === 'rejected') {
-    showLoginError("❌ Account reject kar diya gaya hai.");
+    showLoginError("❌ Your account has been rejected.");
     await sb.auth.signOut();
     return;
   }
@@ -185,10 +185,10 @@ async function loadAdminPanel() {
   const rejectBtn = (u) => `<button class="user-status-btn btn btn-danger-soft btn-sm" data-id="${u.id}" data-status="rejected">❌ Reject</button>`;
 
   list.innerHTML =
-    `<h4 class="section-title">⏳ Approval ka wait (${pending.length})</h4>` +
+    `<h4 class="section-title">⏳ Waiting for approval (${pending.length})</h4>` +
     (pending.length
       ? pending.map(u => renderUserRow(u, approveBtn(u) + rejectBtn(u))).join("")
-      : `<p class="empty">Koi pending user nahi hai.</p>`) +
+      : `<p class="empty">No users are waiting for approval.</p>`) +
     (rejected.length
       ? `<h4 class="section-title mt-5">❌ Rejected (${rejected.length})</h4>` +
         rejected.map(u => renderUserRow(u, approveBtn(u))).join("")
@@ -204,15 +204,15 @@ $("pendingUsersList").addEventListener("click", async (e) => {
   const btn = e.target.closest(".user-status-btn");
   if (!btn) return;
   const status = btn.dataset.status;
-  if (status === "rejected" && !confirm("Is user ko reject karna hai?")) return;
+  if (status === "rejected" && !confirm("Reject this user?")) return;
   btn.disabled = true;
   const { error } = await sb.from("profiles").update({ status }).eq("id", btn.dataset.id);
   if (error) {
     btn.disabled = false;
-    showToast("Update fail: " + error.message, "error");
+    showToast("Update failed: " + error.message, "error");
     return;
   }
-  showToast(status === "active" ? "User approve ho gaya!" : "User reject ho gaya.", "success");
+  showToast(status === "active" ? "User approved." : "User rejected.", "success");
   await loadAdminPanel();
   await refreshPendingBadge();
 });
@@ -232,7 +232,7 @@ $("toggleAuthBtn").addEventListener("click", () => {
 
   loginForm.classList.toggle("hidden", isLogin);
   regForm.classList.toggle("hidden", !isLogin);
-  toggleBtn.textContent = isLogin ? "← Login" : "📝 Register karein";
+  toggleBtn.textContent = isLogin ? "← Back to login" : "📝 Create an account";
   $("loginError").classList.add("hidden");
   $("regSuccess").classList.add("hidden");
   regSelectedRole = null;
@@ -254,10 +254,10 @@ $("registerBtn").addEventListener("click", async () => {
   const email = $("regEmail").value.trim();
   const password = $("regPassword").value;
   const courtName = $("regCourtName").value.trim();
-  if (!name || !email || !password) { showLoginError("Name, email aur password bharain."); return; }
-  if (!regSelectedRole) { showLoginError("Role select karein."); return; }
-  if (password.length < 8) { showLoginError("Password kam az kam 8 characters ka hona chahiye."); return; }
-  if (!courtName) { showLoginError("Court name bharain."); return; }
+  if (!name || !email || !password) { showLoginError("Please enter your name, email and password."); return; }
+  if (!regSelectedRole) { showLoginError("Please select a role."); return; }
+  if (password.length < 8) { showLoginError("Password must be at least 8 characters."); return; }
+  if (!courtName) { showLoginError("Please enter the court name."); return; }
 
   $("registerBtn").disabled = true;
   $("spin-register").classList.remove("hidden");
@@ -276,18 +276,18 @@ $("registerBtn").addEventListener("click", async () => {
       }
     });
     if (error) throw error;
-    if (!data.user) throw new Error("Signup fail - user nahi mila");
+    if (!data.user) throw new Error("Sign-up failed — no user returned");
     // signUp may auto-login; the account still has to be approved first
     if (data.session) await sb.auth.signOut();
 
-    $("regSuccess").textContent = (data.session ? "✅ Register ho gaya! " : "✅ Register ho gaya! Pehle apni email confirm karein. ")
-      + "Agar aap apni court ke pehle user hain to aap court admin hain — seedha login karein. Warna court admin ki approval ka wait karein.";
+    $("regSuccess").textContent = (data.session ? "✅ Account created. " : "✅ Account created. Please confirm your email first. ")
+      + "If you are the first user of your court you are its admin and can log in now; otherwise wait for your court admin to approve you.";
     $("regSuccess").classList.remove("hidden");
     $("loginError").classList.add("hidden");
 
     $("loginForm").classList.remove("hidden");
     $("registerForm").classList.add("hidden");
-    $("toggleAuthBtn").textContent = "📝 Register karein";
+    $("toggleAuthBtn").textContent = "📝 Create an account";
     $("loginEmail").value = email;
     $("loginPassword").value = "";
   } catch (err) {
@@ -356,7 +356,7 @@ async function loadDashboardCounts() {
               <p class="item-title">${escapeHtml(caseName)}</p>
               <p class="text-sm mt-1">💬 "${escapeHtml(c.review_comment)}"</p>
               <div class="item-actions">
-                <button class="fix-case-btn btn btn-warning btn-sm" data-id="${c.id}">🛠️ Draft theek karein</button>
+                <button class="fix-case-btn btn btn-warning btn-sm" data-id="${c.id}">🛠️ Fix draft</button>
                 <button class="dismiss-feedback-btn btn btn-ghost btn-sm" data-id="${c.id}">✕ Dismiss</button>
               </div>
             </div>
@@ -370,7 +370,7 @@ async function loadDashboardCounts() {
         
         $("feedbackList").querySelectorAll(".dismiss-feedback-btn").forEach(btn => {
           btn.onclick = async () => {
-            if (!confirm("Kya aap feedback ko clear karna chahte hain?")) return;
+            if (!confirm("Dismiss this feedback?")) return;
             await sb.from("cases").update({ review_comment: null }).eq("id", btn.dataset.id);
             await loadDashboardCounts();
           };
@@ -408,7 +408,7 @@ async function openCaseList(status) {
   const nameOf = Object.fromEntries((people || []).map(p => [p.id, p.full_name]));
 
   if (error || !cases || cases.length === 0) {
-    container.innerHTML = `<p class="empty">${error ? escapeHtml(error.message) : "Koi case nahi mila."}</p>`;
+    container.innerHTML = `<p class="empty">${error ? escapeHtml(error.message) : "No cases found."}</p>`;
     return;
   }
 
@@ -454,16 +454,16 @@ async function openCaseList(status) {
       saveCaseAsTemplate(target.dataset.id);
     } else if (target.classList.contains("delete-case-btn")) {
       e.stopPropagation();
-      if (!confirm("Is case ko delete karna hai?")) return;
+      if (!confirm("Delete this case?")) return;
       const { error } = await sb.from("cases").delete().eq("id", target.dataset.id);
-      if (error) { showToast("Delete fail: " + error.message, "error"); return; }
+      if (error) { showToast("Delete failed: " + error.message, "error"); return; }
       await loadDashboardCounts();
       openCaseList(status);
     } else if (target.classList.contains("review-approve-btn")) {
       e.stopPropagation();
       const c = cases.find(x => String(x.id) === target.dataset.id);
-      if (!c?.judgement_output?.trim()) { showToast("Is case ka judgement draft khali hai.", "error"); return; }
-      if (!confirm("Is case ko approve aur finalize karein?")) return;
+      if (!c?.judgement_output?.trim()) { showToast("This case has no judgement draft.", "error"); return; }
+      if (!confirm("Approve and finalize this case?")) return;
       target.disabled = true;
       try {
         await finalizeCaseById(c.id, c.judgement_output);
@@ -475,10 +475,10 @@ async function openCaseList(status) {
       openCaseList(status);
     } else if (target.classList.contains("review-sendback-btn")) {
       e.stopPropagation();
-      const comment = prompt("Send back ka karan likhein (comment):");
+      const comment = prompt("Reason for sending back (comment):");
       if (!comment?.trim()) return;
       const { error } = await sb.from("cases").update({ status: 'pending', current_step: 5, review_comment: comment.trim() }).eq("id", target.dataset.id);
-      if (error) showToast("Send back fail: " + error.message, "error");
+      if (error) showToast("Send back failed: " + error.message, "error");
       await loadDashboardCounts();
       openCaseList(status);
     }
@@ -504,7 +504,7 @@ document.querySelectorAll(".case-type-btn").forEach(btn => {
 });
 
 $("startCaseBtn").addEventListener("click", async () => {
-  if (!selectedCaseType) { showToast("Contested ya Ex-parte select karein.", "error"); return; }
+  if (!selectedCaseType) { showToast("Please select Contested or Ex-parte.", "error"); return; }
   const category = $("newCaseCategory").value;
   const { data, error } = await sb.from("cases").insert({
     category, case_type: selectedCaseType, status: "pending",
@@ -526,20 +526,20 @@ const DEFAULT_MODELS = { claude: "claude-opus-5-5", gemini: "gemini-2.5-flash", 
 // Every entry is a real, distinct model. The DEFAULT_MODELS entry is marked "(Default)".
 const MODEL_OPTIONS = {
   claude: [
-    { value: "claude-opus-5-5", label: "Opus 5.5 — Behtareen quality, mehnga" },
-    { value: "claude-sonnet-5-5", label: "Sonnet 5.5 — Achhi quality, Opus se aadha kharcha" },
-    { value: "claude-haiku-4-5", label: "Haiku 4.5 — Tez, sab se sasta" },
-    { value: "claude-fable-5-1", label: "Fable 5.1 — Sab se taqatwar, bohat mehnga" }
+    { value: "claude-opus-5-5", label: "Opus 5.5 — Best quality, expensive" },
+    { value: "claude-sonnet-5-5", label: "Sonnet 5.5 — Good quality, half the cost of Opus" },
+    { value: "claude-haiku-4-5", label: "Haiku 4.5 — Fast, cheapest" },
+    { value: "claude-fable-5-1", label: "Fable 5.1 — Most capable, very expensive" }
   ],
   gemini: [
-    { value: "gemini-2.5-flash", label: "Flash 2.5 — Tez, sasta" },
-    { value: "gemini-2.5-pro", label: "Pro 2.5 — Behtareen quality, mehnga" }
+    { value: "gemini-2.5-flash", label: "Flash 2.5 — Fast, cheap" },
+    { value: "gemini-2.5-pro", label: "Pro 2.5 — Best quality, expensive" }
   ],
   openai: [
-    { value: "gpt-5.5-instant", label: "GPT-5.5 Instant — Achha, darmiyana kharcha" },
-    { value: "gpt-5.5", label: "GPT-5.5 — Behtar, mehnga" },
-    { value: "gpt-5.5-pro", label: "GPT-5.5 Pro — Behtareen, sab se mehnga" },
-    { value: "gpt-5.4-mini", label: "GPT-5.4 Mini — Theek, sab se sasta" }
+    { value: "gpt-5.5-instant", label: "GPT-5.5 Instant — Good, moderate cost" },
+    { value: "gpt-5.5", label: "GPT-5.5 — Better, expensive" },
+    { value: "gpt-5.5-pro", label: "GPT-5.5 Pro — Best, most expensive" },
+    { value: "gpt-5.4-mini", label: "GPT-5.4 Mini — OK, cheapest" }
   ]
 };
 
@@ -602,8 +602,8 @@ function showSettingsStatus(html, type = "success") {
 function updateCurrentSettingsLine() {
   const s = getSettings();
   $("currentSettingsLine").textContent = s.apiKeys.length
-    ? `Abhi use ho raha hai: ${PROVIDER_NAMES[s.provider]} · ${modelLabel(s.provider, s.model)} · ${s.apiKeys.length} key(s)`
-    : "Abhi koi API key save nahi hai.";
+    ? `Currently using: ${PROVIDER_NAMES[s.provider]} · ${modelLabel(s.provider, s.model)} · ${s.apiKeys.length} key(s)`
+    : "No API key saved yet.";
 }
 
 function getSettings() {
@@ -664,7 +664,7 @@ function getEnteredKeys() {
 $("saveSettingsBtn").addEventListener("click", () => {
   const prov = $("providerSelect").value;
   const keys = getEnteredKeys();
-  if (!keys.length) { showSettingsStatus("❌ Kam az kam ek API key zaroori hai.", "error"); return; }
+  if (!keys.length) { showSettingsStatus("❌ At least one API key is required.", "error"); return; }
   const model = $("modelInput").value;
   localStorage.setItem("ai_provider", prov);
   localStorage.setItem(`ai_api_key_${prov}`, JSON.stringify(keys));
@@ -673,13 +673,13 @@ $("saveSettingsBtn").addEventListener("click", () => {
 
   const wrongKeys = keys.map((k, i) => keyLooksWrong(prov, k) ? i + 1 : null).filter(Boolean);
   const warning = wrongKeys.length
-    ? `<br>⚠️ Key ${wrongKeys.join(", ")} ${PROVIDER_NAMES[prov]} ki key nahi lagti. "Keys Test Karein" se check kar lein.`
+    ? `<br>⚠️ Key ${wrongKeys.join(", ")} doesn't look like a ${PROVIDER_NAMES[prov]} key. Use "Test" to check it.`
     : "";
   showSettingsStatus(
-    `✅ <b>Settings save ho gayi!</b><br>Provider: <b>${PROVIDER_NAMES[prov]}</b> · Model: <b>${escapeHtml(modelLabel(prov, model))}</b> · Keys: <b>${keys.length}</b>${warning}`,
+    `✅ <b>Settings saved.</b><br>Provider: <b>${PROVIDER_NAMES[prov]}</b> · Model: <b>${escapeHtml(modelLabel(prov, model))}</b> · Keys: <b>${keys.length}</b>${warning}`,
     wrongKeys.length ? "warning" : "success"
   );
-  showToast("✅ AI settings save ho gayi", "success");
+  showToast("✅ AI settings saved", "success");
 });
 
 // Sends a tiny request with each entered key so the user knows the key + model actually work
@@ -687,22 +687,22 @@ $("testKeysBtn").addEventListener("click", async () => {
   const prov = $("providerSelect").value;
   const model = $("modelInput").value;
   const keys = getEnteredKeys();
-  if (!keys.length) { showSettingsStatus("❌ Pehle API key likhein.", "error"); return; }
+  if (!keys.length) { showSettingsStatus("❌ Please enter an API key first.", "error"); return; }
   const btn = $("testKeysBtn");
   btn.disabled = true;
-  showSettingsStatus("⏳ Keys test ho rahi hain...", "info");
+  showSettingsStatus("⏳ Testing keys...", "info");
   const lines = [];
   let allOk = true;
   for (const [i, key] of keys.entries()) {
     try {
       await requestProvider(prov, key, model, [{ text: "Reply with just: OK" }], 20);
-      lines.push(`✅ Key ${i + 1}: kaam kar rahi hai`);
+      lines.push(`✅ Key ${i + 1}: working`);
     } catch (err) {
       allOk = false;
-      const reason = err.status === 401 || err.status === 403 ? "key ghalat hai ya band hai"
-        : err.status === 429 ? "limit / balance khatam"
-        : err.status === 404 || err.status === 400 ? "ye model is key par available nahi"
-        : "connection masla";
+      const reason = err.status === 401 || err.status === 403 ? "key is wrong or disabled"
+        : err.status === 429 ? "quota / balance used up"
+        : err.status === 404 || err.status === 400 ? "this model is not available for this key"
+        : "connection problem";
       lines.push(`❌ Key ${i + 1}: ${reason}`);
     }
   }
@@ -738,7 +738,7 @@ function bindAccordion(list) {
 
 function renderGlossaryList() {
   const list = $("glossaryList");
-  if (glossaryCache.length === 0) { list.innerHTML = `<p class="empty">Abhi koi rule nahi hai.</p>`; return; }
+  if (glossaryCache.length === 0) { list.innerHTML = `<p class="empty">No rules yet.</p>`; return; }
 
   list.innerHTML = glossaryCache.map(r => `
     <div class="acc-item">
@@ -756,7 +756,7 @@ function renderGlossaryList() {
   list.querySelectorAll(".del-glossary-btn").forEach(btn => {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (!confirm("Kya aap is AI correction rule ko delete karna chahte hain?")) return;
+      if (!confirm("Delete this rule?")) return;
       await sb.from("glossary_rules").delete().eq("id", btn.dataset.id);
       await loadGlossary();
     });
@@ -777,16 +777,16 @@ function renderGlossaryList() {
 $("addGlossaryBtn").addEventListener("click", async () => {
   const term = $("glossaryTermInput").value.trim();
   const instruction = $("glossaryInstructionInput").value.trim();
-  if (!term || !instruction) { showToast("Lafz aur instruction dono bharain.", "error"); return; }
+  if (!term || !instruction) { showToast("Please enter both the term and the rule.", "error"); return; }
   
   if (editingGlossaryId) {
     await sb.from("glossary_rules").update({ term, instruction }).eq("id", editingGlossaryId);
-    showToast("Rule update ho gaya!", "success");
+    showToast("Rule updated.", "success");
     editingGlossaryId = null;
-    $("addGlossaryBtn").textContent = "+ Rule Add Karein";
+    $("addGlossaryBtn").textContent = "+ Add rule";
   } else {
     await sb.from("glossary_rules").insert({ user_id: currentProfile.id, term, instruction });
-    showToast("Rule add ho gaya!", "success");
+    showToast("Rule added.", "success");
   }
   
   $("glossaryTermInput").value = ""; $("glossaryInstructionInput").value = "";
@@ -796,7 +796,7 @@ $("addGlossaryBtn").addEventListener("click", async () => {
 function renderPresetList() {
   const directives = getDirectives();
   const list = $("presetList");
-  if (directives.length === 0) { list.innerHTML = `<p class="empty">Abhi koi preset nahi hai.</p>`; return; }
+  if (directives.length === 0) { list.innerHTML = `<p class="empty">No presets yet.</p>`; return; }
 
   list.innerHTML = directives.map((d, idx) => `
     <div class="acc-item">
@@ -814,7 +814,7 @@ function renderPresetList() {
   list.querySelectorAll(".del-preset-btn").forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
-      if (!confirm("Kya aap is preset ko delete karna chahte hain?")) return;
+      if (!confirm("Delete this preset?")) return;
       const current = getDirectives();
       current.splice(Number(btn.dataset.idx), 1);
       localStorage.setItem("ow_directives_v7", JSON.stringify(current));
@@ -839,7 +839,7 @@ function renderPresetList() {
 $("addPresetBtn").addEventListener("click", () => {
   const label = $("presetTitleInput").value.trim();
   const text = $("presetTextInput").value.trim();
-  if (!label || !text) { showToast("Preset Title aur Warning Text dono zaroori hain.", "error"); return; }
+  if (!label || !text) { showToast("Preset title and warning text are both required.", "error"); return; }
 
   const current = getDirectives();
   
@@ -847,16 +847,16 @@ $("addPresetBtn").addEventListener("click", () => {
     current[editingPresetIdx] = { label, text };
     localStorage.setItem("ow_directives_v7", JSON.stringify(current));
     editingPresetIdx = null;
-    $("addPresetBtn").textContent = "+ Preset Add Karein";
-    showToast("Preset update ho gaya!", "success");
+    $("addPresetBtn").textContent = "+ Add preset";
+    showToast("Preset updated.", "success");
   } else {
     if (current.some(d => d.label.toLowerCase() === label.toLowerCase())) {
-      showToast("Ye preset title pehle se mojood hai.", "error");
+      showToast("A preset with this title already exists.", "error");
       return;
     }
     current.push({ label, text });
     localStorage.setItem("ow_directives_v7", JSON.stringify(current));
-    showToast("Preset add ho gaya!", "success");
+    showToast("Preset added.", "success");
   }
 
   $("presetTitleInput").value = "";
@@ -916,7 +916,7 @@ function saveDictionary(dict) {
 function renderDictionaryList() {
   const dict = getDictionary();
   const list = $("dictionaryList");
-  if (dict.length === 0) { list.innerHTML = `<p class="empty">Abhi koi shortcut nahi hai.</p>`; return; }
+  if (dict.length === 0) { list.innerHTML = `<p class="empty">No shortcuts yet.</p>`; return; }
   list.innerHTML = dict.map((item, idx) => `
     <div class="row-item">
       <span><b>${escapeHtml(item.shortcut)}</b>: ${escapeHtml(item.expanded)}</span>
@@ -943,19 +943,19 @@ $("closeDictionaryBtn").addEventListener("click", () => $("dictionaryModal").cla
 $("addDictBtn").addEventListener("click", () => {
   const shortcut = $("dictShortcutInput").value.trim();
   const expanded = $("dictExpansionInput").value.trim();
-  if (!shortcut || !expanded) { showToast("Shortcut aur expansion dono zaroori hain.", "error"); return; }
+  if (!shortcut || !expanded) { showToast("Short form and full phrase are both required.", "error"); return; }
   
   const current = getDictionary();
   const existingIdx = current.findIndex(item => item.shortcut.toLowerCase() === shortcut.toLowerCase());
   
   if (existingIdx !== -1) {
-    if (confirm(`"${shortcut}" shortcut pehle se mojood hai. Kya aap iski explanation ko update karna chahte hain?`)) {
+    if (confirm(`"${shortcut}" already exists. Update its full phrase?`)) {
       current[existingIdx].expanded = expanded;
       saveDictionary(current);
       $("dictShortcutInput").value = "";
       $("dictExpansionInput").value = "";
       renderDictionaryList();
-      showToast("Shortcut update ho gaya!", "success");
+      showToast("Shortcut updated.", "success");
     }
     return;
   }
@@ -965,7 +965,7 @@ $("addDictBtn").addEventListener("click", () => {
   $("dictShortcutInput").value = "";
   $("dictExpansionInput").value = "";
   renderDictionaryList();
-  showToast("Shortcut add ho gaya!", "success");
+  showToast("Shortcut added.", "success");
 });
 
 // Auto-expand keyboard handler for all textareas (reliable on mobile virtual keyboards)
@@ -1079,7 +1079,7 @@ async function requestProvider(provider, key, model, parts, maxTokens) {
 // Tries each saved key in order; moves to the next key only on auth / quota / server errors
 async function runWithKeyFallback(parts, maxTokens) {
   const s = getSettings();
-  if (!s.apiKeys.length) throw new Error("API key set nahi hai. Settings (⚙️) mein jaa ke add karein.");
+  if (!s.apiKeys.length) throw new Error("No API key set. Add one in Menu → AI Settings.");
   const model = s.model || DEFAULT_MODELS[s.provider];
   let lastError = null;
   for (let i = 0; i < s.apiKeys.length; i++) {
@@ -1090,7 +1090,7 @@ async function runWithKeyFallback(parts, maxTokens) {
       console.warn(`AI key ${i + 1} failed:`, err);
       const retryable = !err.status || [401, 402, 403, 429].includes(err.status) || err.status >= 500;
       if (!retryable) break;
-      if (i < s.apiKeys.length - 1) showToast(`Key ${i + 1} fail hui. Fallback Key ${i + 2} try ho rahi hai...`, "warning");
+      if (i < s.apiKeys.length - 1) showToast(`Key ${i + 1} failed. Trying fallback key ${i + 2}...`, "warning");
     }
   }
   throw lastError;
@@ -1158,7 +1158,7 @@ async function saveLiveTypeNote() {
     updated_by: currentProfile?.id,
     updated_at: new Date().toISOString()
   });
-  if (error) showToast("Live note save nahi hua: " + error.message, "error");
+  if (error) showToast("Live note not saved: " + error.message, "error");
 }
 
 function closeLiveTypeEditor() {
@@ -1185,7 +1185,7 @@ $("liveTypeTextarea").addEventListener("input", () => {
 
 $("liveTypeWordBtn").addEventListener("click", () => {
   const text = $("liveTypeTextarea").value;
-  if (!text.trim()) { showToast("Pehle kuch type karein.", "error"); return; }
+  if (!text.trim()) { showToast("Type something first.", "error"); return; }
   downloadAsWord(text, "live-type.doc", "Live Type");
 });
 
@@ -1194,7 +1194,7 @@ $("liveTypeWordBtn").addEventListener("click", () => {
 // ============================================
 async function openWizardForCase(caseId) {
   const { data: caseData, error } = await sb.from("cases").select("*").eq("id", caseId).single();
-  if (error || !caseData) { showToast("Case load nahi ho saka.", "error"); return; }
+  if (error || !caseData) { showToast("Could not load the case.", "error"); return; }
   await flushAutosave();
   await stopLiveMode();
   activeCase = caseData;
@@ -1307,7 +1307,7 @@ async function saveOrUpdateCase(fields) {
     return true;
   } catch (err) {
     console.error("Save failed:", err);
-    showToast("Data save karne mein masla aya: " + err.message, "error");
+    showToast("Could not save: " + err.message, "error");
     return false;
   }
 }
@@ -1361,7 +1361,7 @@ function showWizStep(n) {
   window.scrollTo({ top: 0, behavior: "smooth" });
   $("wizBackBtn").classList.toggle("hidden", seq.indexOf(n) === 0);
   $("wizNextBtn").classList.toggle("hidden", seq.indexOf(n) === seq.length - 1);
-  // Submit for Review button - har step pe dikhe (non-judge users, case pending ho)
+  // "Send for review" is shown on every step for non-judges while the case is pending
   $("wizReviewBtn").classList.toggle("hidden", currentProfile?.role === 'judge' || activeCase?.status !== 'pending');
   if (activeCase && activeCase.current_step !== n) saveOrUpdateCase({ current_step: n });
 }
@@ -1386,12 +1386,12 @@ $("wizNextBtn").addEventListener("click", async () => {
 
 
 async function submitForReview() {
-  if (!confirm("Case review ke liye submit karein? Judge approve ya send back kar sakta hai.")) return;
+  if (!confirm("Send this case to the judge for review? The judge can approve it or send it back.")) return;
   clearTimeout(saveTimer);
   pendingAutosave = null;
   const ok = await saveOrUpdateCase({ ...getWizardFields(), status: "review" });
   if (!ok) return;
-  showToast("Case review ke liye submit ho gaya!", "success");
+  showToast("Case sent for review.", "success");
   await stopLiveMode();
   showDashboard();
 }
@@ -1578,7 +1578,7 @@ async function runOcrOnImage(wrap, previewArea, statusEl, textareaId, num) {
   const badge = wrap.querySelector(".ocr-badge");
   removeImageText(wrap, textareaEl);
   setOcrBadge(badge, "working");
-  statusEl.textContent = `⏳ Image ${num} ka text nikala ja raha hai...`;
+  statusEl.textContent = `⏳ Reading text from image ${num}...`;
   try {
     const textTrimmed = (await visionOCR(file)).trim();
     textareaEl.value = (textareaEl.value ? textareaEl.value + "\n\n" : "") + textTrimmed;
@@ -1586,7 +1586,7 @@ async function runOcrOnImage(wrap, previewArea, statusEl, textareaId, num) {
     delete wrap.dataset.skipped;
     textareaEl.dispatchEvent(new Event("input"));
     setOcrBadge(badge, "done");
-    statusEl.textContent = `✅ Image ${num} ho gayi. (Image ko dabaye rakhein: retry / replace)`;
+    statusEl.textContent = `✅ Image ${num} done. (Long-press an image to retry or replace it.)`;
   } catch (err) {
     setOcrBadge(badge, "failed");
     statusEl.textContent = `❌ Image ${num}: ${err.message}`;
@@ -1595,7 +1595,7 @@ async function runOcrOnImage(wrap, previewArea, statusEl, textareaId, num) {
 
 async function processImages(fileList, previewArea, statusEl, textareaId) {
   const files = Array.from(fileList).filter(f => f.type === "image/jpeg" || f.type === "image/png");
-  if (files.length === 0) { showToast("Sirf JPG/PNG support hain.", "error"); return; }
+  if (files.length === 0) { showToast("Only JPG and PNG images are supported.", "error"); return; }
   // Step 1: user edits all images in the photo editor, then presses Upload
   const editedFiles = await new Promise(resolve => openBatchEditor(files, resolve));
   if (!editedFiles || !editedFiles.length) return;
@@ -1654,7 +1654,7 @@ const FILTER_PRESETS = {
 
 function openBatchEditor(fileList, callback) {
   const files = Array.from(fileList).filter(f => f.type === "image/jpeg" || f.type === "image/png");
-  if (!files.length) { showToast("Sirf JPG/PNG support hain.", "error"); return; }
+  if (!files.length) { showToast("Only JPG and PNG images are supported.", "error"); return; }
   batchState = {
     files,
     edits: files.map(() => ({ rotation: 0, filter: 'original' })),
@@ -1866,9 +1866,9 @@ function doApplyCrop() {
   const h = Math.min(parseFloat(win.style.height) || ch, dr.h);
   const selL = Math.max(0, l), selT = Math.max(0, t);
   const selW = Math.min(w, dr.w - selL), selH = Math.min(h, dr.h - selT);
-  if (selW < 20 || selH < 20) { showToast("Selection bahut chhota", "error"); return; }
+  if (selW < 20 || selH < 20) { showToast("Selection is too small", "error"); return; }
   const iw = img.naturalWidth, ih = img.naturalHeight;
-  if (!iw || !ih) { showToast("Image load nahi hui", "error"); return; }
+  if (!iw || !ih) { showToast("Image did not load", "error"); return; }
   const rot = state.edits[state.currentIndex].rotation || 0;
   const isRot = (rot / 90) % 2 !== 0;
   const fullCanvas = document.createElement("canvas");
@@ -1984,7 +1984,7 @@ async function applyBatchEdits(file, edit) {
   if (!edit.rotation && edit.filter === 'original') return file;
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onerror = () => reject(new Error("Image corrupt ya invalid hai"));
+    img.onerror = () => reject(new Error("The image is corrupt or invalid"));
     img.onload = () => {
       try {
         let w = img.naturalWidth, h = img.naturalHeight;
@@ -2024,7 +2024,7 @@ function setBtnLoading(btnId, spinId, isLoading, targetTextareaId = null) {
 
 $("extractFactsBtn").addEventListener("click", async () => {
   const inputText = $("plaintText").value.trim();
-  if (!inputText) { showToast("Plaint text khali hai.", "error"); return; }
+  if (!inputText) { showToast("The plaint text is empty.", "error"); return; }
 
   const prompt = `TASK:
 You are a senior Pakistani court legal translator. Convert the given Urdu/Roman Urdu plaint into formal legal English, suitable for use in a court judgment. This is a translation task — preserve every substantive line of the plaint in legal English, maintaining the same sequence and paragraph flow as the original.
@@ -2124,7 +2124,7 @@ Provide ONLY the structured output as described. No explanation. No preamble. No
 
 $("extractAdmitDenyBtn").addEventListener("click", async () => {
   const ws = $("wsText").value.trim(), facts = $("factsText").value.trim();
-  if (!ws || !facts) { showToast("WS aur Facts dono zaroori hain.", "error"); return; }
+  if (!ws || !facts) { showToast("Written statement and facts are both required.", "error"); return; }
 
   const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Compare the Plaint Facts and Written Statement strictly on a para-to-response basis.
 
@@ -2240,7 +2240,7 @@ Start directly with Para 1`;
 
 $("mapDisputesBtn").addEventListener("click", async () => {
   const issues = $("issuesText").value.trim();
-  if (!issues) { showToast("Issues paste/upload karein.", "error"); return; }
+  if (!issues) { showToast("Please paste or upload the issues.", "error"); return; }
   const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to map disputes issue-wise using ONLY the given Issues, Facts, and Admit/Deny data.
 
 ========================
@@ -2359,7 +2359,7 @@ No introductory or concluding sentences`;
 
 $("analyzeEvidenceBtn").addEventListener("click", async () => {
   const evidence = $("evidenceText").value.trim();
-  if (!evidence) { showToast("Evidence khali hai.", "error"); return; }
+  if (!evidence) { showToast("The evidence text is empty.", "error"); return; }
   const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to analyze evidence issue-wise using ONLY the provided Issues, Disputes, and Evidence.
 
 ========================
@@ -2466,7 +2466,7 @@ No introductory or concluding sentences`;
 
 $("generateFinalBtn").addEventListener("click", async () => {
   const shortOrder = $("shortOrder").value.trim();
-  if (!shortOrder) { showToast("Short Order zaroori hai.", "error"); return; }
+  if (!shortOrder) { showToast("The short order is required.", "error"); return; }
   const prompt = `You are a senior judge drafting a formal court judgement for Pakistani Civil and Family Courts using ONLY the provided inputs.
 
 ========================
@@ -2633,7 +2633,7 @@ async function extractTitleAndGrounds(judgement) {
 
 // Marks a case finalized with an AI-extracted title/grounds. Used by the wizard and the review list.
 async function finalizeCaseById(caseId, judgement) {
-  showToast("Title & legal grounds extract ho rahe hain...", "info");
+  showToast("Extracting title & legal grounds...", "info");
   const meta = await extractTitleAndGrounds(judgement);
   const { error } = await sb.from("cases").update({
     judgement_output: judgement,
@@ -2647,8 +2647,8 @@ async function finalizeCaseById(caseId, judgement) {
 
 async function finalizeActiveCase(btn, successMsg) {
   const judgement = $("judgementOutput").value.trim();
-  if (!judgement) { showToast("Judgement draft empty hai.", "error"); return; }
-  if (!confirm("Kya aap is draft ko finalize karna chahte hain?")) return;
+  if (!judgement) { showToast("The judgement draft is empty.", "error"); return; }
+  if (!confirm("Finalize this case?")) return;
   btn.disabled = true;
   try {
     clearTimeout(saveTimer);
@@ -2666,10 +2666,10 @@ async function finalizeActiveCase(btn, successMsg) {
 }
 
 $("wizApproveBtn").addEventListener("click", () => finalizeActiveCase($("wizApproveBtn"), "Case approved and finalized!"));
-$("finalizeBtn").addEventListener("click", () => finalizeActiveCase($("finalizeBtn"), "Case finalize ho gaya!"));
+$("finalizeBtn").addEventListener("click", () => finalizeActiveCase($("finalizeBtn"), "Case finalized."));
 
 $("wizSendBackBtn").addEventListener("click", async () => {
-  const comment = prompt("Send back karne ki wajah / correction instructions likhein:");
+  const comment = prompt("Reason for sending back / what to correct:");
   if (!comment?.trim()) return;
   clearTimeout(saveTimer);
   pendingAutosave = null;
@@ -2680,7 +2680,7 @@ $("wizSendBackBtn").addEventListener("click", async () => {
     review_comment: comment.trim()
   });
   if (!ok) return;
-  showToast("Case Steno ko send back ho gaya!", "success");
+  showToast("Case sent back to the steno.", "success");
   await stopLiveMode();
   showDashboard();
 });
@@ -2700,7 +2700,7 @@ async function sendChatMessage() {
   const instruction = $("chatInput").value.trim();
   if (!instruction) return;
   addChatBubble(instruction, true); $("chatInput").value = "";
-  addChatBubble("Soch raha hoon...", false);
+  addChatBubble("Thinking...", false);
   $("chatSendBtn").disabled = true;
   try {
     const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to update the given judgement STRICTLY according to the provided instruction.
@@ -2777,7 +2777,7 @@ No introductory or concluding sentences`;
     const refined = await callAI(prompt, 3500);
     await logAIStep("refine", instruction, refined);
     $("chatLog").lastChild.remove();
-    addChatBubble("✅ Update kar diya.", false);
+    addChatBubble("✅ Updated.", false);
     $("judgementOutput").value = refined; $("judgementOutput").dispatchEvent(new Event("input"));
   } catch (err) { $("chatLog").lastChild.remove(); addChatBubble("❌ " + err.message, false); }
   finally { $("chatSendBtn").disabled = false; }
@@ -2793,13 +2793,13 @@ async function copyText(text, btn, doneLabel = "✅ Copied!") {
     btn.textContent = doneLabel;
     setTimeout(() => btn.textContent = original, 1500);
   } catch {
-    showToast("Copy nahi ho saka. Text manually select karein.", "error");
+    showToast("Could not copy. Please select the text manually.", "error");
   }
 }
 $("copyBtn").addEventListener("click", () => copyText($("judgementOutput").value, $("copyBtn"), "Copied!"));
 $("downloadBtn").addEventListener("click", () => {
   const text = $("judgementOutput").value;
-  if (!text.trim()) { showToast("Judgement khali hai.", "error"); return; }
+  if (!text.trim()) { showToast("The judgement is empty.", "error"); return; }
   downloadAsWord(text, "judgement.doc", "Judgement");
 });
 function downloadAsWord(text, fileName, title) {
@@ -2862,7 +2862,7 @@ async function stopLiveMode() {
 }
 
 // ============================================
-// TEMPLATES + REUSE ("Template se judgement banayein")
+// TEMPLATES + REUSE ("Create judgement from template")
 // Step 1: choose a template / finalized judgement
 // Step 2: new case details (name/date/amount replacements, differences, decision)
 // Step 3: AI writes the whole judgement in one go -> review -> save as a new case
@@ -2912,7 +2912,7 @@ $("templatesList").addEventListener("click", async (e) => {
   if (del) {
     if (!confirm("Delete this template?")) return;
     const { error } = await sb.from("cases").delete().eq("id", del.dataset.id);
-    if (error) { showToast("Delete fail: " + error.message, "error"); return; }
+    if (error) { showToast("Delete failed: " + error.message, "error"); return; }
     showToast("Template deleted.", "success");
     openTemplatesScreen();
     return;
@@ -3377,9 +3377,9 @@ $("generateOrderBtn").addEventListener("click", async () => {
   let nextFor       = $("owNextPurpose").value.trim();
   const nextDateRaw = $("owNextDate").value;
 
-  if (!fixedFor)    { showToast("'Today case fixed for' field bharen.", "error"); return; }
-  if (!proceeding)  { showToast("'Today proceeding' field bharen.", "error"); return; }
-  if (!nextDateRaw) { showToast("Next date select karen.", "error"); return; }
+  if (!fixedFor)    { showToast("Please fill in 'Today the case was fixed for'.", "error"); return; }
+  if (!proceeding)  { showToast("Please fill in 'Today's proceeding'.", "error"); return; }
+  if (!nextDateRaw) { showToast("Please select the next date.", "error"); return; }
 
   const nextDateFormatted = nextDateRaw.split("-").reverse().join("-");
   const todayFormatted = new Date().toLocaleDateString("en-GB").replaceAll("/", "-");
@@ -3453,7 +3453,7 @@ ${selectedDirective ? `13. MANDATORY CLAUSE: You MUST adapt and integrate this w
     $("owOutputSection").classList.remove("hidden");
     $("owOutput").scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch (err) {
-    showToast("Order generate nahi ho saka: " + err.message, "error");
+    showToast("Could not generate the order: " + err.message, "error");
   } finally {
     $("generateOrderBtn").disabled = false;
     $("spin-order").classList.add("hidden");
@@ -3464,7 +3464,7 @@ $("owCopyBtn").addEventListener("click", () => copyText($("owOutput").value, $("
 
 async function sendOrderToSteno(btn, keyPrefix, label) {
   const text = $("owOutput").value.trim();
-  if (!text) { showToast("Pehle order generate karein.", "error"); return; }
+  if (!text) { showToast("Generate the order first.", "error"); return; }
   btn.disabled = true;
   try {
     const now = new Date().toISOString();
@@ -3479,7 +3479,7 @@ async function sendOrderToSteno(btn, keyPrefix, label) {
       updated_at: now
     });
     if (error) throw error;
-    showToast(`Order ${label} ko send ho gaya!`, "success");
+    showToast(`Order sent to ${label}.`, "success");
   } catch (e) {
     showToast("Send error: " + e.message, "error");
   } finally {
@@ -3511,7 +3511,7 @@ async function refreshInboxList() {
     if (error) throw error;
     
     if (!data || data.length === 0) {
-      listContainer.innerHTML = `<p class="empty">Koi order nahi aaya.</p>`;
+      listContainer.innerHTML = `<p class="empty">No orders received.</p>`;
       return;
     }
     
@@ -3542,14 +3542,14 @@ async function refreshInboxList() {
           <pre>${escapeHtml(order.order_text)}</pre>
           <div class="btn-row">
             <button class="inbox-copy-btn btn btn-soft btn-sm" data-id="${escapeHtml(order.id)}">📋 Copy</button>
-            <button class="inbox-load-btn btn btn-dark btn-sm" data-id="${escapeHtml(order.id)}">📥 Editor mein load karein</button>
+            <button class="inbox-load-btn btn btn-dark btn-sm" data-id="${escapeHtml(order.id)}">📥 Load into editor</button>
           </div>
         </div>`;
     }).join("");
     
     listContainer.querySelectorAll(".inbox-del-btn").forEach(btn => {
       btn.onclick = async () => {
-        if (!confirm("Is shared order ko inbox se clear kar dein?")) return;
+        if (!confirm("Remove this order from the inbox?")) return;
         await sb.from("live_notes").delete().eq("id", btn.dataset.id);
         await refreshInboxList();
         showToast("Shared order cleared.", "success");
@@ -3572,7 +3572,7 @@ async function refreshInboxList() {
     });
     
   } catch (e) {
-    listContainer.innerHTML = `<p class="empty text-red-600">Inbox load nahi hua: ${escapeHtml(e.message)}</p>`;
+    listContainer.innerHTML = `<p class="empty text-red-600">Could not load the inbox: ${escapeHtml(e.message)}</p>`;
   }
 }
 
@@ -3583,7 +3583,7 @@ $("owInboxModal").addEventListener("click", (e) => {
 });
 
 $("owInboxClearAllBtn").onclick = async () => {
-  if (!confirm("Kya aap sach me is inbox ke saare orders delete karna chahte hain?")) return;
+  if (!confirm("Delete all orders in this inbox?")) return;
   try {
     const { error } = await sb.from("live_notes").delete().like("id", `${activeInboxKey}-%`);
     if (error) throw error;

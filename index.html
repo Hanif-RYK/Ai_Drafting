@@ -7,8 +7,8 @@
 <meta name="theme-color" content="#2563eb" />
 <title>AI Drafting System</title>
 <!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever app.js / CSS change. -->
-<link rel="stylesheet" href="tailwind.css?v=2026093003" />
-<link rel="stylesheet" href="styles.css?v=2026093003" />
+<link rel="stylesheet" href="tailwind.css?v=2026093004" />
+<link rel="stylesheet" href="styles.css?v=2026093004" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="icon.svg" />
@@ -21,7 +21,7 @@
   <div class="card auth-card">
     <div class="auth-logo">AI</div>
     <h1 class="auth-title">AI Drafting System</h1>
-    <p class="auth-subtitle">Court Stenographers &amp; Judges ke liye</p>
+    <p class="auth-subtitle">For court stenographers &amp; judges</p>
 
     <form id="loginForm" onsubmit="return false">
       <div class="field">
@@ -43,7 +43,7 @@
     <form id="registerForm" class="hidden" onsubmit="return false">
       <div class="field">
         <label class="label" for="regName">Full Name</label>
-        <input type="text" id="regName" autocomplete="name" placeholder="Aap ka naam" />
+        <input type="text" id="regName" autocomplete="name" placeholder="Your name" />
       </div>
       <div class="field">
         <label class="label" for="regEmail">Email</label>
@@ -52,7 +52,7 @@
       <div class="field">
         <label class="label" for="regPassword">Password</label>
         <div class="input-with-btn">
-          <input type="password" id="regPassword" autocomplete="new-password" placeholder="Kam az kam 8 characters" />
+          <input type="password" id="regPassword" autocomplete="new-password" placeholder="At least 8 characters" />
           <button type="button" class="pw-toggle" data-target="regPassword">Show</button>
         </div>
       </div>
@@ -67,7 +67,7 @@
       <div id="regExtraFields" class="field hidden">
         <label class="label" for="regCourtName">Court Name</label>
         <input type="text" id="regCourtName" placeholder="e.g. District Court Lahore" />
-        <p class="hint">Judge aur steno bilkul same court name likhein — isi se aap ke cases share hotay hain.</p>
+        <p class="hint">Judge and steno must type exactly the same court name — cases are shared by court.</p>
       </div>
       <button id="registerBtn" type="submit" class="btn btn-success btn-block btn-lg">
         <span class="spinner hidden" id="spin-register"></span> Register
@@ -78,7 +78,7 @@
     <p id="regSuccess" class="auth-msg success hidden" role="status"></p>
 
     <div class="auth-switch">
-      <button id="toggleAuthBtn" type="button" class="link-btn">📝 Register karein</button>
+      <button id="toggleAuthBtn" type="button" class="link-btn">📝 Create an account</button>
     </div>
   </div>
 </div>
@@ -162,11 +162,11 @@
           <input id="owCaseTitle" type="text" />
         </div>
         <div class="field">
-          <label class="label" for="owFixedFor">Aaj case kis liye fixed tha</label>
+          <label class="label" for="owFixedFor">Today the case was fixed for</label>
           <input id="owFixedFor" type="text" placeholder="e.g. evidence of plaintiff" />
         </div>
         <div class="field">
-          <label class="label" for="owProceeding">Aaj ki proceeding (kya hua)</label>
+          <label class="label" for="owProceeding">Today's proceeding (what happened)</label>
           <textarea id="owProceeding" rows="3"></textarea>
         </div>
         <div class="grid gap-x-4 sm:grid-cols-2">
@@ -180,9 +180,9 @@
           </div>
         </div>
         <div class="field">
-          <label class="label" for="owNextPurpose">Next date kis liye <span class="muted">(optional)</span></label>
+          <label class="label" for="owNextPurpose">Next date fixed for <span class="muted">(optional)</span></label>
           <input id="owNextPurpose" type="text" />
-          <p class="hint">Khaali chhorein to aaj wala purpose hi rakha jayega.</p>
+          <p class="hint">Leave empty to keep today's purpose.</p>
         </div>
 
         <button id="generateOrderBtn" class="btn btn-primary btn-block btn-lg">
@@ -221,7 +221,7 @@
       </div>
 
       <div class="card">
-        <h2 class="card-title">Naya Case</h2>
+        <h2 class="card-title">New Case</h2>
         <div class="field">
           <label class="label" for="newCaseCategory">Category</label>
           <select id="newCaseCategory">
@@ -365,10 +365,10 @@
 
         <div id="chatSection" class="hidden wiz-output">
           <hr class="divider" />
-          <h3 class="section-title">🤖 AI se changes karwayein</h3>
+          <h3 class="section-title">🤖 Ask AI to change something</h3>
           <div id="chatLog" class="chat-log"></div>
           <div class="chat-row">
-            <input id="chatInput" type="text" placeholder="e.g. findings para chhota kar dein" />
+            <input id="chatInput" type="text" placeholder="e.g. make the findings shorter (English or Urdu)" />
             <button id="chatSendBtn" class="btn btn-primary">Send</button>
           </div>
         </div>
@@ -383,7 +383,7 @@
 
       <div class="wiz-nav">
         <button id="wizBackBtn" class="btn btn-secondary hidden">← Back</button>
-        <button id="wizReviewBtn" class="btn btn-soft hidden">📤 Review</button>
+        <button id="wizReviewBtn" class="btn btn-soft hidden">📤 Send for review</button>
         <button id="wizNextBtn" class="btn btn-primary hidden">Next →</button>
       </div>
     </section>
@@ -444,11 +444,11 @@
 
           <hr class="divider" />
           <h3 class="section-title">B. What is different in this case? <span class="muted">(optional)</span></h3>
-          <textarea id="reuseDifferences" rows="4" placeholder="e.g. The defendant appeared and filed a written statement. Nikah in 2019. One child, age 3."></textarea>
+          <textarea id="reuseDifferences" rows="4" placeholder="English or Urdu, e.g. The defendant appeared and filed a written statement. Nikah in 2019. One child, age 3."></textarea>
 
           <hr class="divider" />
           <h3 class="section-title">C. Decision / Short order</h3>
-          <textarea id="reuseDecision" rows="3" placeholder="e.g. Suit decreed. Maintenance Rs. 8000/month for plaintiff and Rs. 5000/month for minor."></textarea>
+          <textarea id="reuseDecision" rows="3" placeholder="English or Urdu, e.g. Suit decreed. Maintenance Rs. 8000/month for plaintiff and Rs. 5000/month for minor."></textarea>
         </div>
 
         <button id="reuseGenerateBtn" class="btn btn-primary btn-block btn-lg mt-4">
@@ -470,7 +470,7 @@
           <hr class="divider" />
           <h3 class="section-title">🤖 Ask AI to change something</h3>
           <div class="chat-row">
-            <input id="reuseRefineInput" type="text" placeholder="e.g. Make the findings paragraph shorter" />
+            <input id="reuseRefineInput" type="text" placeholder="e.g. Make the findings shorter (English or Urdu)" />
             <button id="reuseRefineBtn" class="btn btn-primary"><span class="spinner hidden" id="spin-reuseRefine"></span> Send</button>
           </div>
         </div>
@@ -498,7 +498,7 @@
     <button id="liveTypeWordBtn" class="btn btn-secondary btn-sm">📄 Word</button>
     <button id="liveTypeCloseBtn" class="btn btn-primary btn-sm">Close</button>
   </div>
-  <textarea id="liveTypeTextarea" class="fs-textarea" placeholder="Yahan type karein... (aap ki court ke sab log live dekh sakte hain)"></textarea>
+  <textarea id="liveTypeTextarea" class="fs-textarea" placeholder="Type here... (everyone in your court sees this live)"></textarea>
 </div>
 
 <!-- ===================== MODALS ===================== -->
@@ -510,7 +510,7 @@
     </div>
     <div id="owInboxList" class="modal-body"></div>
     <div class="modal-footer">
-      <button id="owInboxClearAllBtn" class="btn btn-danger-soft">🗑️ Sab clear karein</button>
+      <button id="owInboxClearAllBtn" class="btn btn-danger-soft">🗑️ Clear all</button>
       <button id="owInboxCloseBtn" class="btn btn-secondary">Close</button>
     </div>
   </div>
@@ -521,7 +521,7 @@
     <div class="modal-header">
       <div>
         <h3 class="modal-title" id="adminPanelTitle">🛡️ Admin Panel</h3>
-        <p class="modal-subtitle">Aap ki court ke naye users jo approval ka wait kar rahe hain.</p>
+        <p class="modal-subtitle">New users in your court waiting for approval.</p>
       </div>
       <button id="closeAdminPanelBtn" class="modal-close" aria-label="Close">✕</button>
     </div>
@@ -546,21 +546,21 @@
           <option value="gemini">Gemini (Google)</option>
           <option value="openai">OpenAI (ChatGPT)</option>
         </select>
-        <p class="hint">Jis company ki API key aap ke paas hai.</p>
+        <p class="hint">The company whose API key you have.</p>
       </div>
       <div class="field">
         <span class="label">2. API Keys</span>
         <div class="grid gap-2">
-          <input type="password" id="apiKeyInput1" placeholder="1. Primary key (zaroori)" autocomplete="off" />
+          <input type="password" id="apiKeyInput1" placeholder="1. Primary key (required)" autocomplete="off" />
           <input type="password" id="apiKeyInput2" placeholder="2. Fallback key (optional)" autocomplete="off" />
           <input type="password" id="apiKeyInput3" placeholder="3. Fallback key (optional)" autocomplete="off" />
         </div>
-        <p class="hint">Pehli key fail ho to app khud doosri / teesri try karti hai.</p>
+        <p class="hint">If the first key fails, the app automatically tries the next one.</p>
       </div>
       <div class="field">
         <label class="label" for="modelInput">3. Model</label>
         <select id="modelInput"></select>
-        <p class="hint">Taqatwar model behtar likhta hai magar mehnga hota hai.</p>
+        <p class="hint">Stronger models write better but cost more.</p>
       </div>
       <div id="settingsStatus" class="settings-status hidden" aria-live="polite"></div>
     </div>
@@ -576,7 +576,7 @@
     <div class="modal-header">
       <div>
         <h3 class="modal-title" id="glossaryTitle">📖 Glossary &amp; Presets</h3>
-        <p class="modal-subtitle">AI ke liye khaas alfaaz ke rules aur Order Writer ki warnings.</p>
+        <p class="modal-subtitle">Special terminology rules for the AI and Order Writer warnings.</p>
       </div>
       <button id="closeGlossaryBtn" class="modal-close" aria-label="Close">✕</button>
     </div>
@@ -585,19 +585,19 @@
         <h4 class="section-title">📋 AI Correction Rules</h4>
         <div id="glossaryList" class="scroll-list"></div>
         <div class="grid gap-2 mb-2">
-          <input id="glossaryTermInput" type="text" placeholder="Lafz / Term (e.g. qom)" />
+          <input id="glossaryTermInput" type="text" placeholder="Term (e.g. qom)" />
           <input id="glossaryInstructionInput" type="text" placeholder="Rule (e.g. transliterate as Caste)" />
         </div>
-        <button id="addGlossaryBtn" class="btn btn-dark btn-block">+ Rule add karein</button>
+        <button id="addGlossaryBtn" class="btn btn-dark btn-block">+ Add rule</button>
       </div>
       <div class="modal-section">
         <h4 class="section-title">📢 Order Writer Warning Presets</h4>
         <div id="presetList" class="scroll-list"></div>
         <div class="grid gap-2 mb-2">
           <input id="presetTitleInput" type="text" placeholder="Preset title (e.g. Last chance plaintiff)" />
-          <textarea id="presetTextInput" rows="3" placeholder="Warning text ({proceeding} aur {legal_reference} use kar sakte hain)"></textarea>
+          <textarea id="presetTextInput" rows="3" placeholder="Warning text (you can use {proceeding} and {legal_reference})"></textarea>
         </div>
-        <button id="addPresetBtn" class="btn btn-teal btn-block">+ Preset add karein</button>
+        <button id="addPresetBtn" class="btn btn-teal btn-block">+ Add preset</button>
       </div>
     </div>
   </div>
@@ -608,7 +608,7 @@
     <div class="modal-header">
       <div>
         <h3 class="modal-title" id="dictionaryTitle">📂 Shortcuts Dictionary</h3>
-        <p class="modal-subtitle">Short form likh kar Space / Enter dabayein, poora jumla khud aa jayega.</p>
+        <p class="modal-subtitle">Type a short form and press Space / Enter — it expands to the full phrase.</p>
       </div>
       <button id="closeDictionaryBtn" class="modal-close" aria-label="Close">✕</button>
     </div>
@@ -616,9 +616,9 @@
       <div id="dictionaryList" class="scroll-list"></div>
       <div class="grid gap-2 mb-2">
         <input id="dictShortcutInput" type="text" placeholder="Short form (e.g. cp.)" />
-        <input id="dictExpansionInput" type="text" placeholder="Poora matlab (e.g. learned counsel for the plaintiff)" />
+        <input id="dictExpansionInput" type="text" placeholder="Full phrase (e.g. learned counsel for the plaintiff)" />
       </div>
-      <button id="addDictBtn" class="btn btn-dark btn-block">+ Shortcut add karein</button>
+      <button id="addDictBtn" class="btn btn-dark btn-block">+ Add shortcut</button>
     </div>
   </div>
 </div>
@@ -706,7 +706,7 @@
   </div>
 </div>
 
-<script src="app.js?v=2026093003" defer></script>
+<script src="app.js?v=2026093004" defer></script>
 <script>
   // Safety net: never leave a blank page. If the app failed to start (e.g. an old cached
   // file after a deploy), reload once without cache; if it still fails, show the login screen.
