@@ -86,6 +86,7 @@ async function onLoginSuccess(user) {
 
   currentProfile = profile;
   $("adminPanelBtn").classList.toggle("hidden", !profile.is_admin);
+  if (profile.is_admin) refreshPendingBadge();
 
   $("loginScreen").classList.add("hidden");
   $("mainApp").classList.remove("hidden");
@@ -137,41 +138,69 @@ window.addEventListener("DOMContentLoaded", checkExistingSession);
 // ============================================
 // ADMIN PANEL
 // ============================================
-$("adminPanelBtn").addEventListener("click", async () => {
-  const { data: pending } = await sb.from("profiles").select("*").eq("status", "pending").order("created_at", { ascending: false });
+// Court admin approves / rejects users of their own court (RLS limits the list to that court)
+const ROLE_LABELS = { judge: "👨‍⚖️ Judge", steno: "📝 Steno", user: "👤 User" };
+
+async function refreshPendingBadge() {
+  const { count } = await sb.from("profiles").select("id", { count: "exact", head: true }).eq("status", "pending");
+  $("pendingBadge").textContent = count || "";
+  $("pendingBadge").classList.toggle("hidden", !count);
+}
+
+function renderUserRow(u, actions) {
+  return `
+    <div class="user-row bg-slate-50 rounded-xl p-3">
+      <p class="font-semibold text-sm">${escapeHtml(u.full_name)}</p>
+      <p class="text-xs text-slate-500">${escapeHtml(u.email || "")} · ${ROLE_LABELS[u.role] || escapeHtml(u.role)}</p>
+      <div class="flex gap-2 mt-2">${actions}</div>
+    </div>`;
+}
+
+async function loadAdminPanel() {
   const list = $("pendingUsersList");
-  if (!pending || pending.length === 0) {
-    list.innerHTML = `<p class="text-slate-400 text-sm text-center py-4">Koi pending user nahi hai.</p>`;
-  } else {
-    list.innerHTML = pending.map(u => `
-      <div class="bg-slate-50 rounded-xl p-3">
-        <p class="font-semibold text-sm">${escapeHtml(u.full_name)}</p>
-        <p class="text-xs text-slate-500">${escapeHtml(u.email || '')} · ${u.role === 'judge' ? '👨‍⚖️ Judge' : u.role === 'steno' ? '📝 Steno' : '👤 User'} · ${escapeHtml(u.court_name || '')}</p>
-        <div class="flex gap-2 mt-2">
-          <button class="approve-user-btn bg-green-600 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}">✅ Approve</button>
-          <button class="reject-user-btn bg-red-500 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}">❌ Reject</button>
-        </div>
-      </div>
-    `).join("");
-  }
+  list.innerHTML = `<p class="text-slate-400 text-sm text-center py-4">Loading...</p>`;
+  const { data, error } = await sb.from("profiles")
+    .select("id, full_name, email, role, status")
+    .in("status", ["pending", "rejected"])
+    .order("created_at", { ascending: false });
+  if (error) { list.innerHTML = `<p class="text-red-500 text-sm">${escapeHtml(error.message)}</p>`; return; }
+
+  const pending = data.filter(u => u.status === "pending");
+  const rejected = data.filter(u => u.status === "rejected");
+  const approveBtn = (u) => `<button class="user-status-btn bg-green-600 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}" data-status="active">✅ Approve</button>`;
+  const rejectBtn = (u) => `<button class="user-status-btn bg-red-500 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}" data-status="rejected">❌ Reject</button>`;
+
+  list.innerHTML =
+    `<h4 class="font-bold text-sm text-slate-700">⏳ Approval ka wait (${pending.length})</h4>` +
+    (pending.length
+      ? pending.map(u => renderUserRow(u, approveBtn(u) + rejectBtn(u))).join("")
+      : `<p class="text-slate-400 text-sm text-center py-2">Koi pending user nahi hai.</p>`) +
+    (rejected.length
+      ? `<h4 class="font-bold text-sm text-slate-700 pt-2">❌ Rejected (${rejected.length})</h4>` +
+        rejected.map(u => renderUserRow(u, approveBtn(u))).join("")
+      : "");
+}
+
+$("adminPanelBtn").addEventListener("click", async () => {
   $("adminPanelModal").classList.remove("hidden");
+  await loadAdminPanel();
 });
 
-document.addEventListener("click", async (e) => {
-  const btn = e.target.closest(".approve-user-btn, .reject-user-btn");
+$("pendingUsersList").addEventListener("click", async (e) => {
+  const btn = e.target.closest(".user-status-btn");
   if (!btn) return;
-  const isApprove = btn.classList.contains("approve-user-btn");
-  const update = isApprove
-    ? { status: "active", approved_by_admin: true, approved_by_judge: true }
-    : { status: "rejected" };
+  const status = btn.dataset.status;
+  if (status === "rejected" && !confirm("Is user ko reject karna hai?")) return;
   btn.disabled = true;
-  const { error } = await sb.from("profiles").update(update).eq("id", btn.dataset.id);
+  const { error } = await sb.from("profiles").update({ status }).eq("id", btn.dataset.id);
   if (error) {
     btn.disabled = false;
     showToast("Update fail: " + error.message, "error");
     return;
   }
-  btn.closest(".bg-slate-50")?.remove();
+  showToast(status === "active" ? "User approve ho gaya!" : "User reject ho gaya.", "success");
+  await loadAdminPanel();
+  await refreshPendingBadge();
 });
 
 $("closeAdminPanelBtn").addEventListener("click", () => $("adminPanelModal").classList.add("hidden"));
@@ -203,9 +232,6 @@ document.querySelectorAll(".reg-role-btn").forEach(btn => {
     document.querySelectorAll(".reg-role-btn").forEach(b => b.classList.toggle("active", b === btn));
 
     $("regExtraFields").classList.remove("hidden");
-    $("regStenoEmailRow").classList.toggle("hidden", btn.dataset.role === "steno");
-    $("regExtraFields").querySelector("label").textContent =
-      btn.dataset.role === "steno" ? "Court Name" : "Court Name (apne steno se poochein)";
   });
 });
 
@@ -214,12 +240,10 @@ $("registerBtn").addEventListener("click", async () => {
   const email = $("regEmail").value.trim();
   const password = $("regPassword").value;
   const courtName = $("regCourtName").value.trim();
-  const stenoEmail = $("regStenoEmail").value.trim();
   if (!name || !email || !password) { showLoginError("Name, email aur password bharain."); return; }
   if (!regSelectedRole) { showLoginError("Role select karein."); return; }
   if (password.length < 8) { showLoginError("Password kam az kam 8 characters ka hona chahiye."); return; }
   if (!courtName) { showLoginError("Court name bharain."); return; }
-  if (regSelectedRole !== 'steno' && !stenoEmail) { showLoginError("Steno ka email address bharain."); return; }
 
   $("registerBtn").disabled = true;
   $("spin-register").classList.remove("hidden");
@@ -233,8 +257,7 @@ $("registerBtn").addEventListener("click", async () => {
         data: {
           full_name: name,
           role: regSelectedRole,
-          court_name: courtName,
-          steno_email: regSelectedRole === 'steno' ? null : stenoEmail
+          court_name: courtName
         }
       }
     });
@@ -243,9 +266,8 @@ $("registerBtn").addEventListener("click", async () => {
     // signUp may auto-login; the account still has to be approved first
     if (data.session) await sb.auth.signOut();
 
-    $("regSuccess").textContent = data.session
-      ? "✅ Register ho gaya! Login karein (naye accounts ko admin approval chahiye, pehla steno khud admin banta hai)."
-      : "✅ Register ho gaya! Pehle apni email confirm karein, phir login karein.";
+    $("regSuccess").textContent = (data.session ? "✅ Register ho gaya! " : "✅ Register ho gaya! Pehle apni email confirm karein. ")
+      + "Agar aap apni court ke pehle user hain to aap court admin hain — seedha login karein. Warna court admin ki approval ka wait karein.";
     $("regSuccess").classList.remove("hidden");
     $("loginError").classList.add("hidden");
 
@@ -1196,7 +1218,8 @@ function showJudgementActions() {
   const isJudge = currentProfile?.role === 'judge';
   const status = activeCase?.status;
   $("judgeReviewActions").classList.toggle("hidden", !(isJudge && status === 'review'));
-  $("finalizeBtn").classList.toggle("hidden", !isJudge || status !== 'pending');
+  // Steno usually finalizes directly; sending to the judge for review is optional
+  $("finalizeBtn").classList.toggle("hidden", status !== 'pending');
 }
 
 function attachAutosaveListeners() {

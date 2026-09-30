@@ -69,10 +69,7 @@
         <div>
           <label class="block text-sm font-semibold mb-1">Court Name</label>
           <input type="text" id="regCourtName" class="w-full border-2 border-slate-200 rounded-xl p-3 text-base focus:border-blue-500 focus:outline-none" placeholder="e.g. District Court Lahore" />
-        </div>
-        <div id="regStenoEmailRow" class="hidden">
-          <label class="block text-sm font-semibold mb-1">Steno ka Email Address (apne steno se poochein)</label>
-          <input type="email" id="regStenoEmail" class="w-full border-2 border-slate-200 rounded-xl p-3 text-base focus:border-blue-500 focus:outline-none" placeholder="steno@court.local" />
+          <p class="text-xs text-slate-400 mt-1">Judge aur steno bilkul same court name likhein — isi se aap ke cases share hotay hain.</p>
         </div>
       </div>
 
@@ -108,7 +105,7 @@
     </div>
     <div class="flex-1 p-2 flex flex-col gap-1">
       <button id="adminPanelBtn" class="menu-item hidden">
-        🛡️ Admin Panel
+        🛡️ Admin Panel <span id="pendingBadge" class="menu-badge hidden"></span>
       </button>
       <button id="settingsBtn" class="menu-item">
         ⚙️ AI Settings
@@ -452,7 +449,7 @@
         </div>
       </div>
 
-      <button id="finalizeBtn" class="hidden w-full mt-4 btn-finalize">✅ Finalize Case (extract Title + Legal Grounds)</button>
+      <button id="finalizeBtn" class="hidden w-full mt-4 btn-finalize">✅ Finalize Case</button>
 
       <!-- Judge Direct Review Actions -->
       <div id="judgeReviewActions" class="hidden flex gap-3 mt-4">
@@ -546,7 +543,8 @@
 <!-- ===================== ADMIN PANEL MODAL ===================== -->
 <div id="adminPanelModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
   <div class="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl">
-    <h3 class="font-bold text-xl mb-4 text-slate-800">🛡️ Admin Panel</h3>
+    <h3 class="font-bold text-xl mb-1 text-slate-800">🛡️ Admin Panel</h3>
+    <p class="text-xs text-slate-400 mb-4">Aap ki court ke naye users jo approval ka wait kar rahe hain.</p>
     <div id="pendingUsersList" class="space-y-3 mb-4"></div>
     <button id="closeAdminPanelBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition">Close</button>
   </div>

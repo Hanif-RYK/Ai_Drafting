@@ -294,6 +294,17 @@
   }
   .menu-item:hover::before { opacity: 1; }
   .menu-item.logout { color: #ef4444; }
+  .menu-badge {
+    margin-left: auto;
+    min-width: 1.4rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 9999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
+  }
   .menu-item.logout::before {
     background: linear-gradient(90deg, rgba(239,68,68,0.1) 0%, rgba(239,68,68,0) 100%);
   }

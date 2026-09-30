@@ -6,11 +6,12 @@
 -- Access rules:
 --   * Only logged-in users with status = 'active' can use data.
 --   * Cases are shared inside one court only (same court_name, case/space-insensitive).
---   * Case delete: the creator or an admin (same court).
---   * Only a judge can finalize / un-finalize a case.
+--   * Case delete: the creator or the court admin.
+--   * Any active user of the court (steno or judge) can finalize a case.
 --   * Profiles are created by a server trigger (the browser can no longer set
---     is_admin / status itself). The very first steno becomes the admin.
---   * Only an admin can approve / reject users.
+--     is_admin / status itself).
+--   * The first user who registers with a new court name becomes that court's
+--     admin; everyone after that waits for the court admin's approval.
 -- =====================================================================
 
 
@@ -45,11 +46,6 @@ returns boolean language sql stable security definer set search_path = public as
   select exists (select 1 from profiles where id = auth.uid() and status = 'active' and is_admin);
 $$;
 
-create or replace function public.is_judge()
-returns boolean language sql stable security definer set search_path = public as $$
-  select exists (select 1 from profiles where id = auth.uid() and status = 'active' and role = 'judge');
-$$;
-
 -- All user ids in the caller's court. Empty if the caller is not active.
 create or replace function public.my_court_member_ids()
 returns setof uuid language sql stable security definer set search_path = public as $$
@@ -61,8 +57,8 @@ returns setof uuid language sql stable security definer set search_path = public
   );
 $$;
 
-revoke all on function public.is_active_user(), public.is_admin(), public.is_judge(), public.my_court_member_ids() from public, anon;
-grant execute on function public.is_active_user(), public.is_admin(), public.is_judge(), public.my_court_member_ids() to authenticated;
+revoke all on function public.is_active_user(), public.is_admin(), public.my_court_member_ids() from public, anon;
+grant execute on function public.is_active_user(), public.is_admin(), public.my_court_member_ids() to authenticated;
 
 
 -- ---------------------------------------------------------------------
@@ -71,31 +67,35 @@ grant execute on function public.is_active_user(), public.is_admin(), public.is_
 alter table public.profiles enable row level security;
 
 -- Create the profile on the server when a user signs up.
--- The app sends full_name / role / court_name / steno_email as signUp metadata.
+-- The app sends full_name / role / court_name as signUp metadata.
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
   meta     jsonb   := coalesce(new.raw_user_meta_data, '{}'::jsonb);
   v_role   text    := meta->>'role';
+  v_court  text    := btrim(coalesce(meta->>'court_name', ''));
   v_first  boolean;
 begin
   if v_role is null or v_role not in ('steno', 'judge', 'user') then
     v_role := 'user';
   end if;
 
-  -- Serialize so two simultaneous sign-ups can't both become the first admin
-  perform pg_advisory_xact_lock(hashtext('profiles_first_admin'));
-  select not exists (select 1 from profiles where is_admin) and v_role = 'steno' into v_first;
+  -- Serialize per court so two simultaneous sign-ups can't both become its admin
+  perform pg_advisory_xact_lock(hashtext('court_admin:' || lower(v_court)));
+  -- First (non-rejected) user of a new court becomes that court's admin
+  select v_court <> '' and not exists (
+    select 1 from profiles
+    where lower(btrim(court_name)) = lower(v_court) and status <> 'rejected'
+  ) into v_first;
 
-  insert into profiles (id, full_name, role, email, court_name, steno_email,
+  insert into profiles (id, full_name, role, email, court_name,
                         status, is_admin, approved_by_admin, approved_by_judge, judge_id)
   values (
     new.id,
     coalesce(nullif(btrim(meta->>'full_name'), ''), split_part(new.email, '@', 1)),
     v_role,
     new.email,
-    btrim(coalesce(meta->>'court_name', '')),
-    nullif(btrim(meta->>'steno_email'), ''),
+    v_court,
     case when v_first then 'active' else 'pending' end,
     v_first,
     v_first,
@@ -112,28 +112,34 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- Read: your own row (even while pending), people in your court, or everything if admin
+-- Read: your own row (even while pending) and people in your court
 create policy profiles_select on public.profiles
   for select to authenticated
   using (
     id = auth.uid()
-    or public.is_admin()
     or id in (select public.my_court_member_ids())
   );
 
--- Update: only admins (approve / reject). No insert / delete from the browser.
+-- Update: only the court admin, only for users of the same court (approve / reject).
+-- No insert / delete from the browser.
 create policy profiles_update_admin on public.profiles
   for update to authenticated
-  using (public.is_admin())
-  with check (public.is_admin());
+  using (public.is_admin() and id in (select public.my_court_member_ids()))
+  with check (public.is_admin() and id in (select public.my_court_member_ids()));
 
 -- An admin must not accidentally remove their own admin rights / lock themselves out
 create or replace function public.profiles_guard()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  if auth.uid() is not null and new.id = auth.uid()
-     and (new.is_admin is distinct from old.is_admin or new.status is distinct from old.status) then
-    raise exception 'Aap apna admin status / account status khud change nahi kar sakte';
+  if auth.uid() is not null then
+    if new.id = auth.uid()
+       and (new.is_admin is distinct from old.is_admin or new.status is distinct from old.status) then
+      raise exception 'Aap apna admin status / account status khud change nahi kar sakte';
+    end if;
+    -- Court admins approve / reject; they can't move users to another court or change roles
+    new.court_name := old.court_name;
+    new.role       := old.role;
+    new.email      := old.email;
   end if;
   new.id := old.id;
   return new;
@@ -167,11 +173,6 @@ begin
     new.created_by := auth.uid();
   else
     new.created_by := old.created_by;  -- owner can never be changed
-    if new.status is distinct from old.status
-       and (new.status = 'finalized' or old.status = 'finalized')
-       and not public.is_judge() then
-      raise exception 'Sirf judge case finalize ya un-finalize kar sakta hai';
-    end if;
   end if;
 
   new.last_updated_by := auth.uid();
@@ -182,6 +183,9 @@ drop trigger if exists cases_guard on public.cases;
 create trigger cases_guard
   before insert or update on public.cases
   for each row execute function public.cases_guard();
+
+-- No longer used (finalize is open to steno and judge)
+drop function if exists public.is_judge();
 
 create policy cases_select on public.cases
   for select to authenticated
