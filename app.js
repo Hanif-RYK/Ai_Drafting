@@ -96,6 +96,7 @@ async function onLoginSuccess(user) {
   const roleLabels = { judge: "Judge", steno: "Steno", user: "User" };
   $("menuUserName").textContent = profile.full_name;
   $("menuUserRole").textContent = roleLabels[profile.role] || profile.role;
+  await detectTemplateColumn();
   await loadGlossary();
   await loadDashboardCounts();
   showDashboard();
@@ -301,7 +302,7 @@ $("registerBtn").addEventListener("click", async () => {
 // SCREEN NAVIGATION
 // ============================================
 function hideAllScreens() {
-  ["dashboardScreen", "caseListScreen", "newCaseScreen", "wizardScreen", "reuseScreen", "reuseFormScreen", "orderWriterScreen"].forEach(id => {
+  ["dashboardScreen", "caseListScreen", "newCaseScreen", "wizardScreen", "reuseScreen", "reuseFormScreen", "templatesScreen", "orderWriterScreen"].forEach(id => {
     const el = $(id);
     if (el) el.classList.add("hidden");
   });
@@ -331,7 +332,7 @@ async function loadDashboardCounts() {
   try {
     const promises = ["pending", "review", "finalized"].map(async (status) => {
       // head:true + count avoids downloading every row just to count them
-      const { count, error } = await sb.from("cases").select("id", { count: "exact", head: true }).eq("status", status);
+      const { count, error } = await withoutTemplates(sb.from("cases").select("id", { count: "exact", head: true }).eq("status", status));
       if (!error) {
         $(`count${status.charAt(0).toUpperCase() + status.slice(1)}`).textContent = count ?? 0;
       }
@@ -401,21 +402,18 @@ async function openCaseList(status) {
   container.innerHTML = `<p class="empty">Loading...</p>`;
 
   const [{ data: cases, error }, { data: people }] = await Promise.all([
-    sb.from("cases").select("*").eq("status", status).order("updated_at", { ascending: false }),
+    withoutTemplates(sb.from("cases").select("*").eq("status", status)).order("updated_at", { ascending: false }),
     sb.from("profiles").select("id, full_name")
   ]);
   const nameOf = Object.fromEntries((people || []).map(p => [p.id, p.full_name]));
-  const templateBtnHtml = status === "finalized"
-    ? `<button class="add-template-list-btn btn btn-soft btn-block">📄 Naya template add karein</button>` : "";
 
   if (error || !cases || cases.length === 0) {
-    container.innerHTML = templateBtnHtml + `<p class="empty">${error ? escapeHtml(error.message) : "Koi case nahi mila."}</p>`;
-    container.querySelector(".add-template-list-btn")?.addEventListener("click", openTemplateModal);
+    container.innerHTML = `<p class="empty">${error ? escapeHtml(error.message) : "Koi case nahi mila."}</p>`;
     return;
   }
 
   const isJudge = currentProfile?.role === 'judge';
-  container.innerHTML = templateBtnHtml + cases.map(c => {
+  container.innerHTML = cases.map(c => {
     const typeLabel = c.case_type === "ex_parte" ? "Ex-parte" : "Contested";
     const title = c.case_title || `${c.category} Case (${typeLabel})`;
     const by = nameOf[c.created_by] ? ` · ${escapeHtml(nameOf[c.created_by])}` : "";
@@ -423,7 +421,8 @@ async function openCaseList(status) {
     const comment = c.review_comment ? `<p class="item-note">💬 ${escapeHtml(c.review_comment)}</p>` : "";
     const canDelete = c.created_by === currentProfile?.id || currentProfile?.is_admin;
     const actions = [
-      status === "finalized" ? `<button class="reuse-btn btn btn-soft btn-sm" data-id="${c.id}">📑 Reuse</button>` : "",
+      status === "finalized" ? `<button class="reuse-btn btn btn-soft btn-sm" data-id="${c.id}">✨ Is se naya case</button>` : "",
+      status === "finalized" ? `<button class="make-template-btn btn btn-secondary btn-sm" data-id="${c.id}">📚 Template banayein</button>` : "",
       status === "review" && isJudge ? `<button class="review-approve-btn btn btn-success btn-sm" data-id="${c.id}">✅ Approve</button>` : "",
       status === "review" && isJudge ? `<button class="review-sendback-btn btn btn-warning btn-sm" data-id="${c.id}">↩️ Send Back</button>` : ""
     ].join("");
@@ -441,7 +440,6 @@ async function openCaseList(status) {
       </div>`;
   }).join("");
 
-  container.querySelector(".add-template-list-btn")?.addEventListener("click", openTemplateModal);
   container.onclick = async (e) => {
     const target = e.target.closest("[data-id]");
     if (!target) return;
@@ -451,6 +449,9 @@ async function openCaseList(status) {
     } else if (target.classList.contains("reuse-btn")) {
       e.stopPropagation();
       openReuseFlow(target.dataset.id);
+    } else if (target.classList.contains("make-template-btn")) {
+      e.stopPropagation();
+      saveCaseAsTemplate(target.dataset.id);
     } else if (target.classList.contains("delete-case-btn")) {
       e.stopPropagation();
       if (!confirm("Is case ko delete karna hai?")) return;
@@ -513,11 +514,7 @@ $("startCaseBtn").addEventListener("click", async () => {
   openWizardForCase(data.id);
 });
 
-$("goToReuseBtn").addEventListener("click", () => {
-  hideAllScreens();
-  $("reuseScreen").classList.remove("hidden");
-  loadFinalizedForReuseSelection();
-});
+
 
 // (Placeholder functions removed — real implementations are below)
 
@@ -2865,419 +2862,343 @@ async function stopLiveMode() {
 }
 
 // ============================================
-// REUSE FLOW
+// TEMPLATES + REUSE ("Template se judgement banayein")
+// Step 1: choose a template / finalized judgement
+// Step 2: new case details (name/date/amount replacements, differences, decision)
+// Step 3: AI writes the whole judgement in one go -> review -> save as a new case
 // ============================================
-$("backFromReuseListBtn").addEventListener("click", showDashboard);
-$("backFromReuseFormBtn").addEventListener("click", () => { hideAllScreens(); $("reuseScreen").classList.remove("hidden"); });
 
-async function loadFinalizedForReuseSelection() {
-  const { data: cases } = await sb.from("cases").select("*").eq("status", "finalized").order("updated_at", { ascending: false });
-  const container = $("reuseListContainer");
-  if (!cases || cases.length === 0) { container.innerHTML = `<p class="empty">Koi finalized judgement nahi mili.</p>`; return; }
-  container.innerHTML = cases.map(c => `
-    <div class="item clickable reuse-select" data-id="${c.id}" role="button" tabindex="0">
-      <p class="item-title">${escapeHtml(c.case_title || c.category + " Case")}</p>
-      <p class="item-meta">${escapeHtml(c.category)}${c.legal_grounds ? " · " + escapeHtml(c.legal_grounds) : ""}</p>
-    </div>`).join("");
-  document.querySelectorAll(".reuse-select").forEach(el => {
-    el.addEventListener("click", () => openReuseFlow(el.dataset.id));
-    el.addEventListener("keydown", (e) => { if (e.key === "Enter") openReuseFlow(el.dataset.id); });
-  });
+// Templates live in `cases` with is_template = true (see supabase/migration_002_templates.sql).
+// Until that SQL is run the column doesn't exist, so everything falls back to the old behaviour.
+let hasTemplateColumn = true;
+async function detectTemplateColumn() {
+  const { error } = await sb.from("cases").select("is_template").limit(1);
+  hasTemplateColumn = !error;
+}
+// Excludes templates from normal case lists / counts
+function withoutTemplates(query) {
+  return hasTemplateColumn ? query.eq("is_template", false) : query;
 }
 
+// ---------- Templates screen ----------
+$("templatesMenuBtn").addEventListener("click", openTemplatesScreen);
+$("backFromTemplatesBtn").addEventListener("click", showDashboard);
+$("addTemplateBtn").addEventListener("click", openTemplateModal);
+
+async function openTemplatesScreen() {
+  hideAllScreens();
+  $("templatesScreen").classList.remove("hidden");
+  const list = $("templatesList");
+  if (!hasTemplateColumn) {
+    list.innerHTML = `<p class="notice notice-warning">Templates ke liye Supabase mein <b>supabase/migration_002_templates.sql</b> chalayein.</p>`;
+    return;
+  }
+  list.innerHTML = `<p class="empty">Loading...</p>`;
+  const { data, error } = await sb.from("cases").select("id, case_title, category, case_type, legal_grounds, judgement_output, created_by")
+    .eq("is_template", true).order("updated_at", { ascending: false });
+  if (error) { list.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`; return; }
+  if (!data.length) {
+    list.innerHTML = `<p class="empty">Abhi koi template nahi. "+ Naya template" se purani judgement paste karein, ya Finalized list mein kisi case par "📚 Template banayein" dabayein.</p>`;
+    return;
+  }
+  list.innerHTML = data.map(t => renderSourceCard(t, {
+    extra: (t.created_by === currentProfile?.id || currentProfile?.is_admin)
+      ? `<button class="tpl-delete-btn btn btn-danger-soft btn-sm" data-id="${t.id}">🗑️ Delete</button>` : ""
+  })).join("");
+}
+
+$("templatesList").addEventListener("click", async (e) => {
+  const del = e.target.closest(".tpl-delete-btn");
+  if (del) {
+    if (!confirm("Ye template delete karna hai?")) return;
+    const { error } = await sb.from("cases").delete().eq("id", del.dataset.id);
+    if (error) { showToast("Delete fail: " + error.message, "error"); return; }
+    showToast("Template delete ho gaya.", "success");
+    openTemplatesScreen();
+    return;
+  }
+  handleSourceCardClick(e);
+});
+
+// Copies a finalized case into a new template (the original case stays in Finalized)
+async function saveCaseAsTemplate(caseId) {
+  if (!hasTemplateColumn) { showToast("Pehle Supabase mein migration_002_templates.sql chalayein.", "error"); return; }
+  const { data: c, error } = await sb.from("cases").select("*").eq("id", caseId).single();
+  if (error || !c?.judgement_output) { showToast("Is case ki judgement khali hai.", "error"); return; }
+  const title = prompt("Template ka naam:", c.case_title || `${c.category} template`);
+  if (!title?.trim()) return;
+  const { error: insErr } = await sb.from("cases").insert({
+    category: c.category, case_type: c.case_type, case_title: title.trim(),
+    legal_grounds: c.legal_grounds, judgement_output: c.judgement_output,
+    status: "finalized", is_template: true, current_step: 5,
+    created_by: currentProfile.id, last_updated_by: currentProfile.id
+  });
+  if (insErr) { showToast("Template save nahi hua: " + insErr.message, "error"); return; }
+  showToast("📚 Template ban gaya! Menu → Templates mein dekhein.", "success");
+}
+
+// ---------- Shared card for templates / finalized judgements ----------
+function renderSourceCard(c, { extra = "" } = {}) {
+  const typeLabel = c.case_type === "ex_parte" ? "Ex-parte" : "Contested";
+  const badge = c.is_template ? `<span class="pill pill-blue">Template</span> ` : "";
+  const preview = (c.judgement_output || "").slice(0, 1500);
+  return `
+    <div class="item" data-source-id="${c.id}">
+      <p class="item-title">${badge}${escapeHtml(c.case_title || c.category + " Case")}</p>
+      <p class="item-meta">${escapeHtml(c.category)} · ${typeLabel}${c.legal_grounds ? " · " + escapeHtml(c.legal_grounds) : ""}</p>
+      <div class="template-preview hidden">${escapeHtml(preview)}${(c.judgement_output || "").length > 1500 ? "…" : ""}</div>
+      <div class="item-actions">
+        <button class="src-use-btn btn btn-primary btn-sm" data-id="${c.id}">✨ Is se banayein</button>
+        <button class="src-preview-btn btn btn-secondary btn-sm">👁️ Dekhein</button>
+        ${extra}
+      </div>
+    </div>`;
+}
+
+function handleSourceCardClick(e) {
+  const use = e.target.closest(".src-use-btn");
+  if (use) { openReuseFlow(use.dataset.id); return; }
+  const prev = e.target.closest(".src-preview-btn");
+  if (prev) {
+    const box = prev.closest(".item").querySelector(".template-preview");
+    box.classList.toggle("hidden");
+    prev.textContent = box.classList.contains("hidden") ? "👁️ Dekhein" : "🙈 Chhupayein";
+  }
+}
+
+// ---------- Step 1: choose ----------
+let reuseSources = [];
+let reuseFilter = "all";
+
+$("goToReuseBtn").addEventListener("click", openReuseChooser);
+$("backFromReuseListBtn").addEventListener("click", showDashboard);
+$("reuseListContainer").addEventListener("click", handleSourceCardClick);
+$("reuseSearch").addEventListener("input", renderReuseSources);
+$("reuseFilter").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  reuseFilter = btn.dataset.filter;
+  $("reuseFilter").querySelectorAll("button").forEach(b => b.classList.toggle("active", b === btn));
+  renderReuseSources();
+});
+
+async function openReuseChooser() {
+  hideAllScreens();
+  $("reuseScreen").classList.remove("hidden");
+  $("reuseSearch").value = "";
+  $("reuseListContainer").innerHTML = `<p class="empty">Loading...</p>`;
+  const cols = "id, case_title, category, case_type, legal_grounds, judgement_output" + (hasTemplateColumn ? ", is_template" : "");
+  const { data, error } = await sb.from("cases").select(cols).eq("status", "finalized").order("updated_at", { ascending: false });
+  if (error) { $("reuseListContainer").innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`; return; }
+  // Templates first, then real finalized judgements
+  reuseSources = (data || []).filter(c => c.judgement_output)
+    .sort((a, b) => Number(!!b.is_template) - Number(!!a.is_template));
+  renderReuseSources();
+}
+
+function renderReuseSources() {
+  const q = $("reuseSearch").value.trim().toLowerCase();
+  const items = reuseSources.filter(c =>
+    (reuseFilter === "all" || c.category === reuseFilter) &&
+    (!q || `${c.case_title || ""} ${c.legal_grounds || ""}`.toLowerCase().includes(q)));
+  $("reuseListContainer").innerHTML = items.length
+    ? items.map(c => renderSourceCard(c)).join("")
+    : `<p class="empty">${reuseSources.length ? "Is search se kuch nahi mila." : "Abhi koi template ya finalized judgement nahi hai. Menu → 📚 Templates se add karein."}</p>`;
+}
+
+// ---------- Step 2: details ----------
 let reuseSourceCase = null;
-let selectedCaseMode = "contested"; // "contested" or "ex_parte"
-let wizardCreatedCaseId = null;
-let currentWizStepIndex = 0;
-let parsedSections = {}; // Stores original sections from template
-let stepContents = {};   // Stores edited paragraph content for each step
-let originalStepContents = {}; // Backup of stepContents for revert
-let wizardSteps = [];    // Dynamic list of steps depending on mode
+let selectedCaseMode = "contested";
 
 function setReuseModeButtons() {
   $("modeContestedBtn").classList.toggle("active", selectedCaseMode === "contested");
   $("modeExParteBtn").classList.toggle("active", selectedCaseMode === "ex_parte");
 }
-
 document.querySelectorAll(".reuse-mode-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    selectedCaseMode = btn.dataset.mode;
-    setReuseModeButtons();
-    updateStepsArray();
-    updateWizardUI();
-  });
+  btn.addEventListener("click", () => { selectedCaseMode = btn.dataset.mode; setReuseModeButtons(); });
 });
 
-// Update the list of steps based on chosen mode
-function updateStepsArray() {
-  if (selectedCaseMode === "contested") {
-    wizardSteps = [
-      { type: "variables", title: "Step 1: Variables" },
-      { type: "hybrid", sectionKey: "plaint_facts", title: "Step 2: Plaint / Facts", instruction: "Facts aur Plaint paragraphs edit karein." },
-      { type: "hybrid", sectionKey: "written_statement", title: "Step 3: Written Statement", instruction: "Defendant's Written Statement paragraphs edit karein." },
-      { type: "hybrid", sectionKey: "plaintiff_evidence", title: "Step 4: Plaintiff's Evidence", instruction: "Plaintiff's evidence aur bayanaat edit karein." },
-      { type: "hybrid", sectionKey: "defendant_evidence", title: "Step 5: Defendant's Evidence", instruction: "Defendant's evidence aur bayanaat edit karein." },
-      { type: "hybrid", sectionKey: "findings_arguments", title: "Step 6: Findings & Arguments", instruction: "Legal arguments aur findings paragraphs edit karein." },
-      { type: "final", title: "Step 7: Final Decision" }
-    ];
-  } else {
-    wizardSteps = [
-      { type: "variables", title: "Step 1: Variables" },
-      { type: "hybrid", sectionKey: "plaint_facts", title: "Step 2: Plaint / Facts", instruction: "Facts aur Plaint paragraphs edit karein." },
-      { type: "hybrid", sectionKey: "plaintiff_evidence", title: "Step 3: Plaintiff's Evidence", instruction: "Plaintiff's evidence aur bayanaat edit karein." },
-      { type: "hybrid", sectionKey: "findings_arguments", title: "Step 4: Findings & Arguments", instruction: "Legal arguments aur findings paragraphs edit karein." },
-      { type: "final", title: "Step 5: Final Decision" }
-    ];
-  }
+function showReuseStep(step) {
+  $("reuseDetailsPanel").classList.toggle("hidden", step !== 2);
+  $("reuseResultPanel").classList.toggle("hidden", step !== 3);
+  $("reuseStep2Label").className = step === 2 ? "active" : "done";
+  $("reuseStep3Label").className = step === 3 ? "active" : "";
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-async function openReuseFlow(judgementId) {
-  const { data: source } = await sb.from("cases").select("*").eq("id", judgementId).maybeSingle();
-  if (!source) { showToast("Judgement nahi mili.", "error"); return; }
+$("backFromReuseFormBtn").addEventListener("click", () => {
+  if ($("reuseResult").value.trim() && !confirm("Banayi hui judgement save nahi hui. Wapas jana hai?")) return;
+  openReuseChooser();
+});
+$("reuseEditDetailsBtn").addEventListener("click", () => showReuseStep(2));
+$("addReuseFieldBtn").addEventListener("click", () => addReuseFieldRow());
+
+async function openReuseFlow(sourceId) {
+  const { data: source } = await sb.from("cases").select("*").eq("id", sourceId).maybeSingle();
+  if (!source?.judgement_output) { showToast("Is judgement ka text nahi mila.", "error"); return; }
   reuseSourceCase = source;
 
   hideAllScreens();
   $("reuseFormScreen").classList.remove("hidden");
-  
-  // Reset wizard states (otherwise the previous template's edits leak into this one)
+  $("reuseSourceTitle").textContent = source.case_title || `${source.category} Case`;
   selectedCaseMode = source.case_type === "ex_parte" ? "ex_parte" : "contested";
-  wizardCreatedCaseId = null;
-  stepContents = {};
-  originalStepContents = {};
-  parsedSections = {};
-  $("reuseWizDecisionBox").value = "";
-  const modeContested = $("modeContestedBtn");
-  const modeExParte = $("modeExParteBtn");
   setReuseModeButtons();
+  $("reuseDifferences").value = "";
+  $("reuseDecision").value = "";
+  $("reuseResult").value = "";
+  showReuseStep(2);
 
-  updateStepsArray();
-  currentWizStepIndex = 0;
-  updateWizardUI();
-  $("reuseWizNextBtn").disabled = true;
-  
-  $("reuseFieldsContainer").innerHTML = `<p class="empty"><span class="spinner"></span> AI template parh raha hai...</p>`;
-  
-  // Step 1: Split template into sections using AI
-  const splitPrompt = `You are a legal assistant. Split the given judgement into the following sections:
-1. "plaint_facts": The facts of the case, pleadings of the plaintiff.
-2. "written_statement": The stance/objections of the defendant (written statement). If the case was ex-parte and has no written statement, return empty string.
-3. "plaintiff_evidence": Evidence, witnesses, and documents produced by the plaintiff.
-4. "defendant_evidence": Evidence and witnesses produced by the defendant. If ex-parte or none, return empty string.
-5. "findings_arguments": Legal issues, arguments, findings of the court, and reasoning.
-
-Judgement:
-${source.judgement_output}
-
-Return ONLY valid JSON:
-{
-  "plaint_facts": "...",
-  "written_statement": "...",
-  "plaintiff_evidence": "...",
-  "defendant_evidence": "...",
-  "findings_arguments": "..."
-}`;
-
-  try {
-    const splitResult = await callAI(splitPrompt, 3500);
-    const match = splitResult.match(/\{[\s\S]*\}/);
-    parsedSections = match ? JSON.parse(match[0]) : {};
-  } catch (err) {
-    console.error("AI Split failed, using fallback:", err);
-    parsedSections = {
-      plaint_facts: source.judgement_output,
-      written_statement: "",
-      plaintiff_evidence: "",
-      defendant_evidence: "",
-      findings_arguments: ""
-    };
-  }
-
-  // Step 2: Extract variables for Step 1 Form
-  const fieldsPrompt = `Identify ONLY case-specific variable fields (names, dates, amounts, case numbers, places) from the given judgement.
-For each field, "old_value" MUST be the exact text as it appears in the judgement, so it can be find-and-replaced.
-Return ONLY a valid JSON array:
-[{"label": "Plaintiff Name", "old_value": "Ali Ahmed"}]
+  // Detect the case-specific details (names, dates, amounts) so the user only types the new values
+  $("reuseFieldsContainer").innerHTML = `<p class="empty"><span class="spinner"></span> AI template se naam, taareekhein aur raqam dhoond raha hai...</p>`;
+  const fieldsPrompt = `From the court judgement below, list ONLY the case-specific details that would change in a new similar case:
+party names, other person names, dates, amounts, case numbers, places.
+"old_value" MUST be copied exactly as it appears in the judgement. Maximum 15 items. Do not repeat the same value.
+Return ONLY a valid JSON array, e.g. [{"label": "Plaintiff Name", "old_value": "Ali Ahmed"}]
 
 Judgement:
 ${source.judgement_output}`;
-
+  let fields = [];
   try {
-    const fieldsResult = await callAI(fieldsPrompt, 1500);
-    const fieldsMatch = fieldsResult.match(/\[[\s\S]*\]/);
-    const fields = fieldsMatch ? JSON.parse(fieldsMatch[0]) : [];
-    renderReuseFields(Array.isArray(fields) ? fields : []);
+    const raw = await callAI(fieldsPrompt, 1500);
+    const match = raw.match(/\[[\s\S]*\]/);
+    fields = match ? JSON.parse(match[0]) : [];
+    if (!Array.isArray(fields)) fields = [];
   } catch (err) {
-    renderReuseFields([]);
+    showToast("Details khud nahi mil sakin, aap khud fields add kar lein.", "warning");
   }
-
-  $("reuseWizNextBtn").disabled = false;
-  updateWizardUI();
+  if (reuseSourceCase !== source) return; // user already picked another template
+  $("reuseFieldsContainer").innerHTML = "";
+  fields.filter(f => f && f.old_value).forEach(f => addReuseFieldRow(f.label, f.old_value));
+  if (!fields.length) addReuseFieldRow();
 }
 
-function renderReuseFields(fields) {
-  const container = $("reuseFieldsContainer");
-  container.innerHTML = "";
-  fields.forEach(f => addReuseFieldRow(f.label, f.old_value ?? f.placeholder));
-  if (fields.length === 0) addReuseFieldRow("", "");
-}
-
-// `oldValue` is the text in the template that gets replaced by the new value
 function addReuseFieldRow(label = "", oldValue = "") {
   const row = document.createElement("div");
-  row.className = "reuse-field-row user-row grid gap-2";
+  row.className = "reuse-field-row field-map";
   row.innerHTML = `
-    <input type="text" class="reuse-label font-semibold" value="${escapeHtml(label)}" placeholder="Field ka naam (e.g. Plaintiff Name)" />
-    <div class="grid gap-2 sm:grid-cols-2">
-      <input type="text" class="reuse-old" value="${escapeHtml(oldValue)}" placeholder="Purana text (e.g. Ali Ahmed)" />
-      <input type="text" class="reuse-value" placeholder="Naya text" />
-    </div>`;
+    <input type="text" class="reuse-label field-map-label" value="${escapeHtml(label)}" placeholder="Kya cheez (e.g. Plaintiff ka naam)" />
+    <input type="text" class="reuse-old" value="${escapeHtml(oldValue)}" placeholder="Template mein" />
+    <span class="arrow">→</span>
+    <input type="text" class="reuse-value" placeholder="Naye case mein" />`;
   row.querySelectorAll("input").forEach(el => el.dir = "auto");
   $("reuseFieldsContainer").appendChild(row);
 }
 
-$("addReuseFieldBtn").addEventListener("click", () => addReuseFieldRow());
-
-// UI Updates for step transitions
-function updateWizardUI() {
-  const step = wizardSteps[currentWizStepIndex];
-  if (!step) return;
-
-  // Header progress
-  $("reuseWizTitle").textContent = step.title;
-  $("reuseWizStepIndicator").textContent = `Step ${currentWizStepIndex + 1} of ${wizardSteps.length}`;
-
-  // Hide all step views
-  $("reuseWizStep1").classList.add("hidden");
-  $("reuseWizStepHybrid").classList.add("hidden");
-  $("reuseWizStepFinal").classList.add("hidden");
-  $("reuseWizRevertBtn").classList.add("hidden");
-
-  // Show navigation buttons
-  $("reuseWizBackBtn").textContent = currentWizStepIndex === 0 ? "Dashboard" : "← Back";
-  $("reuseWizNextText").textContent = currentWizStepIndex === wizardSteps.length - 1 ? "Generate Judgement" : "Next →";
-
-  if (step.type === "variables") {
-    $("reuseWizStep1").classList.remove("hidden");
-  } else if (step.type === "hybrid") {
-    $("reuseWizStepHybrid").classList.remove("hidden");
-    $("reuseWizRevertBtn").classList.remove("hidden");
-    $("hybridStepInstructions").textContent = step.instruction;
-    
-    // Load pre-filled text if not already loaded/modified
-    if (stepContents[step.sectionKey] === undefined) {
-      // Replace variables in the section template text
-      let sectionText = parsedSections[step.sectionKey] || "";
-      getFilledVariables().forEach(v => {
-        // Replace every occurrence of the template's old value with the new one
-        sectionText = sectionText.replace(new RegExp(escapeRegExp(v.oldValue), "gi"), () => v.value);
-      });
-      stepContents[step.sectionKey] = sectionText;
-      originalStepContents[step.sectionKey] = sectionText;
-    }
-    
-    $("reuseWizBigBox").value = stepContents[step.sectionKey];
-    $("reuseWizSmallBox").value = "";
-  } else if (step.type === "final") {
-    $("reuseWizStepFinal").classList.remove("hidden");
-  }
-}
-
-function getFilledVariables() {
-  const rows = document.querySelectorAll(".reuse-field-row");
-  return Array.from(rows).map(r => ({
+function getReuseReplacements() {
+  return Array.from(document.querySelectorAll(".reuse-field-row")).map(r => ({
+    label: r.querySelector(".reuse-label").value.trim(),
     oldValue: r.querySelector(".reuse-old").value.trim(),
     value: r.querySelector(".reuse-value").value.trim()
-  })).filter(f => f.oldValue && f.value);
+  })).filter(f => f.oldValue);
 }
 
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Navigation Listeners with automatic Database Sync
-$("reuseWizBackBtn").addEventListener("click", async () => {
-  if (currentWizStepIndex === 0) {
-    showDashboard();
-  } else {
-    // Save current step data to DB first
-    await saveCurrentStepDataToDb();
-    currentWizStepIndex--;
-    updateWizardUI();
-  }
-});
+// ---------- Step 3: generate, refine, save ----------
+$("reuseGenerateBtn").addEventListener("click", async () => {
+  const decision = $("reuseDecision").value.trim();
+  if (!decision) { showToast("Faisla / short order likhein (C).", "error"); $("reuseDecision").focus(); return; }
+  const replacements = getReuseReplacements();
 
-async function saveCurrentStepDataToDb() {
-  if (!wizardCreatedCaseId) return;
-  const step = wizardSteps[currentWizStepIndex];
-  if (!step) return;
+  // Swap known values directly so names/amounts don't depend on the AI getting them right
+  let templateText = reuseSourceCase.judgement_output;
+  replacements.filter(r => r.value).forEach(r => {
+    templateText = templateText.replace(new RegExp(escapeRegExp(r.oldValue), "g"), () => r.value);
+  });
+  const unknown = replacements.filter(r => !r.value).map(r => `- ${r.label || "Detail"} (was "${r.oldValue}")`).join("\n");
+  const differences = $("reuseDifferences").value.trim();
 
-  const payload = {};
-  if (step.type === "hybrid") {
-    const text = $("reuseWizBigBox").value;
-    stepContents[step.sectionKey] = text;
-    if (step.sectionKey === "plaint_facts") payload.facts_text = text;
-    if (step.sectionKey === "written_statement") payload.written_statement_text = text;
-    if (step.sectionKey === "plaintiff_evidence" || step.sectionKey === "defendant_evidence") {
-      // Both sides' evidence live in the single evidence_text column
-      payload.evidence_text = [
-        stepContents.plaintiff_evidence && `PLAINTIFF EVIDENCE:\n${stepContents.plaintiff_evidence}`,
-        stepContents.defendant_evidence && `DEFENDANT EVIDENCE:\n${stepContents.defendant_evidence}`
-      ].filter(Boolean).join("\n\n");
-    }
-    if (step.sectionKey === "findings_arguments") payload.findings_text = text;
-  } else if (step.type === "final") {
-    const text = $("reuseWizDecisionBox").value;
-    payload.short_order = text;
-  }
-  
-  payload.last_updated_by = currentProfile?.id;
-  const { error } = await sb.from("cases").update(payload).eq("id", wizardCreatedCaseId);
-  if (error) showToast("Draft save nahi hua: " + error.message, "error");
-}
+  const prompt = `You are drafting a new judgement for a Pakistani ${reuseSourceCase.category} court by adapting a previous judgement of a similar case.
 
-$("reuseWizRevertBtn").addEventListener("click", () => {
-  const step = wizardSteps[currentWizStepIndex];
-  if (step && step.type === "hybrid") {
-    stepContents[step.sectionKey] = originalStepContents[step.sectionKey];
-    $("reuseWizBigBox").value = stepContents[step.sectionKey];
-    showToast("Text original state me revert ho gaya.", "success");
-  }
-});
+RULES:
+- Keep the structure, headings, legal reasoning style and formal language of the TEMPLATE.
+- The new case is ${selectedCaseMode === "ex_parte" ? "EX-PARTE (defendant did not appear): remove the written statement, defendant's evidence and defendant's arguments, and word it as an ex-parte decision" : "CONTESTED (defendant appeared and contested)"}.
+- Apply every point in "WHAT IS DIFFERENT" to the facts, evidence and reasoning.
+- The final order must follow the "DECISION" exactly.
+- Do NOT invent facts, names, dates or amounts. Where a detail of the new case is unknown, write [___].
+${unknown ? `- These details are unknown for the new case, write [___] wherever they appeared:\n${unknown}` : ""}
+- Output ONLY the judgement text. Plain text, no markdown, no notes.
 
-$("reuseWizNextBtn").addEventListener("click", async () => {
-  if (currentWizStepIndex === 0) {
-    // Create the case row in the database on Step 1 Next
-    if (!wizardCreatedCaseId) {
-      setBtnLoading("reuseWizNextBtn", "spin-reuseWizNext", true);
-      try {
-        const { data, error } = await sb.from("cases").insert({
-          category: reuseSourceCase.category,
-          case_type: selectedCaseMode,
-          status: "pending",
-          reused_from_judgement_id: reuseSourceCase.id,
-          created_by: currentProfile.id,
-          last_updated_by: currentProfile.id,
-          current_step: 1
-        }).select().single();
-        if (error) throw error;
-        wizardCreatedCaseId = data.id;
-      } catch (err) {
-        showToast("Error creating case: " + err.message, "error");
-        return;
-      } finally {
-        setBtnLoading("reuseWizNextBtn", "spin-reuseWizNext", false);
-      }
-    }
-  } else {
-    // Save intermediate step data
-    await saveCurrentStepDataToDb();
-  }
+TEMPLATE (names/amounts already replaced where known):
+${templateText}
 
-  if (currentWizStepIndex === wizardSteps.length - 1) {
-    // Generate Final Judgement
-    await generateFinalJudgement();
-  } else {
-    currentWizStepIndex++;
-    updateWizardUI();
-  }
-});
+WHAT IS DIFFERENT IN THE NEW CASE:
+${differences || "(nothing else given)"}
 
-// Interactive AI Rewrite functionality
-$("reuseWizAskAIBtn").addEventListener("click", async () => {
-  const step = wizardSteps[currentWizStepIndex];
-  if (!step || step.type !== "hybrid") return;
+DECISION:
+${decision}`;
 
-  const currentText = $("reuseWizBigBox").value.trim();
-  const instruction = $("reuseWizSmallBox").value.trim();
-  if (!instruction) { showToast("AI instruction enter karein.", "error"); return; }
-
-  setBtnLoading("reuseWizAskAIBtn", "spin-reuseWizAskAI", true, "reuseWizBigBox");
-  
-  const rewritePrompt = `You are a legal editor. Modify the given court judgement paragraph/section strictly according to the instruction.
-Keep the same professional legal tone and structure. Merge changes naturally.
-Output ONLY the modified text. Do not write explanation, notes, markdown or quotes.
-
-Input Text:
-${currentText}
-
-Instruction:
-${instruction}`;
-
+  setBtnLoading("reuseGenerateBtn", "spin-reuseGenerate", true);
   try {
-    const result = await callAI(rewritePrompt, 2000);
+    const result = (await callAI(prompt, 4000)).trim();
+    if (!result) throw new Error("AI ne khali jawab diya");
+    $("reuseResult").value = result;
+    showReuseStep(3);
+  } catch (err) {
+    showToast("Judgement nahi ban saki: " + err.message, "error");
+  } finally {
+    setBtnLoading("reuseGenerateBtn", "spin-reuseGenerate", false);
+  }
+});
+
+$("reuseRefineInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("reuseRefineBtn").click(); });
+$("reuseRefineBtn").addEventListener("click", async () => {
+  const instruction = $("reuseRefineInput").value.trim();
+  const current = $("reuseResult").value.trim();
+  if (!instruction) { showToast("Kya change karna hai, likhein.", "error"); return; }
+  setBtnLoading("reuseRefineBtn", "spin-reuseRefine", true, "reuseResult");
+  try {
+    const result = await callAI(`Update the court judgement below according to the instruction. Change only what the instruction asks, keep everything else exactly the same. Do not invent facts. Output ONLY the full updated judgement, plain text.
+
+INSTRUCTION:
+${instruction}
+
+JUDGEMENT:
+${current}`, 4000);
     if (result.trim()) {
-      $("reuseWizBigBox").value = result.trim();
-      stepContents[step.sectionKey] = result.trim();
-      showToast("Paragraph updated by AI!", "success");
-      // Immediate save to DB on AI rewrite success
-      await saveCurrentStepDataToDb();
+      $("reuseResult").value = result.trim();
+      $("reuseRefineInput").value = "";
+      showToast("✅ Change ho gaya.", "success");
     }
   } catch (err) {
     showToast("Error: " + err.message, "error");
   } finally {
-    setBtnLoading("reuseWizAskAIBtn", "spin-reuseWizAskAI", false, "reuseWizBigBox");
+    setBtnLoading("reuseRefineBtn", "spin-reuseRefine", false, "reuseResult");
   }
 });
 
-async function generateFinalJudgement() {
-  const decision = $("reuseWizDecisionBox").value.trim();
-  if (!decision) { showToast("Judge sahab ka final decision likhein.", "error"); return; }
-
-  setBtnLoading("reuseWizNextBtn", "spin-reuseWizNext", true, "reuseWizDecisionBox");
-
-  const SECTION_HEADINGS = {
-    plaint_facts: "PLAINT/FACTS",
-    written_statement: "WRITTEN STATEMENT",
-    plaintiff_evidence: "PLAINTIFF EVIDENCE",
-    defendant_evidence: "DEFENDANT EVIDENCE",
-    findings_arguments: "FINDINGS & ARGUMENTS"
-  };
-  // Only the sections that exist in the current mode's steps
-  const buildText = () => wizardSteps
-    .filter(st => st.type === "hybrid")
-    .map(st => `${SECTION_HEADINGS[st.sectionKey]}:\n${stepContents[st.sectionKey] || ""}`)
-    .join("\n\n");
-
-  const finalPrompt = `You are a senior judge. Combine the provided section drafts and the final decision into a clean, complete, unified formal Court Judgement.
-- Use a formal, authoritative legal tone.
-- Merge the sections smoothly into a single comprehensive document.
-- Follow the final decision/outcome of the judge strictly.
-- Output ONLY the final judgement. No explanations, no markdown styling.
-
-Section Drafts:
-${buildText()}
-
-Final Decision / Outcomes:
-${decision}`;
-
+// The case is only created here, so abandoning the flow never leaves an empty case behind
+$("reuseSaveBtn").addEventListener("click", async () => {
+  const judgement = $("reuseResult").value.trim();
+  if (!judgement) return;
+  if (judgement.includes("[___]") && !confirm('Judgement mein abhi bhi "[___]" khaali jagahein hain. Phir bhi save karein? (Baad mein case kholkar bhar sakte hain)')) return;
+  setBtnLoading("reuseSaveBtn", "spin-reuseSave", true);
   try {
-    const result = await callAI(finalPrompt, 3500);
-    
-    // Update the existing Case row with finalized status and output
-    const { data, error } = await sb.from("cases").update({
-      judgement_output: result,
-      short_order: decision,
+    const row = {
+      category: reuseSourceCase.category,
+      case_type: selectedCaseMode,
       status: "pending",
       current_step: 5,
-      last_updated_by: currentProfile?.id
-    }).eq("id", wizardCreatedCaseId).select().single();
-    
+      short_order: $("reuseDecision").value.trim(),
+      judgement_output: judgement,
+      reused_from_judgement_id: reuseSourceCase.id,
+      created_by: currentProfile.id,
+      last_updated_by: currentProfile.id
+    };
+    if (hasTemplateColumn) row.is_template = false;
+    const { data, error } = await sb.from("cases").insert(row).select().single();
     if (error) throw error;
-
-    showToast("Naya case Pending mein save ho gaya aur generated text tayyar hai!", "success");
-    
-    // Clean up wizard states and redirect
-    stepContents = {};
-    originalStepContents = {};
-    parsedSections = {};
-    wizardCreatedCaseId = null;
-    openWizardForCase(data.id);
+    showToast("✅ Naya case Pending mein save ho gaya!", "success");
+    $("reuseResult").value = "";
+    await openWizardForCase(data.id);
   } catch (err) {
-    showToast("Generation failed: " + err.message, "error");
+    showToast("Save nahi hua: " + err.message, "error");
   } finally {
-    setBtnLoading("reuseWizNextBtn", "spin-reuseWizNext", false, "reuseWizDecisionBox");
+    setBtnLoading("reuseSaveBtn", "spin-reuseSave", false);
   }
-}
+});
 
 // ============================================
 // TEMPLATE FEATURE (Add / Upload / Paste)
@@ -3289,7 +3210,6 @@ function openTemplateModal() {
 }
 
 $("closeTemplateBtn").addEventListener("click", () => $("templateModal").classList.add("hidden"));
-$("addTemplateFromNewCase").addEventListener("click", openTemplateModal);
 
 $("templateUploadArea").addEventListener("click", () => $("templateFileInput").click());
 
@@ -3354,6 +3274,7 @@ $("saveTemplateBtn").addEventListener("click", async () => {
       case_title: title,
       legal_grounds: legalGrounds.trim().substring(0, 500),
       status: "finalized",
+      ...(hasTemplateColumn ? { is_template: true } : {}),
       judgement_output: text,
       created_by: currentProfile.id,
       last_updated_by: currentProfile.id,
@@ -3362,11 +3283,11 @@ $("saveTemplateBtn").addEventListener("click", async () => {
 
     if (error) throw error;
 
-    showToast("✅ Template save ho gaya! Ab ise Reuse se use kar sakte hain.", "success");
+    showToast("✅ Template save ho gaya!", "success");
     $("templateModal").classList.add("hidden");
     $("templateTitle").value = "";
     $("templateJudgementText").value = "";
-    await loadDashboardCounts();
+    if (!$("templatesScreen").classList.contains("hidden")) openTemplatesScreen();
   } catch (err) {
     showToast("Error: " + err.message, "error");
   } finally {
