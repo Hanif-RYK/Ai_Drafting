@@ -224,30 +224,28 @@ $("registerBtn").addEventListener("click", async () => {
   $("registerBtn").disabled = true;
   $("spin-register").classList.remove("hidden");
   try {
-    const { data, error } = await sb.auth.signUp({ email, password });
+    // The profile row is created by a database trigger (see supabase/rls_policies.sql),
+    // so status / admin rights can't be chosen from the browser.
+    const { data, error } = await sb.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name,
+          role: regSelectedRole,
+          court_name: courtName,
+          steno_email: regSelectedRole === 'steno' ? null : stenoEmail
+        }
+      }
+    });
     if (error) throw error;
     if (!data.user) throw new Error("Signup fail - user nahi mila");
+    // signUp may auto-login; the account still has to be approved first
+    if (data.session) await sb.auth.signOut();
 
-    const { data: existingAdmins } = await sb.from("profiles").select("id").eq("is_admin", true).limit(1);
-    const isFirstAdmin = regSelectedRole === 'steno' && (!existingAdmins || existingAdmins.length === 0);
-
-    const status = isFirstAdmin ? 'active' : 'pending';
-
-    const profileData = {
-      id: data.user.id, full_name: name, role: regSelectedRole,
-      email: email, court_name: courtName,
-      status: status, is_admin: isFirstAdmin || false,
-      steno_email: stenoEmail || null,
-      judge_id: null,
-      approved_by_admin: isFirstAdmin || false, approved_by_judge: true
-    };
-
-    const { error: profileError } = await sb.from("profiles").insert(profileData);
-    if (profileError) throw profileError;
-
-    $("regSuccess").textContent = isFirstAdmin
-      ? "✅ Admin register ho gaya! Ab login karein."
-      : "✅ Register ho gaya! Admin approval ka wait karein.";
+    $("regSuccess").textContent = data.session
+      ? "✅ Register ho gaya! Login karein (naye accounts ko admin approval chahiye, pehla steno khud admin banta hai)."
+      : "✅ Register ho gaya! Pehle apni email confirm karein, phir login karein.";
     $("regSuccess").classList.remove("hidden");
     $("loginError").classList.add("hidden");
 
@@ -1068,11 +1066,16 @@ $("backFromWizardBtn").addEventListener("click", async () => {
 let liveTypeChannel = null;
 let liveTypeTimer = null;
 let liveTypeNoteId = null;
-// The dashboard editor is one shared scratch pad for the whole team
-const LIVE_TYPE_NOTE_ID = "live-note-1";
+
+// The dashboard editor is one shared scratch pad per court
+function getLiveTypeNoteId() {
+  // Slug keeps the id safe inside realtime filters (no spaces or special characters)
+  const slug = (currentProfile?.court_name || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `live-note-${slug || "default"}`;
+}
 
 $("liveTypeBtn").addEventListener("click", async () => {
-  liveTypeNoteId = LIVE_TYPE_NOTE_ID;
+  liveTypeNoteId = getLiveTypeNoteId();
   $("liveTypeOverlay").classList.remove("hidden");
   document.body.style.overflow = "hidden";
   $("liveTypeTextarea").value = "";
