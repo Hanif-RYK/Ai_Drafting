@@ -3,8 +3,8 @@
   "short_name": "AI Drafting",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#e2e8f0",
-  "theme_color": "#3b82f6",
+  "background_color": "#f1f5f9",
+  "theme_color": "#2563eb",
   "icons": [
     {
       "src": "icon.svg",

@@ -1,0 +1,11 @@
+{
+  "name": "ai-drafting",
+  "private": true,
+  "description": "Build step only for the CSS. After adding new Tailwind classes to index.html or app.js run: npm install && npm run build:css",
+  "scripts": {
+    "build:css": "tailwindcss -i tailwind.input.css -o tailwind.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.19"
+  }
+}
