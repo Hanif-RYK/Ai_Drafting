@@ -1,3 +1,8 @@
+// Supabase client (the anon key is public; data is protected by RLS, see supabase/rls_policies.sql)
+const SUPABASE_URL = "https://atnjolykwqgzouqvorfe.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0bmpvbHlrd3Fnem91cXZvcmZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDM3MTUsImV4cCI6MjA5Nzk3OTcxNX0.7xA6LCJ--DfDgiatWijyMAs_TtfKcpc8TxVj6vZImSY";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 // Synchronous check to prevent login screen flicker on page reload
 (function preventFlicker() {
   const tokenKey = "sb-atnjolykwqgzouqvorfe-auth-token";
@@ -12,7 +17,6 @@ document.querySelectorAll("textarea, input:not([type=hidden]):not([type=file])")
 // Show current date in header
 document.getElementById("currentDate").textContent = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 const $ = (id) => document.getElementById(id);
-let currentUser = null;   // { id, email }
 let currentProfile = null; // { id, full_name, role }
 
 // Password show/hide toggle
@@ -65,7 +69,6 @@ function showLoginError(msg) {
 }
 
 async function onLoginSuccess(user) {
-  currentUser = user;
   const { data: profile, error } = await sb.from("profiles").select("*").eq("id", user.id).maybeSingle();
   if (error || !profile) {
     showLoginError("Profile nahi mila. Pehle profiles table mein apna UUID add karein.");
@@ -98,6 +101,17 @@ async function onLoginSuccess(user) {
   showDashboard();
 }
 
+// Modals: close on backdrop tap or Escape
+document.querySelectorAll(".modal").forEach(modal => {
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const open = [...document.querySelectorAll(".modal:not(.hidden)")].pop();
+  if (open) open.classList.add("hidden");
+  else if ($("sidebarMenu").classList.contains("active")) closeSidebar();
+});
+
 // Sidebar menu functions
 function openSidebar() {
   $("sidebarMenu").classList.add("active");
@@ -124,7 +138,6 @@ $("logoutBtn").addEventListener("click", async () => {
   closeLiveTypeEditor();
   await sb.auth.signOut();
   // Reset per-user state so the next login starts clean
-  currentUser = null;
   currentProfile = null;
   activeCase = null;
   glossaryCache = [];
@@ -149,34 +162,34 @@ async function refreshPendingBadge() {
 
 function renderUserRow(u, actions) {
   return `
-    <div class="user-row bg-slate-50 rounded-xl p-3">
-      <p class="font-semibold text-sm">${escapeHtml(u.full_name)}</p>
-      <p class="text-xs text-slate-500">${escapeHtml(u.email || "")} · ${ROLE_LABELS[u.role] || escapeHtml(u.role)}</p>
-      <div class="flex gap-2 mt-2">${actions}</div>
+    <div class="user-row">
+      <p class="item-title">${escapeHtml(u.full_name)}</p>
+      <p class="item-meta">${escapeHtml(u.email || "")} · ${ROLE_LABELS[u.role] || escapeHtml(u.role)}</p>
+      <div class="btn-row mt-2">${actions}</div>
     </div>`;
 }
 
 async function loadAdminPanel() {
   const list = $("pendingUsersList");
-  list.innerHTML = `<p class="text-slate-400 text-sm text-center py-4">Loading...</p>`;
+  list.innerHTML = `<p class="empty">Loading...</p>`;
   const { data, error } = await sb.from("profiles")
     .select("id, full_name, email, role, status")
     .in("status", ["pending", "rejected"])
     .order("created_at", { ascending: false });
-  if (error) { list.innerHTML = `<p class="text-red-500 text-sm">${escapeHtml(error.message)}</p>`; return; }
+  if (error) { list.innerHTML = `<p class="empty text-red-600">${escapeHtml(error.message)}</p>`; return; }
 
   const pending = data.filter(u => u.status === "pending");
   const rejected = data.filter(u => u.status === "rejected");
-  const approveBtn = (u) => `<button class="user-status-btn bg-green-600 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}" data-status="active">✅ Approve</button>`;
-  const rejectBtn = (u) => `<button class="user-status-btn bg-red-500 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}" data-status="rejected">❌ Reject</button>`;
+  const approveBtn = (u) => `<button class="user-status-btn btn btn-success btn-sm" data-id="${u.id}" data-status="active">✅ Approve</button>`;
+  const rejectBtn = (u) => `<button class="user-status-btn btn btn-danger-soft btn-sm" data-id="${u.id}" data-status="rejected">❌ Reject</button>`;
 
   list.innerHTML =
-    `<h4 class="font-bold text-sm text-slate-700">⏳ Approval ka wait (${pending.length})</h4>` +
+    `<h4 class="section-title">⏳ Approval ka wait (${pending.length})</h4>` +
     (pending.length
       ? pending.map(u => renderUserRow(u, approveBtn(u) + rejectBtn(u))).join("")
-      : `<p class="text-slate-400 text-sm text-center py-2">Koi pending user nahi hai.</p>`) +
+      : `<p class="empty">Koi pending user nahi hai.</p>`) +
     (rejected.length
-      ? `<h4 class="font-bold text-sm text-slate-700 pt-2">❌ Rejected (${rejected.length})</h4>` +
+      ? `<h4 class="section-title mt-5">❌ Rejected (${rejected.length})</h4>` +
         rejected.map(u => renderUserRow(u, approveBtn(u))).join("")
       : "");
 }
@@ -320,7 +333,7 @@ async function loadDashboardCounts() {
       // head:true + count avoids downloading every row just to count them
       const { count, error } = await sb.from("cases").select("id", { count: "exact", head: true }).eq("status", status);
       if (!error) {
-        $(`count${status.charAt(0).toUpperCase() + status.slice(1)}`).textContent = `${count ?? 0} cases`;
+        $(`count${status.charAt(0).toUpperCase() + status.slice(1)}`).textContent = count ?? 0;
       }
     });
     await Promise.all(promises);
@@ -338,14 +351,12 @@ async function loadDashboardCounts() {
         $("feedbackList").innerHTML = feedbackCases.map(c => {
           const caseName = c.case_title || `${c.category} Case`;
           return `
-            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-2 relative">
-              <div style="padding-right:1.5rem;">
-                <p class="font-bold text-xs text-amber-800 uppercase tracking-wide">Case: ${escapeHtml(caseName)}</p>
-                <p class="text-sm text-slate-700 mt-1">💬 "${escapeHtml(c.review_comment)}"</p>
-              </div>
-              <div class="flex gap-2 mt-1">
-                <button class="fix-case-btn bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition" data-id="${c.id}">🛠️ Fix Draft</button>
-                <button class="dismiss-feedback-btn bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs px-3 py-1.5 rounded-lg font-semibold transition" data-id="${c.id}">✕ Dismiss</button>
+            <div class="item feedback-item">
+              <p class="item-title">${escapeHtml(caseName)}</p>
+              <p class="text-sm mt-1">💬 "${escapeHtml(c.review_comment)}"</p>
+              <div class="item-actions">
+                <button class="fix-case-btn btn btn-warning btn-sm" data-id="${c.id}">🛠️ Draft theek karein</button>
+                <button class="dismiss-feedback-btn btn btn-ghost btn-sm" data-id="${c.id}">✕ Dismiss</button>
               </div>
             </div>
           `;
@@ -387,71 +398,46 @@ async function openCaseList(status) {
   $("caseListTitle").textContent = titles[status];
   const container = $("caseListContainer");
   
-  // Show loading skeleton while fetching
-  container.innerHTML = `<div class="animate-pulse flex flex-col gap-3">
-    <div class="h-24 bg-slate-100 rounded-xl"></div>
-    <div class="h-24 bg-slate-100 rounded-xl"></div>
-  </div>`;
+  container.innerHTML = `<p class="empty">Loading...</p>`;
 
-  // Review stats for non-judge users
-  if (status === 'review' && currentProfile?.role !== 'judge') {
-    const { data: reviewCases } = await sb.from("cases").select("created_by").eq("status", "review");
-    const { data: allProfiles } = await sb.from("profiles").select("id, full_name, role");
-    if (!reviewCases || reviewCases.length === 0) {
-      container.innerHTML = `<p class="text-slate-400 text-sm">Koi case review mein nahi hai.</p>`;
-      return;
-    }
-    const profileMap = {};
-    (allProfiles || []).forEach(p => profileMap[p.id] = p);
-    const counts = {};
-    reviewCases.forEach(c => {
-      const name = profileMap[c.created_by]?.full_name || "Unknown";
-      counts[name] = (counts[name] || 0) + 1;
-    });
-    container.innerHTML = `<div class="bg-white rounded-xl shadow p-4 mb-3"><p class="text-sm font-semibold text-slate-600 mb-3">Review Cases Breakdown</p>
-      ${Object.entries(counts).map(([name, count]) =>
-        `<div class="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
-          <span class="text-sm">${escapeHtml(name)}</span>
-          <span class="text-sm font-bold text-orange-600">${count} cases</span>
-        </div>`
-      ).join("")}
-    </div>`;
-    return;
-  }
+  const [{ data: cases, error }, { data: people }] = await Promise.all([
+    sb.from("cases").select("*").eq("status", status).order("updated_at", { ascending: false }),
+    sb.from("profiles").select("id, full_name")
+  ]);
+  const nameOf = Object.fromEntries((people || []).map(p => [p.id, p.full_name]));
+  const templateBtnHtml = status === "finalized"
+    ? `<button class="add-template-list-btn btn btn-soft btn-block">📄 Naya template add karein</button>` : "";
 
-  const { data: cases, error } = await sb.from("cases").select("*").eq("status", status).order("updated_at", { ascending: false });
   if (error || !cases || cases.length === 0) {
-    if (status === "finalized") {
-      container.innerHTML = `<button class="add-template-list-btn w-full bg-gradient-to-r from-violet-600 to-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2 mb-4">📄 Add New Template</button>
-        <p class="text-slate-400 text-sm text-center">Koi finalized case nahi mila. Template add karke reuse karein.</p>`;
-      container.querySelector(".add-template-list-btn")?.addEventListener("click", openTemplateModal);
-    } else {
-      container.innerHTML = `<p class="text-slate-400 text-sm">Koi case nahi mila.</p>`;
-    }
+    container.innerHTML = templateBtnHtml + `<p class="empty">${error ? escapeHtml(error.message) : "Koi case nahi mila."}</p>`;
+    container.querySelector(".add-template-list-btn")?.addEventListener("click", openTemplateModal);
     return;
   }
-  const templateBtnHtml = status === "finalized" ? `<button class="add-template-list-btn w-full bg-gradient-to-r from-violet-600 to-blue-600 text-white py-3 rounded-xl font-bold shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2 mb-4">📄 Add New Template</button>` : "";
+
+  const isJudge = currentProfile?.role === 'judge';
   container.innerHTML = templateBtnHtml + cases.map(c => {
-    const title = c.case_title || `${c.category} Case (${c.case_type === "ex_parte" ? "Ex-parte" : "Contested"})`;
-    const grounds = c.legal_grounds ? `<p class="text-xs text-slate-500 mt-1">${escapeHtml(c.legal_grounds)}</p>` : "";
-    const comment = c.review_comment ? `<p class="text-xs text-amber-600 mt-1 bg-amber-50 p-1.5 rounded">💬 Review feedback: ${escapeHtml(c.review_comment)}</p>` : "";
-    const reuseBtn = status === "finalized" ? `<button class="reuse-btn bg-purple-600 text-white text-xs px-3 py-1 rounded-lg mt-2" data-id="${c.id}">📑 Reuse as Template</button>` : "";
-    const reviewActions = status === "review" && currentProfile?.role === 'judge' ? `
-      <div class="flex gap-2 mt-2">
-        <button class="review-approve-btn bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg" data-id="${c.id}">✅ Approve</button>
-        <button class="review-sendback-btn bg-amber-500 text-white text-xs px-3 py-1.5 rounded-lg" data-id="${c.id}">↩️ Send Back</button>
-      </div>` : "";
+    const typeLabel = c.case_type === "ex_parte" ? "Ex-parte" : "Contested";
+    const title = c.case_title || `${c.category} Case (${typeLabel})`;
+    const by = nameOf[c.created_by] ? ` · ${escapeHtml(nameOf[c.created_by])}` : "";
+    const grounds = c.legal_grounds ? `<p class="item-meta">${escapeHtml(c.legal_grounds)}</p>` : "";
+    const comment = c.review_comment ? `<p class="item-note">💬 ${escapeHtml(c.review_comment)}</p>` : "";
+    const canDelete = c.created_by === currentProfile?.id || currentProfile?.is_admin;
+    const actions = [
+      status === "finalized" ? `<button class="reuse-btn btn btn-soft btn-sm" data-id="${c.id}">📑 Reuse</button>` : "",
+      status === "review" && isJudge ? `<button class="review-approve-btn btn btn-success btn-sm" data-id="${c.id}">✅ Approve</button>` : "",
+      status === "review" && isJudge ? `<button class="review-sendback-btn btn btn-warning btn-sm" data-id="${c.id}">↩️ Send Back</button>` : ""
+    ].join("");
     return `
-      <div class="bg-white rounded-xl shadow p-4">
-        <div class="flex justify-between items-start">
-          <div class="resume-case cursor-pointer flex-1" data-id="${c.id}">
-            <p class="font-semibold">${escapeHtml(title)}</p>
-            <p class="text-xs text-slate-400">${escapeHtml(c.category)} · ${c.case_type === "ex_parte" ? "Ex-parte" : "Contested"} · Step ${c.current_step}/5</p>
+      <div class="item">
+        <div class="case-row">
+          <div class="resume-case" data-id="${c.id}">
+            <p class="item-title">${escapeHtml(title)}</p>
+            <p class="item-meta">${escapeHtml(c.category)} · ${typeLabel} · Step ${c.current_step || 1}/5${by}</p>
             ${grounds}${comment}
           </div>
-          <button class="delete-case-btn text-red-400 hover:text-red-600 text-lg px-2 py-1" data-id="${c.id}" title="Delete case">🗑️</button>
+          ${canDelete ? `<button class="delete-case-btn btn btn-ghost btn-icon" data-id="${c.id}" title="Delete case" aria-label="Delete case">🗑️</button>` : ""}
         </div>
-        ${reuseBtn}${reviewActions}
+        ${actions ? `<div class="item-actions">${actions}</div>` : ""}
       </div>`;
   }).join("");
 
@@ -540,33 +526,46 @@ $("goToReuseBtn").addEventListener("click", () => {
 // ============================================
 const DEFAULT_MODELS = { claude: "claude-opus-5-5", gemini: "gemini-2.5-flash", openai: "gpt-5.5-instant" };
 
+// Every entry is a real, distinct model. The DEFAULT_MODELS entry is marked "(Default)".
 const MODEL_OPTIONS = {
   claude: [
-    { value: "", label: "Default (Opus 5.5)" },
-    { value: "claude-opus-5-5", label: "Opus 5.5 — Best — Expensive" },
-    { value: "claude-fable-5-1", label: "Fable 5.1 — Most capable — Most Expensive" },
-    { value: "claude-sonnet-5-5", label: "Sonnet 5.5 — Better — Moderate" },
-    { value: "claude-haiku-4-5", label: "Haiku 4.5 — Good — Cheap" }
+    { value: "claude-opus-5-5", label: "Opus 5.5 — Behtareen quality, mehnga" },
+    { value: "claude-sonnet-5-5", label: "Sonnet 5.5 — Achhi quality, Opus se aadha kharcha" },
+    { value: "claude-haiku-4-5", label: "Haiku 4.5 — Tez, sab se sasta" },
+    { value: "claude-fable-5-1", label: "Fable 5.1 — Sab se taqatwar, bohat mehnga" }
   ],
   gemini: [
-    { value: "", label: "Default (Flash 2.5)" },
-    { value: "gemini-2.5-flash", label: "Flash 2.5 — Good — Cheap" },
-    { value: "gemini-2.5-pro", label: "Pro 2.5 — Best — Expensive" }
+    { value: "gemini-2.5-flash", label: "Flash 2.5 — Tez, sasta" },
+    { value: "gemini-2.5-pro", label: "Pro 2.5 — Behtareen quality, mehnga" }
   ],
   openai: [
-    { value: "", label: "Default (GPT-5.5 Instant)" },
-    { value: "gpt-5.5-pro", label: "GPT-5.5 Pro — Best — Most Expensive" },
-    { value: "gpt-5.5", label: "GPT-5.5 — Better — Expensive" },
-    { value: "gpt-5.5-instant", label: "GPT-5.5 Instant — Good — Moderate" },
-    { value: "gpt-5.4-pro", label: "GPT-5.4 Pro — Better — Expensive" },
-    { value: "gpt-5.4", label: "GPT-5.4 — Good — Moderate" },
-    { value: "gpt-5.4-mini", label: "GPT-5.4 Mini — Decent — Cheap" }
+    { value: "gpt-5.5-instant", label: "GPT-5.5 Instant — Achha, darmiyana kharcha" },
+    { value: "gpt-5.5", label: "GPT-5.5 — Behtar, mehnga" },
+    { value: "gpt-5.5-pro", label: "GPT-5.5 Pro — Behtareen, sab se mehnga" },
+    { value: "gpt-5.4-mini", label: "GPT-5.4 Mini — Theek, sab se sasta" }
   ]
 };
 
+const PROVIDER_NAMES = { claude: "Claude", gemini: "Gemini", openai: "OpenAI" };
+
+function modelLabel(prov, value) {
+  const opt = MODEL_OPTIONS[prov]?.find(o => o.value === value);
+  return opt ? opt.label.split(" — ")[0] : value;
+}
+
+// Catches the most common mistake: pasting another company's key
+function keyLooksWrong(prov, key) {
+  if (prov === "claude") return !key.startsWith("sk-ant-");
+  if (prov === "openai") return !key.startsWith("sk-") || key.startsWith("sk-ant-");
+  if (prov === "gemini") return !key.startsWith("AIza");
+  return false;
+}
+
 function populateModelDropdown(prov) {
   const sel = $("modelInput");
-  sel.innerHTML = MODEL_OPTIONS[prov]?.map(o => `<option value="${o.value}">${o.label}</option>`).join("") || "";
+  sel.innerHTML = (MODEL_OPTIONS[prov] || []).map(o =>
+    `<option value="${o.value}">${escapeHtml(o.label)}${o.value === DEFAULT_MODELS[prov] ? " (Default)" : ""}</option>`
+  ).join("");
 }
 
 function readStoredKeys(prov) {
@@ -587,9 +586,27 @@ function loadProviderFields() {
   $("apiKeyInput1").value = keys[0] || "";
   $("apiKeyInput2").value = keys[1] || "";
   $("apiKeyInput3").value = keys[2] || "";
-  const savedModel = localStorage.getItem(`ai_model_${prov}`) || "";
-  // A saved model that no longer exists in the list falls back to "Default"
-  $("modelInput").value = MODEL_OPTIONS[prov]?.some(o => o.value === savedModel) ? savedModel : "";
+  $("modelInput").value = getSavedModel(prov);
+  showSettingsStatus("");
+}
+
+// Saved model, or the default when nothing (or an old/removed model) was saved
+function getSavedModel(prov) {
+  const saved = localStorage.getItem(`ai_model_${prov}`) || "";
+  return MODEL_OPTIONS[prov]?.some(o => o.value === saved) ? saved : DEFAULT_MODELS[prov];
+}
+
+function showSettingsStatus(html, type = "success") {
+  const el = $("settingsStatus");
+  el.innerHTML = html;
+  el.className = html ? `settings-status ${type}` : "settings-status hidden";
+}
+
+function updateCurrentSettingsLine() {
+  const s = getSettings();
+  $("currentSettingsLine").textContent = s.apiKeys.length
+    ? `Abhi use ho raha hai: ${PROVIDER_NAMES[s.provider]} · ${modelLabel(s.provider, s.model)} · ${s.apiKeys.length} key(s)`
+    : "Abhi koi API key save nahi hai.";
 }
 
 function getSettings() {
@@ -597,7 +614,7 @@ function getSettings() {
   return {
     provider: prov,
     apiKeys: readStoredKeys(prov).filter(k => k),
-    model: localStorage.getItem(`ai_model_${prov}`) || ""
+    model: getSavedModel(prov)
   };
 }
 
@@ -605,6 +622,7 @@ $("settingsBtn").addEventListener("click", () => {
   const s = getSettings();
   $("providerSelect").value = s.provider;
   loadProviderFields();
+  updateCurrentSettingsLine();
   $("settingsModal").classList.remove("hidden");
 });
 $("closeSettingsBtn").addEventListener("click", () => $("settingsModal").classList.add("hidden"));
@@ -642,16 +660,57 @@ function showToast(msg, type = "") {
   });
 }
 
+function getEnteredKeys() {
+  return ["apiKeyInput1", "apiKeyInput2", "apiKeyInput3"].map(id => $(id).value.trim()).filter(Boolean);
+}
+
 $("saveSettingsBtn").addEventListener("click", () => {
-  const k1 = $("apiKeyInput1").value.trim();
-  const k2 = $("apiKeyInput2").value.trim();
-  const k3 = $("apiKeyInput3").value.trim();
-  if (!k1 && !k2 && !k3) { showToast("Kam az kam ek API key zaroori hai.", "error"); return; }
   const prov = $("providerSelect").value;
+  const keys = getEnteredKeys();
+  if (!keys.length) { showSettingsStatus("❌ Kam az kam ek API key zaroori hai.", "error"); return; }
+  const model = $("modelInput").value;
   localStorage.setItem("ai_provider", prov);
-  localStorage.setItem(`ai_api_key_${prov}`, JSON.stringify([k1, k2, k3]));
-  localStorage.setItem(`ai_model_${prov}`, $("modelInput").value.trim());
-  showToast("Settings save ho gayi.", "success");
+  localStorage.setItem(`ai_api_key_${prov}`, JSON.stringify(keys));
+  localStorage.setItem(`ai_model_${prov}`, model);
+  updateCurrentSettingsLine();
+
+  const wrongKeys = keys.map((k, i) => keyLooksWrong(prov, k) ? i + 1 : null).filter(Boolean);
+  const warning = wrongKeys.length
+    ? `<br>⚠️ Key ${wrongKeys.join(", ")} ${PROVIDER_NAMES[prov]} ki key nahi lagti. "Keys Test Karein" se check kar lein.`
+    : "";
+  showSettingsStatus(
+    `✅ <b>Settings save ho gayi!</b><br>Provider: <b>${PROVIDER_NAMES[prov]}</b> · Model: <b>${escapeHtml(modelLabel(prov, model))}</b> · Keys: <b>${keys.length}</b>${warning}`,
+    wrongKeys.length ? "warning" : "success"
+  );
+  showToast("✅ AI settings save ho gayi", "success");
+});
+
+// Sends a tiny request with each entered key so the user knows the key + model actually work
+$("testKeysBtn").addEventListener("click", async () => {
+  const prov = $("providerSelect").value;
+  const model = $("modelInput").value;
+  const keys = getEnteredKeys();
+  if (!keys.length) { showSettingsStatus("❌ Pehle API key likhein.", "error"); return; }
+  const btn = $("testKeysBtn");
+  btn.disabled = true;
+  showSettingsStatus("⏳ Keys test ho rahi hain...", "info");
+  const lines = [];
+  let allOk = true;
+  for (const [i, key] of keys.entries()) {
+    try {
+      await requestProvider(prov, key, model, [{ text: "Reply with just: OK" }], 20);
+      lines.push(`✅ Key ${i + 1}: kaam kar rahi hai`);
+    } catch (err) {
+      allOk = false;
+      const reason = err.status === 401 || err.status === 403 ? "key ghalat hai ya band hai"
+        : err.status === 429 ? "limit / balance khatam"
+        : err.status === 404 || err.status === 400 ? "ye model is key par available nahi"
+        : "connection masla";
+      lines.push(`❌ Key ${i + 1}: ${reason}`);
+    }
+  }
+  showSettingsStatus(`<b>${PROVIDER_NAMES[prov]} · ${escapeHtml(modelLabel(prov, model))}</b><br>${lines.join("<br>")}`, allOk ? "success" : "error");
+  btn.disabled = false;
 });
 
 let glossaryCache = [];
@@ -664,40 +723,38 @@ async function loadGlossary() {
   renderGlossaryList();
 }
 
-function renderGlossaryList() {
-  const list = $("glossaryList");
-  if (glossaryCache.length === 0) { list.innerHTML = `<p class="text-xs text-slate-400">Abhi koi rule nahi hai.</p>`; return; }
-  
-  list.innerHTML = glossaryCache.map((r, idx) => `
-    <div class="border border-slate-100 rounded-xl mb-1.5 overflow-hidden">
-      <div class="glossary-header flex justify-between items-center bg-slate-50 p-2.5 text-xs font-semibold text-slate-800 cursor-pointer hover:bg-slate-100 transition">
-        <span>📝 ${escapeHtml(r.term)}</span>
-        <span class="chevron text-[10px] text-slate-400">▼</span>
-      </div>
-      <div class="glossary-body hidden bg-white p-3 border-t border-slate-100 text-xs text-slate-600">
-        <p class="mb-2.5 leading-relaxed" style="text-align:left;">${escapeHtml(r.instruction)}</p>
-        <div class="flex gap-2 justify-start">
-          <button class="edit-glossary-btn bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition" data-id="${r.id}" data-term="${escapeHtml(r.term)}" data-instruction="${escapeHtml(r.instruction)}">✏️ Edit</button>
-          <button class="del-glossary-btn bg-red-50 hover:bg-red-100 text-red-600 font-bold px-3 py-1.5 rounded-lg transition" data-id="${r.id}">🗑️ Delete</button>
-        </div>
-      </div>
-    </div>`).join("");
-
-  list.querySelectorAll(".glossary-header").forEach(header => {
-    header.addEventListener("click", () => {
-      const body = header.nextElementSibling;
-      const chevron = header.querySelector(".chevron");
-      const isHidden = body.classList.contains("hidden");
-      
-      list.querySelectorAll(".glossary-body").forEach(b => b.classList.add("hidden"));
+// One-open-at-a-time accordion for glossary / preset lists
+function bindAccordion(list) {
+  list.querySelectorAll(".acc-head").forEach(head => {
+    head.addEventListener("click", () => {
+      const body = head.nextElementSibling;
+      const willOpen = body.classList.contains("hidden");
+      list.querySelectorAll(".acc-body").forEach(b => b.classList.add("hidden"));
       list.querySelectorAll(".chevron").forEach(c => c.textContent = "▼");
-      
-      if (isHidden) {
+      if (willOpen) {
         body.classList.remove("hidden");
-        chevron.textContent = "▲";
+        head.querySelector(".chevron").textContent = "▲";
       }
     });
   });
+}
+
+function renderGlossaryList() {
+  const list = $("glossaryList");
+  if (glossaryCache.length === 0) { list.innerHTML = `<p class="empty">Abhi koi rule nahi hai.</p>`; return; }
+
+  list.innerHTML = glossaryCache.map(r => `
+    <div class="acc-item">
+      <button type="button" class="acc-head"><span>📝 ${escapeHtml(r.term)}</span><span class="chevron">▼</span></button>
+      <div class="acc-body hidden">
+        <p>${escapeHtml(r.instruction)}</p>
+        <div class="btn-row">
+          <button class="edit-glossary-btn btn btn-secondary btn-sm" data-id="${r.id}" data-term="${escapeHtml(r.term)}" data-instruction="${escapeHtml(r.instruction)}">✏️ Edit</button>
+          <button class="del-glossary-btn btn btn-danger-soft btn-sm" data-id="${r.id}">🗑️ Delete</button>
+        </div>
+      </div>
+    </div>`).join("");
+  bindAccordion(list);
 
   list.querySelectorAll(".del-glossary-btn").forEach(btn => {
     btn.addEventListener("click", async (e) => {
@@ -742,38 +799,20 @@ $("addGlossaryBtn").addEventListener("click", async () => {
 function renderPresetList() {
   const directives = getDirectives();
   const list = $("presetList");
-  if (directives.length === 0) { list.innerHTML = `<p class="text-xs text-slate-400">Abhi koi preset nahi hai.</p>`; return; }
-  
+  if (directives.length === 0) { list.innerHTML = `<p class="empty">Abhi koi preset nahi hai.</p>`; return; }
+
   list.innerHTML = directives.map((d, idx) => `
-    <div class="border border-slate-100 rounded-xl mb-1.5 overflow-hidden">
-      <div class="preset-header flex justify-between items-center bg-slate-50 p-2.5 text-xs font-semibold text-slate-800 cursor-pointer hover:bg-slate-100 transition">
-        <span>📢 ${escapeHtml(d.label)}</span>
-        <span class="chevron text-[10px] text-slate-400">▼</span>
-      </div>
-      <div class="preset-body hidden bg-white p-3 border-t border-slate-100 text-xs text-slate-600">
-        <p class="mb-2.5 leading-relaxed" style="text-align:left;">${escapeHtml(d.text)}</p>
-        <div class="flex gap-2 justify-start">
-          <button class="edit-preset-btn bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition" data-idx="${idx}" data-label="${escapeHtml(d.label)}" data-text="${escapeHtml(d.text)}">✏️ Edit</button>
-          <button class="del-preset-btn bg-red-50 hover:bg-red-100 text-red-600 font-bold px-3 py-1.5 rounded-lg transition" data-idx="${idx}">🗑️ Delete</button>
+    <div class="acc-item">
+      <button type="button" class="acc-head"><span>📢 ${escapeHtml(d.label)}</span><span class="chevron">▼</span></button>
+      <div class="acc-body hidden">
+        <p>${escapeHtml(d.text)}</p>
+        <div class="btn-row">
+          <button class="edit-preset-btn btn btn-secondary btn-sm" data-idx="${idx}" data-label="${escapeHtml(d.label)}" data-text="${escapeHtml(d.text)}">✏️ Edit</button>
+          <button class="del-preset-btn btn btn-danger-soft btn-sm" data-idx="${idx}">🗑️ Delete</button>
         </div>
       </div>
     </div>`).join("");
-
-  list.querySelectorAll(".preset-header").forEach(header => {
-    header.addEventListener("click", () => {
-      const body = header.nextElementSibling;
-      const chevron = header.querySelector(".chevron");
-      const isHidden = body.classList.contains("hidden");
-      
-      list.querySelectorAll(".preset-body").forEach(b => b.classList.add("hidden"));
-      list.querySelectorAll(".chevron").forEach(c => c.textContent = "▼");
-      
-      if (isHidden) {
-        body.classList.remove("hidden");
-        chevron.textContent = "▲";
-      }
-    });
-  });
+  bindAccordion(list);
 
   list.querySelectorAll(".del-preset-btn").forEach(btn => {
     btn.onclick = (e) => {
@@ -880,11 +919,11 @@ function saveDictionary(dict) {
 function renderDictionaryList() {
   const dict = getDictionary();
   const list = $("dictionaryList");
-  if (dict.length === 0) { list.innerHTML = `<p class="text-xs text-slate-400">Abhi koi shortcut nahi hai.</p>`; return; }
+  if (dict.length === 0) { list.innerHTML = `<p class="empty">Abhi koi shortcut nahi hai.</p>`; return; }
   list.innerHTML = dict.map((item, idx) => `
-    <div class="flex justify-between items-center bg-slate-100 rounded-lg p-2 text-xs text-slate-800">
+    <div class="row-item">
       <span><b>${escapeHtml(item.shortcut)}</b>: ${escapeHtml(item.expanded)}</span>
-      <button class="del-dict-btn text-red-500 hover:text-red-700 px-2" data-idx="${idx}">✕</button>
+      <button class="del-dict-btn btn btn-ghost btn-icon" data-idx="${idx}" aria-label="Delete">✕</button>
     </div>`).join("");
   
   list.querySelectorAll(".del-dict-btn").forEach(btn => {
@@ -1321,6 +1360,8 @@ function showWizStep(n) {
   const totalSteps = seq.length;
   const h2 = $(`wstep${n}`).querySelector("h2");
   if (h2) h2.textContent = `Step ${stepIdx}/${totalSteps}: ${stepNames[n]}`;
+  $("wizProgressBar").style.width = `${(stepIdx / totalSteps) * 100}%`;
+  window.scrollTo({ top: 0, behavior: "smooth" });
   $("wizBackBtn").classList.toggle("hidden", seq.indexOf(n) === 0);
   $("wizNextBtn").classList.toggle("hidden", seq.indexOf(n) === seq.length - 1);
   // Submit for Review button - har step pe dikhe (non-judge users, case pending ho)
@@ -1418,14 +1459,14 @@ async function visionOCR(file) {
 function buildUploadWidget(target, textareaId) {
   const container = $(`uploadArea-${target}`);
   container.innerHTML = `
-    <div class="flex gap-2 mb-2">
-      <button type="button" class="cam-btn flex-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg py-2 text-sm font-medium">📷 Camera</button>
-      <button type="button" class="file-btn flex-1 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg py-2 text-sm font-medium">🖼️ Files</button>
+    <div class="upload-actions">
+      <button type="button" class="cam-btn btn btn-soft">📷 Camera</button>
+      <button type="button" class="file-btn btn btn-secondary">🖼️ Gallery</button>
     </div>
     <input type="file" class="cam-input hidden" accept="image/jpeg,image/png" capture="environment" />
     <input type="file" class="file-input hidden" accept="image/jpeg,image/png" multiple />
-    <div class="preview-area flex flex-wrap gap-2 mb-2"></div>
-    <div class="ocr-status text-xs text-slate-400"></div>`;
+    <div class="preview-area"></div>
+    <div class="ocr-status"></div>`;
   const camBtn = container.querySelector(".cam-btn"), fileBtn = container.querySelector(".file-btn");
   const camInput = container.querySelector(".cam-input"), fileInput = container.querySelector(".file-input");
   const previewArea = container.querySelector(".preview-area"), statusEl = container.querySelector(".ocr-status");
@@ -1480,14 +1521,15 @@ function buildContextMenu(wrap, previewArea, statusEl, textareaId, num) {
   menu.querySelector('[data-action="skip"]').onclick = () => {
     menu.remove();
     wrap.dataset.skipped = "1";
-    wrap.querySelector(".ocr-badge").textContent = "⏭";
-    wrap.querySelector(".ocr-badge").className = "ocr-badge absolute bottom-0 right-0 bg-slate-400 text-white text-[10px] px-1 rounded";
+    setOcrBadge(wrap.querySelector(".ocr-badge"), "skipped");
   };
   fileInput.onchange = (e) => {
     const newFile = e.target.files[0];
     if (!newFile) return;
     menu.remove();
-    openImgEditor(newFile, async (editedFile) => {
+    openBatchEditor([newFile], async (results) => {
+      const editedFile = results[0];
+      if (!editedFile) return;
       removeImageText(wrap, $(textareaId));
       wrap._currentFile = editedFile;
       wrap.querySelector("img").src = URL.createObjectURL(editedFile);
@@ -1526,28 +1568,30 @@ function attachContextMenu(wrap, previewArea, statusEl, textareaId, num) {
   wrap.addEventListener("touchmove", () => clearTimeout(longPressTimer));
 }
 
+function setOcrBadge(badge, state) {
+  const icons = { working: "...", done: "✓", failed: "✗", skipped: "⏭" };
+  badge.textContent = icons[state];
+  badge.className = `ocr-badge ${state}`;
+}
+
 async function runOcrOnImage(wrap, previewArea, statusEl, textareaId, num) {
   const file = getCurrentFile(wrap);
   if (!file) { statusEl.textContent = `❌ Image ${num}: no file`; return; }
   const textareaEl = $(textareaId);
   const badge = wrap.querySelector(".ocr-badge");
   removeImageText(wrap, textareaEl);
-  badge.textContent = "...";
-  badge.className = "ocr-badge absolute bottom-0 right-0 bg-yellow-400 text-white text-[10px] px-1 rounded";
-  statusEl.textContent = `OCR image ${num}...`;
+  setOcrBadge(badge, "working");
+  statusEl.textContent = `⏳ Image ${num} ka text nikala ja raha hai...`;
   try {
-    const text = await visionOCR(file);
-    const textTrimmed = text.trim();
+    const textTrimmed = (await visionOCR(file)).trim();
     textareaEl.value = (textareaEl.value ? textareaEl.value + "\n\n" : "") + textTrimmed;
     wrap._insertedText = textTrimmed;
     delete wrap.dataset.skipped;
     textareaEl.dispatchEvent(new Event("input"));
-    badge.textContent = "✓";
-    badge.className = "ocr-badge absolute bottom-0 right-0 bg-green-500 text-white text-[10px] px-1 rounded";
-    statusEl.textContent = `✅ Image ${num} OCR done.`;
+    setOcrBadge(badge, "done");
+    statusEl.textContent = `✅ Image ${num} ho gayi. (Image ko dabaye rakhein: retry / replace)`;
   } catch (err) {
-    badge.textContent = "✗";
-    badge.className = "ocr-badge absolute bottom-0 right-0 bg-red-500 text-white text-[10px] px-1 rounded";
+    setOcrBadge(badge, "failed");
     statusEl.textContent = `❌ Image ${num}: ${err.message}`;
   }
 }
@@ -1555,50 +1599,24 @@ async function runOcrOnImage(wrap, previewArea, statusEl, textareaId, num) {
 async function processImages(fileList, previewArea, statusEl, textareaId) {
   const files = Array.from(fileList).filter(f => f.type === "image/jpeg" || f.type === "image/png");
   if (files.length === 0) { showToast("Sirf JPG/PNG support hain.", "error"); return; }
-  const textareaEl = $(textareaId);
-  // Step 1: Open batch editor — user edits all images, then presses Upload All
-  const editedFiles = await new Promise(resolve => {
-    openBatchEditor(files, (results) => resolve(results));
-  });
+  // Step 1: user edits all images in the photo editor, then presses Upload
+  const editedFiles = await new Promise(resolve => openBatchEditor(files, resolve));
   if (!editedFiles || !editedFiles.length) return;
+
+  // Step 2: add a numbered thumbnail per image, then OCR them one by one
   const startIndex = previewArea.children.length;
-  // Show thumbnails for all edited images
-  for (const [idx, file] of editedFiles.entries()) {
-    const thumb = document.createElement("div"); thumb.className = "relative w-16 h-16";
-    const thumbImg = document.createElement("img");
-    thumbImg.src = URL.createObjectURL(file);
-    thumbImg.className = "w-16 h-16 object-cover rounded-lg border border-green-400";
-    const label = document.createElement("div");
-    label.className = "absolute -top-1.5 -left-1.5 bg-blue-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold";
-    label.textContent = startIndex + idx + 1;
-    thumb.appendChild(label); thumb.appendChild(thumbImg);
-    previewArea.appendChild(thumb);
-  }
-  // Step 2: Upload/OCR all edited images
-  for (const [idx, file] of editedFiles.entries()) {
-    const num = startIndex + idx + 1;
-    const wrap = previewArea.children[startIndex + idx];
-    if (!wrap) continue;
+  const wraps = editedFiles.map((file, idx) => {
+    const wrap = document.createElement("div");
+    wrap.className = "thumb-wrap";
     wrap._currentFile = file;
-    // Add OCR badge
-    const badge = document.createElement("div"); badge.className = "ocr-badge absolute bottom-0 right-0 bg-yellow-400 text-white text-[10px] px-1 rounded"; badge.textContent = "...";
-    wrap.appendChild(badge);
-    attachContextMenu(wrap, previewArea, statusEl, textareaId, num);
-    statusEl.textContent = `OCR image ${num} processing...`;
-    try {
-      const text = await visionOCR(file);
-      const textTrimmed = text.trim();
-      textareaEl.value = (textareaEl.value ? textareaEl.value + "\n\n" : "") + textTrimmed;
-      wrap._insertedText = textTrimmed;
-      textareaEl.dispatchEvent(new Event("input"));
-      badge.textContent = "✓";
-      badge.className = "ocr-badge absolute bottom-0 right-0 bg-green-500 text-white text-[10px] px-1 rounded";
-      statusEl.textContent = `✅ Image ${num} OCR done.`;
-    } catch (err) {
-      badge.textContent = "✗";
-      badge.className = "ocr-badge absolute bottom-0 right-0 bg-red-500 text-white text-[10px] px-1 rounded";
-      statusEl.textContent = `❌ Image ${num}: ${err.message}`;
-    }
+    wrap.innerHTML = `<span class="thumb-num">${startIndex + idx + 1}</span><img alt="" /><span class="ocr-badge working">...</span>`;
+    wrap.querySelector("img").src = URL.createObjectURL(file);
+    previewArea.appendChild(wrap);
+    attachContextMenu(wrap, previewArea, statusEl, textareaId, startIndex + idx + 1);
+    return wrap;
+  });
+  for (const [idx, wrap] of wraps.entries()) {
+    await runOcrOnImage(wrap, previewArea, statusEl, textareaId, startIndex + idx + 1);
   }
 }
 
@@ -1608,101 +1626,13 @@ document.addEventListener("click", (e) => {
   }
 });
 
-// ============================================
-// IMAGE EDITOR (rotate, crop)
-// ============================================
-let imgEditorCallback = null;
-let imgEditorCurrentFile = null;
-let imgEditorRotation = 0;
-let imgEditorCropBox = null;
-let imgEditorCropActive = false;
-
-$("imgEditorClose").addEventListener("click", closeImgEditor);
-
-function closeImgEditor() {
-  $("imageEditorModal").classList.add("hidden");
-  removeCropOverlay();
-  imgEditorCallback = null;
-  imgEditorCurrentFile = null;
-  imgEditorRotation = 0;
-  imgEditorCropActive = false;
-}
-
-$("imgEditorRotateLeft").addEventListener("click", () => {
-  imgEditorRotation = (imgEditorRotation - 90 + 360) % 360;
-  applyRotation();
-  removeCropOverlay();
-});
-$("imgEditorRotateRight").addEventListener("click", () => {
-  imgEditorRotation = (imgEditorRotation + 90) % 360;
-  applyRotation();
-  removeCropOverlay();
-});
-
-function applyRotation() {
-  $("imgEditorPreview").style.transform = `rotate(${imgEditorRotation}deg)`;
-}
-
-// ---- CROP (simple resize box) ----
-let imgEditorCropSelection = null;
-
-// Calculate actual image display area within a container (object-fit:contain, centered)
-function getImageDisplayRect(img, containerW, containerH) {
+// Position of the rendered image inside its container (object-fit: contain, centered)
+function getImageDisplayRect(img) {
   const cr = img.parentElement.getBoundingClientRect();
   const ir = img.getBoundingClientRect();
   return { x: ir.left - cr.left, y: ir.top - cr.top, w: ir.width, h: ir.height };
 }
 
-function applyCropToPreview() {
-  const sel = imgEditorCropSelection;
-  if (!sel) { showToast("Crop selection ready nahi hai", "error"); return; }
-  const container = $("imgEditorPreview").parentElement;
-  const cw = container.clientWidth, ch = container.clientHeight;
-  if (!cw || !ch) { showToast("Container dimensions zero", "error"); return; }
-  const img = $("imgEditorPreview");
-  const dr = getImageDisplayRect(img, cw, ch);
-  const sr = sel.getBoundingClientRect();
-  const cr = container.getBoundingClientRect();
-  let cropX = (sr.left - cr.left - dr.x) / dr.w;
-  let cropY = (sr.top - cr.top - dr.y) / dr.h;
-  let cropW = sr.width / dr.w;
-  let cropH = sr.height / dr.h;
-  cropX = Math.max(0, Math.min(cropX, 1));
-  cropY = Math.max(0, Math.min(cropY, 1));
-  cropW = Math.max(0.01, Math.min(cropW, 1 - cropX));
-  cropH = Math.max(0.01, Math.min(cropH, 1 - cropY));
-  const crop = { x: cropX, y: cropY, w: cropW, h: cropH };
-  if (crop.w < 0.05 || crop.h < 0.05) { showToast("Selection bahut chhota hai", "error"); return; }
-  try {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const rad = imgEditorRotation * Math.PI / 180;
-    let w = img.naturalWidth, h = img.naturalHeight;
-    if (!w || !h) { showToast("Image load nahi hui", "error"); return; }
-    if (imgEditorRotation === 90 || imgEditorRotation === 270) { w = img.naturalHeight; h = img.naturalWidth; }
-    canvas.width = w; canvas.height = h;
-    ctx.translate(w / 2, h / 2);
-    ctx.rotate(rad);
-    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-    const cx = Math.round(crop.x * w), cy = Math.round(crop.y * h);
-    const cw2 = Math.round(crop.w * w), ch2 = Math.round(crop.h * h);
-    const cropCanvas = document.createElement("canvas");
-    cropCanvas.width = cw2; cropCanvas.height = ch2;
-    cropCanvas.getContext("2d").drawImage(canvas, cx, cy, cw2, ch2, 0, 0, cw2, ch2);
-    const dataUrl = cropCanvas.toDataURL(imgEditorCurrentFile?.type || "image/jpeg");
-    const blob = dataURLToBlob(dataUrl);
-    const newFile = new File([blob], imgEditorCurrentFile.name, { type: imgEditorCurrentFile.type });
-    imgEditorCurrentFile = newFile;
-    imgEditorRotation = 0;
-    img.src = dataUrl;
-    img.style.transform = "rotate(0deg)";
-    removeCropOverlay();
-    showToast("Crop applied ✓", "success");
-  } catch (e) {
-    showToast("Crop processing error: " + e.message, "error");
-    removeCropOverlay();
-  }
-}
 function dataURLToBlob(dataUrl) {
   const parts = dataUrl.split(",");
   const mime = parts[0].match(/:(.*?);/)[1];
@@ -1712,230 +1642,17 @@ function dataURLToBlob(dataUrl) {
   return new Blob([arr], { type: mime });
 }
 
-$("imgEditorCrop").addEventListener("click", () => {
-  if (imgEditorCropActive) { applyCropToPreview(); return; }
-  imgEditorCropActive = true;
-  const preview = $("imgEditorPreview");
-  const container = preview.parentElement;
-  container.style.position = "relative";
-
-  const cw = container.clientWidth || 300;
-  const ch = container.clientHeight || 300;
-  const dr = getImageDisplayRect(preview, cw, ch);
-
-  const overlay = document.createElement("div");
-  overlay.id = "cropOverlay";
-  overlay.style.cssText = "position:absolute;inset:0;z-index:10";
-
-  const sel = document.createElement("div");
-  sel.id = "cropSelection";
-  imgEditorCropSelection = sel;
-  // Start with a slightly inset crop area (90% of image)
-  const inset = 0.05;
-  const selX = dr.x + dr.w * inset, selY = dr.y + dr.h * inset;
-  const selW = dr.w * (1 - inset * 2), selH = dr.h * (1 - inset * 2);
-  sel.style.cssText = `position:absolute;left:${selX}px;top:${selY}px;width:${selW}px;height:${selH}px;border:2px solid rgba(255,255,255,0.85);box-shadow:0 0 0 9999px rgba(0,0,0,0.65),inset 0 0 0 1px rgba(255,255,255,0.08);cursor:move;z-index:11;box-sizing:border-box;transition:none`;
-
-  // Rule-of-thirds grid lines
-  ['33.33%','66.66%'].forEach(pos => {
-    const gh = document.createElement('div');
-    gh.style.cssText = `position:absolute;left:0;right:0;top:${pos};height:1px;background:rgba(255,255,255,0.2);pointer-events:none`;
-    sel.appendChild(gh);
-    const gv = document.createElement('div');
-    gv.style.cssText = `position:absolute;top:0;bottom:0;left:${pos};width:1px;background:rgba(255,255,255,0.2);pointer-events:none`;
-    sel.appendChild(gv);
-  });
-
-  // L-shaped corner handles (Android style)
-  ['nw','ne','sw','se'].forEach(dir => {
-    const corner = document.createElement('div');
-    corner.className = `crop-corner ${dir}`;
-    corner.dataset.dir = dir;
-    corner.dataset.pos = dir;
-    sel.appendChild(corner);
-  });
-
-  // Edge midpoint handles
-  ['n','s','w','e'].forEach(dir => {
-    const edge = document.createElement('div');
-    edge.className = `crop-edge ${dir}`;
-    edge.dataset.dir = dir;
-    edge.dataset.pos = dir;
-    sel.appendChild(edge);
-  });
-
-  container.appendChild(overlay);
-  overlay.appendChild(sel);
-
-  // Update crop button to "Done" state
-  const cropBtn = $("imgEditorCrop");
-  cropBtn.classList.add("active");
-  cropBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>Done</span>`;
-
-  // Remove any prior global listeners first
-  if (window._cropListeners) {
-    window._cropListeners.forEach(([ev, fn]) => document.removeEventListener(ev, fn, fn._opts));
-    window._cropListeners = [];
-  }
-
-  // Drag logic constrained to image display area
-  const imgLeft = dr.x, imgTop = dr.y, imgRight = dr.x + dr.w, imgBottom = dr.y + dr.h;
-  let dragHandle = null, startX, startY, startR;
-  function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
-
-  function onDown(px, py, handle) {
-    const c = container.getBoundingClientRect();
-    const s = sel.getBoundingClientRect();
-    startX = px; startY = py;
-    startR = { l: s.left - c.left, t: s.top - c.top, r: s.right - c.left, b: s.bottom - c.top, w: s.width, h: s.height };
-    dragHandle = handle || "move";
-  }
-
-  sel.onmousedown = (e) => {
-    const h = e.target.dataset.pos;
-    onDown(e.clientX, e.clientY, h);
-    e.preventDefault();
-  };
-  sel.ontouchstart = (e) => {
-    const t = e.touches[0]; const h = e.target.dataset.pos;
-    onDown(t.clientX, t.clientY, h);
-    e.preventDefault();
-  };
-
-  if (!window._cropListeners) window._cropListeners = [];
-  const doDrag = (dx, dy) => {
-    if (!dragHandle) return;
-    const r = startR;
-    let l = r.l, t = r.t, ri = r.r, b = r.b;
-    if (dragHandle === "move") {
-      l = clamp(r.l + dx, imgLeft, imgRight - r.w);
-      t = clamp(r.t + dy, imgTop, imgBottom - r.h);
-      ri = l + r.w; b = t + r.h;
-    } else {
-      if (dragHandle.includes("w")) l = clamp(r.l + dx, imgLeft, r.r - 60);
-      if (dragHandle.includes("e")) ri = clamp(r.r + dx, r.l + 60, imgRight);
-      if (dragHandle.includes("n")) t = clamp(r.t + dy, imgTop, r.b - 60);
-      if (dragHandle.includes("s")) b = clamp(r.b + dy, r.t + 60, imgBottom);
-    }
-    sel.style.left = l + "px"; sel.style.top = t + "px";
-    sel.style.width = (ri - l) + "px"; sel.style.height = (b - t) + "px";
-  };
-  const onMouseMove = (e) => { doDrag(e.clientX - startX, e.clientY - startY); };
-  const onMouseUp = () => { dragHandle = null; };
-  const onTouchMove = (e) => { e.preventDefault(); const t = e.touches[0]; doDrag(t.clientX - startX, t.clientY - startY); };
-  const onTouchEnd = () => { dragHandle = null; };
-  onTouchMove._opts = { passive: false };
-  onTouchEnd._opts = { passive: true };
-  document.addEventListener("mousemove", onMouseMove);
-  document.addEventListener("mouseup", onMouseUp);
-  document.addEventListener("touchmove", onTouchMove, onTouchMove._opts);
-  document.addEventListener("touchend", onTouchEnd, onTouchEnd._opts);
-  window._cropListeners = [
-    ["mousemove", onMouseMove],
-    ["mouseup", onMouseUp],
-    ["touchmove", onTouchMove],
-    ["touchend", onTouchEnd]
-  ];
-});
-
-function removeCropOverlay() {
-  const ov = document.getElementById("cropOverlay");
-  if (ov) ov.remove();
-  imgEditorCropSelection = null;
-  imgEditorCropActive = false;
-  const btn = $("imgEditorCrop");
-  btn.classList.remove("active");
-  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg><span>Crop</span>`;
-  if (window._cropListeners) {
-    window._cropListeners.forEach(([ev, fn]) => document.removeEventListener(ev, fn, fn._opts));
-    window._cropListeners = null;
-  }
-}
-
-$("imgEditorConfirm").addEventListener("click", () => {
-  const img = $("imgEditorPreview");
-  // If no rotation and no active crop overlay, pass through current file directly
-  const crop = imgEditorCropSelection ? (() => {
-    const container = $("imgEditorPreview").parentElement;
-    const cw = container.clientWidth, ch = container.clientHeight;
-    if (!cw || !ch) return null;
-    const img = $("imgEditorPreview");
-    const dr = getImageDisplayRect(img, cw, ch);
-    const sr = imgEditorCropSelection.getBoundingClientRect();
-    const cr = container.getBoundingClientRect();
-    let cx = (sr.left - cr.left - dr.x) / dr.w, cy = (sr.top - cr.top - dr.y) / dr.h;
-    let cw2 = sr.width / dr.w, ch2 = sr.height / dr.h;
-    cx = Math.max(0, Math.min(cx, 1)); cy = Math.max(0, Math.min(cy, 1));
-    cw2 = Math.max(0.01, Math.min(cw2, 1 - cx)); ch2 = Math.max(0.01, Math.min(ch2, 1 - cy));
-    return { x: cx, y: cy, w: cw2, h: ch2 };
-  })() : null;
-  if (imgEditorRotation === 0 && !crop) {
-    const cb = imgEditorCallback;
-    const file = imgEditorCurrentFile;
-    closeImgEditor();
-    if (cb) cb(file);
-    return;
-  }
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  const rad = imgEditorRotation * Math.PI / 180;
-  let w = img.naturalWidth, h = img.naturalHeight;
-  if (imgEditorRotation === 90 || imgEditorRotation === 270) { w = img.naturalHeight; h = img.naturalWidth; }
-  canvas.width = w; canvas.height = h;
-  ctx.translate(w / 2, h / 2);
-  ctx.rotate(rad);
-  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-  if (crop && crop.w > 0.05 && crop.h > 0.05) {
-    const cx = Math.round(crop.x * w), cy = Math.round(crop.y * h);
-    const cw = Math.round(crop.w * w), ch = Math.round(crop.h * h);
-    const cropCanvas = document.createElement("canvas");
-    cropCanvas.width = cw; cropCanvas.height = ch;
-    cropCanvas.getContext("2d").drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
-    cropCanvas.toBlob((blob) => {
-      const croppedFile = new File([blob], (imgEditorCurrentFile || {}).name || "image.jpg", { type: imgEditorCurrentFile?.type || "image/jpeg" });
-      const cb = imgEditorCallback;
-      closeImgEditor();
-      if (cb) cb(croppedFile);
-    }, imgEditorCurrentFile?.type || "image/jpeg");
-  } else {
-    canvas.toBlob((blob) => {
-      const rotatedFile = new File([blob], (imgEditorCurrentFile || {}).name || "image.jpg", { type: imgEditorCurrentFile?.type || "image/jpeg" });
-      const cb = imgEditorCallback;
-      closeImgEditor();
-      if (cb) cb(rotatedFile);
-    }, imgEditorCurrentFile?.type || "image/jpeg");
-  }
-});
-
-function openImgEditor(file, callback) {
-  imgEditorCurrentFile = file;
-  imgEditorRotation = 0;
-  imgEditorCallback = callback;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    $("imgEditorPreview").src = e.target.result;
-    $("imgEditorPreview").style.transform = "rotate(0deg)";
-    $("imageEditorModal").classList.remove("hidden");
-  };
-  reader.readAsDataURL(file);
-}
-
 // ============================================
 // BATCH IMAGE EDITOR (multi-image edit screen)
 // ============================================
 let batchState = null;
+// Filters that help OCR on scanned / photographed documents
 const FILTER_PRESETS = {
   original: { filter: 'none', label: 'Original' },
-  auto: { filter: 'contrast(110%) brightness(105%) saturate(110%)', label: 'Auto' },
-  vivid: { filter: 'contrast(130%) saturate(140%) brightness(105%)', label: 'Vivid' },
-  warm: { filter: 'sepia(25%) saturate(120%) brightness(105%)', label: 'Warm' },
-  cool: { filter: 'hue-rotate(200deg) saturate(90%) brightness(105%)', label: 'Cool' },
-  portrait: { filter: 'brightness(105%) contrast(90%) saturate(85%) sepia(10%)', label: 'Portrait' },
-  dramatic: { filter: 'contrast(160%) saturate(110%) brightness(85%)', label: 'Dramatic' },
-  bw: { filter: 'grayscale(100%) contrast(110%) brightness(105%)', label: 'B&W' },
-  vintage: { filter: 'sepia(70%) contrast(85%) brightness(105%)', label: 'Vintage' },
-  negative: { filter: 'invert(100%)', label: 'Negative' },
-  soft: { filter: 'brightness(110%) contrast(85%) saturate(75%)', label: 'Soft' }
+  auto: { filter: 'contrast(115%) brightness(105%)', label: 'Auto' },
+  document: { filter: 'grayscale(100%) contrast(150%) brightness(110%)', label: 'Document' },
+  bw: { filter: 'grayscale(100%) contrast(110%)', label: 'B&W' },
+  bright: { filter: 'brightness(125%) contrast(105%)', label: 'Bright' }
 };
 
 function openBatchEditor(fileList, callback) {
@@ -1943,7 +1660,7 @@ function openBatchEditor(fileList, callback) {
   if (!files.length) { showToast("Sirf JPG/PNG support hain.", "error"); return; }
   batchState = {
     files,
-    edits: files.map(() => ({ rotation: 0, crop: null, filter: 'original', cropAspect: 'free' })),
+    edits: files.map(() => ({ rotation: 0, filter: 'original' })),
     currentIndex: 0,
     callback
   };
@@ -1986,7 +1703,7 @@ function batchSelectImage(index) {
 function updateFilmstrip() {
   document.querySelectorAll(".filmstrip-item").forEach((el, i) => {
     el.classList.toggle("active", i === batchState.currentIndex);
-    const edited = batchState.edits[i].rotation !== 0 || batchState.edits[i].crop || batchState.edits[i].filter !== 'original';
+    const edited = batchState.edits[i].rotation !== 0 || batchState.edits[i].cropped || batchState.edits[i].filter !== 'original';
     el.classList.toggle("edited", edited);
   });
   // Scroll active into view
@@ -2041,7 +1758,7 @@ $("batchRotateLeft").addEventListener("click", () => {
 $("batchResetImg").addEventListener("click", () => {
   const state = batchState; if (!state) return;
   const idx = state.currentIndex;
-  state.edits[idx] = { rotation: 0, crop: null, filter: 'original', cropAspect: 'free' };
+  state.edits[idx] = { rotation: 0, filter: 'original' };
   batchSelectImage(idx);
 });
 
@@ -2057,7 +1774,7 @@ function initBatchCrop() {
   const win = $("batchCropWindow");
   overlay.classList.remove("hidden");
   const cw = preview.clientWidth || 300, ch = preview.clientHeight || 300;
-  const dr = getImageDisplayRect(img, cw, ch);
+  const dr = getImageDisplayRect(img);
   win.style.left = dr.x + "px";
   win.style.top = dr.y + "px";
   win.style.width = dr.w + "px";
@@ -2145,7 +1862,7 @@ function doApplyCrop() {
   const preview = img.parentElement;
   const cw = preview.clientWidth, ch = preview.clientHeight;
   if (!cw || !ch) return;
-  const dr = getImageDisplayRect(img, cw, ch);
+  const dr = getImageDisplayRect(img);
   const l = (parseFloat(win.style.left) || 0) - dr.x;
   const t = (parseFloat(win.style.top) || 0) - dr.y;
   const w = Math.min(parseFloat(win.style.width) || cw, dr.w);
@@ -2174,11 +1891,11 @@ function doApplyCrop() {
   const blob = dataURLToBlob(dataUrl);
   const croppedFile = new File([blob], state.files[state.currentIndex].name, { type: state.files[state.currentIndex].type });
   state.files[state.currentIndex] = croppedFile;
-  state.edits[state.currentIndex].crop = null;
+  state.edits[state.currentIndex].cropped = true;
   state.edits[state.currentIndex].rotation = 0;
   img.src = dataUrl;
   img.style.transform = "rotate(0deg)";
-  img.style.filter = FILTER_PRESETS[state.edits[state.currentIndex].filter].filter;
+  img.style.filter = FILTER_PRESETS[state.edits[state.currentIndex].filter]?.filter || "none";
   showToast("Crop applied ✓", "success");
   removeBatchCrop();
   document.querySelectorAll(".batch-tool-btn").forEach(b => b.classList.remove("active"));
@@ -2194,13 +1911,11 @@ function doApplyCrop() {
 }
 
 // ---- FILTERS ----
-let batchPendingFilter = 'original';
-
 function renderFilters() {
   const scroll = $("batchFilterScroll");
   const state = batchState; if (!state) return;
   const img = $("batchPreview");
-  batchPendingFilter = state.edits[state.currentIndex].filter;
+  const currentFilter = state.edits[state.currentIndex].filter;
   scroll.innerHTML = "";
   const thumbSize = 60;
   const canvas = document.createElement("canvas");
@@ -2209,7 +1924,7 @@ function renderFilters() {
   ctx.drawImage(img, 0, 0, thumbSize, thumbSize);
   Object.entries(FILTER_PRESETS).forEach(([key, preset]) => {
     const div = document.createElement("div");
-    div.className = "filter-preset" + (key === batchPendingFilter ? " active" : "");
+    div.className = "filter-preset" + (key === currentFilter ? " active" : "");
     const thumb = document.createElement("div");
     thumb.className = "thumb";
     const c = document.createElement("canvas");
@@ -2225,7 +1940,6 @@ function renderFilters() {
     div.appendChild(label);
     div.addEventListener("click", () => {
       const img = $("batchPreview");
-      batchPendingFilter = key;
       state.edits[state.currentIndex].filter = key;
       img.style.filter = preset.filter;
       document.querySelectorAll(".filter-preset").forEach(p => p.classList.remove("active"));
@@ -2236,15 +1950,6 @@ function renderFilters() {
   });
 }
 
-$("batchApplyFilter").addEventListener("click", () => {
-  const state = batchState; if (!state) return;
-  const img = $("batchPreview");
-  state.edits[state.currentIndex].filter = batchPendingFilter;
-  img.style.filter = FILTER_PRESETS[batchPendingFilter].filter;
-  $("batchFilterPanel").classList.add("hidden");
-  document.querySelectorAll(".batch-tool-btn").forEach(b => b.classList.remove("active"));
-  updateFilmstrip();
-});
 
 // ---- UPLOAD ALL ----
 $("batchUploadBtn").addEventListener("click", batchUploadAll);
@@ -2272,13 +1977,14 @@ async function batchUploadAll() {
     if (state.callback) state.callback(results);
   } finally {
     btn.disabled = false;
-    btn.textContent = "Upload All";
+    btn.textContent = "Upload ↑";
     batchState = null;
   }
 }
 
 async function applyBatchEdits(file, edit) {
-  if (!edit.rotation && !edit.crop && edit.filter === 'original') return file;
+  // Crops are already baked into the file when applied; only rotation / filter remain
+  if (!edit.rotation && edit.filter === 'original') return file;
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onerror = () => reject(new Error("Image corrupt ya invalid hai"));
@@ -2295,20 +2001,9 @@ async function applyBatchEdits(file, edit) {
           ctx.filter = FILTER_PRESETS[edit.filter].filter;
         }
         ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-        if (edit.crop) {
-          const cx = Math.round(edit.crop.x * w), cy = Math.round(edit.crop.y * h);
-          const cw = Math.round(edit.crop.w * w), ch = Math.round(edit.crop.h * h);
-          const cropCanvas = document.createElement("canvas");
-          cropCanvas.width = cw; cropCanvas.height = ch;
-          cropCanvas.getContext("2d").drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
-          const dataUrl = cropCanvas.toDataURL(file.type || "image/jpeg");
-          const blob = dataURLToBlob(dataUrl);
+        canvas.toBlob(blob => {
           resolve(new File([blob], file.name, { type: file.type }));
-        } else {
-          canvas.toBlob(blob => {
-            resolve(new File([blob], file.name, { type: file.type }));
-          }, file.type || "image/jpeg");
-        }
+        }, file.type || "image/jpeg");
       } catch (e) { reject(e); }
     };
     img.src = URL.createObjectURL(file);
@@ -2999,7 +2694,7 @@ $("wizSendBackBtn").addEventListener("click", async () => {
 function addChatBubble(text, isUser) {
   const log = $("chatLog");
   const div = document.createElement("div");
-  div.className = `p-2 rounded-lg text-sm max-w-[85%] ${isUser ? "chat-bubble-user ml-auto" : "chat-bubble-ai"}`;
+  div.className = `chat-bubble ${isUser ? "chat-bubble-user" : "chat-bubble-ai"}`;
   div.textContent = text; log.appendChild(div); log.scrollTop = log.scrollHeight;
 }
 $("chatSendBtn").addEventListener("click", sendChatMessage);
@@ -3178,14 +2873,16 @@ $("backFromReuseFormBtn").addEventListener("click", () => { hideAllScreens(); $(
 async function loadFinalizedForReuseSelection() {
   const { data: cases } = await sb.from("cases").select("*").eq("status", "finalized").order("updated_at", { ascending: false });
   const container = $("reuseListContainer");
-  if (!cases || cases.length === 0) { container.innerHTML = `<p class="text-slate-400 text-sm">Koi finalized judgement nahi mili.</p>`; return; }
+  if (!cases || cases.length === 0) { container.innerHTML = `<p class="empty">Koi finalized judgement nahi mili.</p>`; return; }
   container.innerHTML = cases.map(c => `
-    <div class="bg-white rounded-xl shadow p-4 cursor-pointer reuse-select" data-id="${c.id}">
-      <p class="font-semibold">${escapeHtml(c.case_title || c.category + " Case")}</p>
-      <p class="text-xs text-slate-500">${escapeHtml(c.legal_grounds || "")}</p>
-      <p class="text-xs text-slate-400 mt-1">${escapeHtml(c.category)}</p>
+    <div class="item clickable reuse-select" data-id="${c.id}" role="button" tabindex="0">
+      <p class="item-title">${escapeHtml(c.case_title || c.category + " Case")}</p>
+      <p class="item-meta">${escapeHtml(c.category)}${c.legal_grounds ? " · " + escapeHtml(c.legal_grounds) : ""}</p>
     </div>`).join("");
-  document.querySelectorAll(".reuse-select").forEach(el => el.addEventListener("click", () => openReuseFlow(el.dataset.id)));
+  document.querySelectorAll(".reuse-select").forEach(el => {
+    el.addEventListener("click", () => openReuseFlow(el.dataset.id));
+    el.addEventListener("keydown", (e) => { if (e.key === "Enter") openReuseFlow(el.dataset.id); });
+  });
 }
 
 let reuseSourceCase = null;
@@ -3258,7 +2955,7 @@ async function openReuseFlow(judgementId) {
   updateWizardUI();
   $("reuseWizNextBtn").disabled = true;
   
-  $("reuseFieldsContainer").innerHTML = `<p class="text-sm text-slate-400">AI is analyzing template structure...</p>`;
+  $("reuseFieldsContainer").innerHTML = `<p class="empty"><span class="spinner"></span> AI template parh raha hai...</p>`;
   
   // Step 1: Split template into sections using AI
   const splitPrompt = `You are a legal assistant. Split the given judgement into the following sections:
@@ -3327,11 +3024,13 @@ function renderReuseFields(fields) {
 // `oldValue` is the text in the template that gets replaced by the new value
 function addReuseFieldRow(label = "", oldValue = "") {
   const row = document.createElement("div");
-  row.className = "reuse-field-row mb-3";
+  row.className = "reuse-field-row user-row grid gap-2";
   row.innerHTML = `
-    <input type="text" class="reuse-label w-full border rounded-lg p-2 text-sm font-medium mb-1 bg-white" value="${escapeHtml(label)}" placeholder="Field name (e.g., Plaintiff Name)" />
-    <input type="text" class="reuse-old w-full border rounded-lg p-2 text-sm mb-1" value="${escapeHtml(oldValue)}" placeholder="Purani judgement mein text (e.g., Ali Ahmed)" />
-    <input type="text" class="reuse-value w-full border rounded-lg p-2 text-sm" placeholder="Naya value" />`;
+    <input type="text" class="reuse-label font-semibold" value="${escapeHtml(label)}" placeholder="Field ka naam (e.g. Plaintiff Name)" />
+    <div class="grid gap-2 sm:grid-cols-2">
+      <input type="text" class="reuse-old" value="${escapeHtml(oldValue)}" placeholder="Purana text (e.g. Ali Ahmed)" />
+      <input type="text" class="reuse-value" placeholder="Naya text" />
+    </div>`;
   row.querySelectorAll("input").forEach(el => el.dir = "auto");
   $("reuseFieldsContainer").appendChild(row);
 }
@@ -3612,11 +3311,12 @@ $("templateFileInput").addEventListener("change", async (e) => {
 });
 
 // Drag & drop support
-$("templateUploadArea").addEventListener("dragover", (e) => { e.preventDefault(); e.currentTarget.style.borderColor = "#2563eb"; e.currentTarget.style.background = "#eff6ff"; });
-$("templateUploadArea").addEventListener("dragleave", (e) => { e.currentTarget.style.borderColor = ""; e.currentTarget.style.background = ""; });
+$("templateUploadArea").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("templateFileInput").click(); } });
+$("templateUploadArea").addEventListener("dragover", (e) => { e.preventDefault(); e.currentTarget.classList.add("dragover"); });
+$("templateUploadArea").addEventListener("dragleave", (e) => { e.currentTarget.classList.remove("dragover"); });
 $("templateUploadArea").addEventListener("drop", async (e) => {
   e.preventDefault();
-  e.currentTarget.style.borderColor = ""; e.currentTarget.style.background = "";
+  e.currentTarget.classList.remove("dragover");
   const file = e.dataTransfer.files[0];
   if (!file) return;
   try {
@@ -3864,7 +3564,7 @@ async function openInbox(stenoKey) {
 
 async function refreshInboxList() {
   const listContainer = $("owInboxList");
-  listContainer.innerHTML = `<p class="text-xs text-slate-400">Loading shared orders...</p>`;
+  listContainer.innerHTML = `<p class="empty">Loading...</p>`;
   
   try {
     const { data, error } = await sb.from("live_notes")
@@ -3874,7 +3574,7 @@ async function refreshInboxList() {
     if (error) throw error;
     
     if (!data || data.length === 0) {
-      listContainer.innerHTML = `<p class="text-xs text-slate-400">Koi shared order nahi mila.</p>`;
+      listContainer.innerHTML = `<p class="empty">Koi order nahi aaya.</p>`;
       return;
     }
     
@@ -3894,21 +3594,20 @@ async function refreshInboxList() {
       const dateStr = new Date(order.sent_at).toLocaleDateString("en-GB");
       
       return `
-        <div class="bg-slate-50 border rounded-xl p-3" style="display:flex;flex-direction:column;gap:0.5rem;position:relative;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;">
-            <div style="flex:1;">
-              <p class="font-bold text-sm text-slate-800" style="margin:0;">${escapeHtml(order.case_title)}</p>
-              <p class="text-[10px] text-slate-400" style="margin:2px 0 0 0;">Sent on ${dateStr} at ${timeStr}</p>
+        <div class="inbox-item">
+          <div class="case-row">
+            <div class="flex-1 min-w-0">
+              <p class="item-title">${escapeHtml(order.case_title)}</p>
+              <p class="item-meta">${dateStr} · ${timeStr}</p>
             </div>
-            <button class="inbox-del-btn text-red-500 hover:text-red-700 font-bold text-sm" style="background:none;border:none;cursor:pointer;padding:0 5px;" data-id="${escapeHtml(order.id)}">✕</button>
+            <button class="inbox-del-btn btn btn-ghost btn-icon" data-id="${escapeHtml(order.id)}" aria-label="Delete">✕</button>
           </div>
-          <pre style="font-family:\'Times New Roman\', serif;font-size:0.85rem;white-space:pre-wrap;background:#fff;border:1px solid #e2e8f0;padding:0.5rem;border-radius:0.5rem;max-height:120px;overflow-y:auto;margin:0;line-height:1.4;">${escapeHtml(order.order_text)}</pre>
-          <div style="display:flex;gap:0.5rem;">
-            <button class="inbox-copy-btn bg-teal-600 text-white text-xs px-3 py-1.5 rounded font-semibold" data-id="${escapeHtml(order.id)}">📋 Copy</button>
-            <button class="inbox-load-btn bg-slate-700 text-white text-xs px-3 py-1.5 rounded font-semibold" data-id="${escapeHtml(order.id)}">📥 Load to Editor</button>
+          <pre>${escapeHtml(order.order_text)}</pre>
+          <div class="btn-row">
+            <button class="inbox-copy-btn btn btn-soft btn-sm" data-id="${escapeHtml(order.id)}">📋 Copy</button>
+            <button class="inbox-load-btn btn btn-dark btn-sm" data-id="${escapeHtml(order.id)}">📥 Editor mein load karein</button>
           </div>
-        </div>
-      `;
+        </div>`;
     }).join("");
     
     listContainer.querySelectorAll(".inbox-del-btn").forEach(btn => {
@@ -3936,7 +3635,7 @@ async function refreshInboxList() {
     });
     
   } catch (e) {
-    listContainer.innerHTML = `<p class="text-xs text-red-500">Error loading inbox: ${escapeHtml(e.message)}</p>`;
+    listContainer.innerHTML = `<p class="empty text-red-600">Inbox load nahi hua: ${escapeHtml(e.message)}</p>`;
   }
 }
 

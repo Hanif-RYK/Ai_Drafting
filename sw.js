@@ -1,21 +1,17 @@
-const CACHE_NAME = 'ai-drafting-v3';
+const CACHE_NAME = 'ai-drafting-v4';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
   './icon.svg',
+  './tailwind.css',
   './styles.css',
   './app.js'
 ];
 
-// Static CDN assets that are safe to keep offline
-const CACHEABLE_CDN_HOSTS = [
-  'cdn.tailwindcss.com',
-  'cdn.jsdelivr.net',
-  'fonts.googleapis.com',
-  'fonts.gstatic.com'
-];
+// Static CDN assets that are safe to keep offline (Supabase client library)
+const CACHEABLE_CDN_HOSTS = ['cdn.jsdelivr.net'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
