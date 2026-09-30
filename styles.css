@@ -339,7 +339,8 @@ input.field-map-label {
   font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em;
 }
 input.field-map-label:focus { box-shadow: none; color: var(--text); }
-.field-map .reuse-old { background: var(--bg); color: var(--muted); }
+.field-map .reuse-old[readonly] { background: var(--bg); color: var(--muted); cursor: default; }
+.field-map .reuse-old[readonly]:focus { box-shadow: none; border-color: var(--border-strong); }
 @media (max-width: 480px) {
   .field-map { grid-template-columns: 1fr; }
   .field-map .arrow { display: none; }

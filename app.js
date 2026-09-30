@@ -421,8 +421,8 @@ async function openCaseList(status) {
     const comment = c.review_comment ? `<p class="item-note">💬 ${escapeHtml(c.review_comment)}</p>` : "";
     const canDelete = c.created_by === currentProfile?.id || currentProfile?.is_admin;
     const actions = [
-      status === "finalized" ? `<button class="reuse-btn btn btn-soft btn-sm" data-id="${c.id}">✨ Is se naya case</button>` : "",
-      status === "finalized" ? `<button class="make-template-btn btn btn-secondary btn-sm" data-id="${c.id}">📚 Template banayein</button>` : "",
+      status === "finalized" ? `<button class="reuse-btn btn btn-soft btn-sm" data-id="${c.id}">✨ New case from this</button>` : "",
+      status === "finalized" ? `<button class="make-template-btn btn btn-secondary btn-sm" data-id="${c.id}">📚 Save as template</button>` : "",
       status === "review" && isJudge ? `<button class="review-approve-btn btn btn-success btn-sm" data-id="${c.id}">✅ Approve</button>` : "",
       status === "review" && isJudge ? `<button class="review-sendback-btn btn btn-warning btn-sm" data-id="${c.id}">↩️ Send Back</button>` : ""
     ].join("");
@@ -2890,7 +2890,7 @@ async function openTemplatesScreen() {
   $("templatesScreen").classList.remove("hidden");
   const list = $("templatesList");
   if (!hasTemplateColumn) {
-    list.innerHTML = `<p class="notice notice-warning">Templates ke liye Supabase mein <b>supabase/migration_002_templates.sql</b> chalayein.</p>`;
+    list.innerHTML = `<p class="notice notice-warning">To use templates, run <b>supabase/migration_002_templates.sql</b> in Supabase.</p>`;
     return;
   }
   list.innerHTML = `<p class="empty">Loading...</p>`;
@@ -2898,7 +2898,7 @@ async function openTemplatesScreen() {
     .eq("is_template", true).order("updated_at", { ascending: false });
   if (error) { list.innerHTML = `<p class="empty">${escapeHtml(error.message)}</p>`; return; }
   if (!data.length) {
-    list.innerHTML = `<p class="empty">Abhi koi template nahi. "+ Naya template" se purani judgement paste karein, ya Finalized list mein kisi case par "📚 Template banayein" dabayein.</p>`;
+    list.innerHTML = `<p class="empty">No templates yet. Use "+ New template" to paste an old judgement, or press "📚 Save as template" on a finalized case.</p>`;
     return;
   }
   list.innerHTML = data.map(t => renderSourceCard(t, {
@@ -2910,10 +2910,10 @@ async function openTemplatesScreen() {
 $("templatesList").addEventListener("click", async (e) => {
   const del = e.target.closest(".tpl-delete-btn");
   if (del) {
-    if (!confirm("Ye template delete karna hai?")) return;
+    if (!confirm("Delete this template?")) return;
     const { error } = await sb.from("cases").delete().eq("id", del.dataset.id);
     if (error) { showToast("Delete fail: " + error.message, "error"); return; }
-    showToast("Template delete ho gaya.", "success");
+    showToast("Template deleted.", "success");
     openTemplatesScreen();
     return;
   }
@@ -2922,10 +2922,10 @@ $("templatesList").addEventListener("click", async (e) => {
 
 // Copies a finalized case into a new template (the original case stays in Finalized)
 async function saveCaseAsTemplate(caseId) {
-  if (!hasTemplateColumn) { showToast("Pehle Supabase mein migration_002_templates.sql chalayein.", "error"); return; }
+  if (!hasTemplateColumn) { showToast("Run migration_002_templates.sql in Supabase first.", "error"); return; }
   const { data: c, error } = await sb.from("cases").select("*").eq("id", caseId).single();
-  if (error || !c?.judgement_output) { showToast("Is case ki judgement khali hai.", "error"); return; }
-  const title = prompt("Template ka naam:", c.case_title || `${c.category} template`);
+  if (error || !c?.judgement_output) { showToast("This case has no judgement text.", "error"); return; }
+  const title = prompt("Template name:", c.case_title || `${c.category} template`);
   if (!title?.trim()) return;
   const { error: insErr } = await sb.from("cases").insert({
     category: c.category, case_type: c.case_type, case_title: title.trim(),
@@ -2933,8 +2933,8 @@ async function saveCaseAsTemplate(caseId) {
     status: "finalized", is_template: true, current_step: 5,
     created_by: currentProfile.id, last_updated_by: currentProfile.id
   });
-  if (insErr) { showToast("Template save nahi hua: " + insErr.message, "error"); return; }
-  showToast("📚 Template ban gaya! Menu → Templates mein dekhein.", "success");
+  if (insErr) { showToast("Could not save template: " + insErr.message, "error"); return; }
+  showToast("📚 Template saved. See Menu → Templates.", "success");
 }
 
 // ---------- Shared card for templates / finalized judgements ----------
@@ -2948,8 +2948,8 @@ function renderSourceCard(c, { extra = "" } = {}) {
       <p class="item-meta">${escapeHtml(c.category)} · ${typeLabel}${c.legal_grounds ? " · " + escapeHtml(c.legal_grounds) : ""}</p>
       <div class="template-preview hidden">${escapeHtml(preview)}${(c.judgement_output || "").length > 1500 ? "…" : ""}</div>
       <div class="item-actions">
-        <button class="src-use-btn btn btn-primary btn-sm" data-id="${c.id}">✨ Is se banayein</button>
-        <button class="src-preview-btn btn btn-secondary btn-sm">👁️ Dekhein</button>
+        <button class="src-use-btn btn btn-primary btn-sm" data-id="${c.id}">✨ Use this</button>
+        <button class="src-preview-btn btn btn-secondary btn-sm">👁️ Preview</button>
         ${extra}
       </div>
     </div>`;
@@ -2962,7 +2962,7 @@ function handleSourceCardClick(e) {
   if (prev) {
     const box = prev.closest(".item").querySelector(".template-preview");
     box.classList.toggle("hidden");
-    prev.textContent = box.classList.contains("hidden") ? "👁️ Dekhein" : "🙈 Chhupayein";
+    prev.textContent = box.classList.contains("hidden") ? "👁️ Preview" : "🙈 Hide";
   }
 }
 
@@ -3003,7 +3003,7 @@ function renderReuseSources() {
     (!q || `${c.case_title || ""} ${c.legal_grounds || ""}`.toLowerCase().includes(q)));
   $("reuseListContainer").innerHTML = items.length
     ? items.map(c => renderSourceCard(c)).join("")
-    : `<p class="empty">${reuseSources.length ? "Is search se kuch nahi mila." : "Abhi koi template ya finalized judgement nahi hai. Menu → 📚 Templates se add karein."}</p>`;
+    : `<p class="empty">${reuseSources.length ? "Nothing matches your search." : "No templates or finalized judgements yet. Add one from Menu → 📚 Templates."}</p>`;
 }
 
 // ---------- Step 2: details ----------
@@ -3027,7 +3027,7 @@ function showReuseStep(step) {
 }
 
 $("backFromReuseFormBtn").addEventListener("click", () => {
-  if ($("reuseResult").value.trim() && !confirm("Banayi hui judgement save nahi hui. Wapas jana hai?")) return;
+  if ($("reuseResult").value.trim() && !confirm("The generated judgement is not saved yet. Go back anyway?")) return;
   openReuseChooser();
 });
 $("reuseEditDetailsBtn").addEventListener("click", () => showReuseStep(2));
@@ -3035,7 +3035,7 @@ $("addReuseFieldBtn").addEventListener("click", () => addReuseFieldRow());
 
 async function openReuseFlow(sourceId) {
   const { data: source } = await sb.from("cases").select("*").eq("id", sourceId).maybeSingle();
-  if (!source?.judgement_output) { showToast("Is judgement ka text nahi mila.", "error"); return; }
+  if (!source?.judgement_output) { showToast("This judgement has no text.", "error"); return; }
   reuseSourceCase = source;
 
   hideAllScreens();
@@ -3049,7 +3049,7 @@ async function openReuseFlow(sourceId) {
   showReuseStep(2);
 
   // Detect the case-specific details (names, dates, amounts) so the user only types the new values
-  $("reuseFieldsContainer").innerHTML = `<p class="empty"><span class="spinner"></span> AI template se naam, taareekhein aur raqam dhoond raha hai...</p>`;
+  $("reuseFieldsContainer").innerHTML = `<p class="empty"><span class="spinner"></span> AI is finding names, dates and amounts in the template...</p>`;
   const fieldsPrompt = `From the court judgement below, list ONLY the case-specific details that would change in a new similar case:
 party names, other person names, dates, amounts, case numbers, places.
 "old_value" MUST be copied exactly as it appears in the judgement. Maximum 15 items. Do not repeat the same value.
@@ -3064,7 +3064,7 @@ ${source.judgement_output}`;
     fields = match ? JSON.parse(match[0]) : [];
     if (!Array.isArray(fields)) fields = [];
   } catch (err) {
-    showToast("Details khud nahi mil sakin, aap khud fields add kar lein.", "warning");
+    showToast("Could not detect details automatically — please add the fields yourself.", "warning");
   }
   if (reuseSourceCase !== source) return; // user already picked another template
   $("reuseFieldsContainer").innerHTML = "";
@@ -3072,14 +3072,16 @@ ${source.judgement_output}`;
   if (!fields.length) addReuseFieldRow();
 }
 
+// Detected rows show the template value read-only; rows added by hand are fully editable
 function addReuseFieldRow(label = "", oldValue = "") {
+  const detected = Boolean(oldValue);
   const row = document.createElement("div");
   row.className = "reuse-field-row field-map";
   row.innerHTML = `
-    <input type="text" class="reuse-label field-map-label" value="${escapeHtml(label)}" placeholder="Kya cheez (e.g. Plaintiff ka naam)" />
-    <input type="text" class="reuse-old" value="${escapeHtml(oldValue)}" placeholder="Template mein" />
+    <input type="text" class="reuse-label field-map-label" value="${escapeHtml(label)}" placeholder="What is it? (e.g. Plaintiff name)" />
+    <input type="text" class="reuse-old" value="${escapeHtml(oldValue)}" placeholder="Text in template" ${detected ? "readonly title=\"From the template\"" : ""} />
     <span class="arrow">→</span>
-    <input type="text" class="reuse-value" placeholder="Naye case mein" />`;
+    <input type="text" class="reuse-value" placeholder="Value for new case" />`;
   row.querySelectorAll("input").forEach(el => el.dir = "auto");
   $("reuseFieldsContainer").appendChild(row);
 }
@@ -3096,17 +3098,24 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Matches text ignoring case and differences in spacing / line breaks
+function flexibleRegExp(text) {
+  return new RegExp(escapeRegExp(text.trim()).replace(/\s+/g, "\\s+"), "gi");
+}
+
 // ---------- Step 3: generate, refine, save ----------
 $("reuseGenerateBtn").addEventListener("click", async () => {
   const decision = $("reuseDecision").value.trim();
-  if (!decision) { showToast("Faisla / short order likhein (C).", "error"); $("reuseDecision").focus(); return; }
+  if (!decision) { showToast("Please enter the decision / short order (C).", "error"); $("reuseDecision").focus(); return; }
   const replacements = getReuseReplacements();
+  const known = replacements.filter(r => r.value);
 
-  // Swap known values directly so names/amounts don't depend on the AI getting them right
+  // Swap known values in code first (ignoring case and extra spaces), so names and amounts
+  // don't depend on the AI. The AI also gets the full list below, because the detected
+  // "template value" may be spelled slightly differently from the template text.
   let templateText = reuseSourceCase.judgement_output;
-  replacements.filter(r => r.value).forEach(r => {
-    templateText = templateText.replace(new RegExp(escapeRegExp(r.oldValue), "g"), () => r.value);
-  });
+  known.forEach(r => { templateText = templateText.replace(flexibleRegExp(r.oldValue), () => r.value); });
+  const mapping = known.map(r => `- ${r.label || "Detail"}: "${r.oldValue}" → "${r.value}"`).join("\n");
   const unknown = replacements.filter(r => !r.value).map(r => `- ${r.label || "Detail"} (was "${r.oldValue}")`).join("\n");
   const differences = $("reuseDifferences").value.trim();
 
@@ -3118,6 +3127,7 @@ RULES:
 - Apply every point in "WHAT IS DIFFERENT" to the facts, evidence and reasoning.
 - The final order must follow the "DECISION" exactly.
 - Do NOT invent facts, names, dates or amounts. Where a detail of the new case is unknown, write [___].
+${mapping ? `- MANDATORY REPLACEMENTS — use the new value everywhere the old one (or any spelling / transliteration / short form of it) appears:\n${mapping}` : ""}
 ${unknown ? `- These details are unknown for the new case, write [___] wherever they appeared:\n${unknown}` : ""}
 - Output ONLY the judgement text. Plain text, no markdown, no notes.
 
@@ -3133,11 +3143,17 @@ ${decision}`;
   setBtnLoading("reuseGenerateBtn", "spin-reuseGenerate", true);
   try {
     const result = (await callAI(prompt, 4000)).trim();
-    if (!result) throw new Error("AI ne khali jawab diya");
+    if (!result) throw new Error("The AI returned an empty answer");
     $("reuseResult").value = result;
     showReuseStep(3);
+    // Tell the user if any value they typed didn't make it into the judgement
+    const missing = known.filter(r => !flexibleRegExp(r.value).test(result));
+    $("reuseMissingNotice").innerHTML = missing.length
+      ? `⚠️ These values were not found in the judgement — please check: ${missing.map(r => `<b>${escapeHtml(r.label || r.value)}</b> (${escapeHtml(r.value)})`).join(", ")}`
+      : "";
+    $("reuseMissingNotice").classList.toggle("hidden", !missing.length);
   } catch (err) {
-    showToast("Judgement nahi ban saki: " + err.message, "error");
+    showToast("Could not generate the judgement: " + err.message, "error");
   } finally {
     setBtnLoading("reuseGenerateBtn", "spin-reuseGenerate", false);
   }
@@ -3147,7 +3163,7 @@ $("reuseRefineInput").addEventListener("keydown", (e) => { if (e.key === "Enter"
 $("reuseRefineBtn").addEventListener("click", async () => {
   const instruction = $("reuseRefineInput").value.trim();
   const current = $("reuseResult").value.trim();
-  if (!instruction) { showToast("Kya change karna hai, likhein.", "error"); return; }
+  if (!instruction) { showToast("Type what you want to change.", "error"); return; }
   setBtnLoading("reuseRefineBtn", "spin-reuseRefine", true, "reuseResult");
   try {
     const result = await callAI(`Update the court judgement below according to the instruction. Change only what the instruction asks, keep everything else exactly the same. Do not invent facts. Output ONLY the full updated judgement, plain text.
@@ -3160,7 +3176,7 @@ ${current}`, 4000);
     if (result.trim()) {
       $("reuseResult").value = result.trim();
       $("reuseRefineInput").value = "";
-      showToast("✅ Change ho gaya.", "success");
+      showToast("✅ Updated.", "success");
     }
   } catch (err) {
     showToast("Error: " + err.message, "error");
@@ -3173,7 +3189,7 @@ ${current}`, 4000);
 $("reuseSaveBtn").addEventListener("click", async () => {
   const judgement = $("reuseResult").value.trim();
   if (!judgement) return;
-  if (judgement.includes("[___]") && !confirm('Judgement mein abhi bhi "[___]" khaali jagahein hain. Phir bhi save karein? (Baad mein case kholkar bhar sakte hain)')) return;
+  if (judgement.includes("[___]") && !confirm('The judgement still has "[___]" blanks. Save anyway? (You can fill them in later from the case.)')) return;
   setBtnLoading("reuseSaveBtn", "spin-reuseSave", true);
   try {
     const row = {
@@ -3190,11 +3206,11 @@ $("reuseSaveBtn").addEventListener("click", async () => {
     if (hasTemplateColumn) row.is_template = false;
     const { data, error } = await sb.from("cases").insert(row).select().single();
     if (error) throw error;
-    showToast("✅ Naya case Pending mein save ho gaya!", "success");
+    showToast("✅ New case saved to Pending.", "success");
     $("reuseResult").value = "";
     await openWizardForCase(data.id);
   } catch (err) {
-    showToast("Save nahi hua: " + err.message, "error");
+    showToast("Could not save: " + err.message, "error");
   } finally {
     setBtnLoading("reuseSaveBtn", "spin-reuseSave", false);
   }
@@ -3220,12 +3236,12 @@ $("templateFileInput").addEventListener("change", async (e) => {
     const text = await file.text();
     if (text.trim().length > 10) {
       $("templateJudgementText").value = text.trim();
-      showToast("File load ho gayi!", "success");
+      showToast("File loaded.", "success");
     } else {
-      showToast("File mein kafi kam text hai.", "error");
+      showToast("The file has too little text.", "error");
     }
   } catch (err) {
-    showToast("File read nahi ho saki: " + err.message, "error");
+    showToast("Could not read the file: " + err.message, "error");
   }
   $("templateFileInput").value = "";
 });
@@ -3243,16 +3259,16 @@ $("templateUploadArea").addEventListener("drop", async (e) => {
     const text = await file.text();
     if (text.trim().length > 10) {
       $("templateJudgementText").value = text.trim();
-      showToast("File load ho gayi!", "success");
+      showToast("File loaded.", "success");
     }
-  } catch (err) { showToast("File read error.", "error"); }
+  } catch (err) { showToast("Could not read the file.", "error"); }
 });
 
 $("saveTemplateBtn").addEventListener("click", async () => {
   const title = $("templateTitle").value.trim();
   const text = $("templateJudgementText").value.trim();
-  if (!title) { showToast("Title zaroori hai.", "error"); return; }
-  if (!text) { showToast("Judgement text zaroori hai. Paste ya upload karein.", "error"); return; }
+  if (!title) { showToast("Title is required.", "error"); return; }
+  if (!text) { showToast("Judgement text is required. Paste it or upload a .txt file.", "error"); return; }
 
   $("saveTemplateBtn").disabled = true;
   $("spin-saveTemplate").classList.remove("hidden");
@@ -3283,7 +3299,7 @@ $("saveTemplateBtn").addEventListener("click", async () => {
 
     if (error) throw error;
 
-    showToast("✅ Template save ho gaya!", "success");
+    showToast("✅ Template saved.", "success");
     $("templateModal").classList.add("hidden");
     $("templateTitle").value = "";
     $("templateJudgementText").value = "";
