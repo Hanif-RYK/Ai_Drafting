@@ -9,26 +9,9 @@
 
 document.querySelectorAll("textarea, input:not([type=hidden]):not([type=file])").forEach(el => el.dir = "auto");
 
-  // Show current date in header
-  const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', dateOptions);
-const $ = (id) => {
-  if (id === "hamburgerMenu") {
-    return {
-      classList: {
-        add: (cls) => { if (cls === "hidden") closeSidebar(); },
-        remove: (cls) => { if (cls === "hidden") openSidebar(); },
-        toggle: (cls) => {
-          if (cls === "hidden") {
-            if ($("sidebarMenu").classList.contains("active")) closeSidebar();
-            else openSidebar();
-          }
-        }
-      }
-    };
-  }
-  return document.getElementById(id);
-};
+// Show current date in header
+document.getElementById("currentDate").textContent = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+const $ = (id) => document.getElementById(id);
 let currentUser = null;   // { id, email }
 let currentProfile = null; // { id, full_name, role }
 
@@ -89,11 +72,6 @@ async function onLoginSuccess(user) {
     await sb.auth.signOut();
     return;
   }
-  currentProfile = profile;
-
-  showAdminBtnIfAdmin();
-  showJudgeBtnIfJudge();
-
   if (profile.status === 'pending') {
     showLoginError("⏳ Account pending hai. Approval ka wait karein.");
     await sb.auth.signOut();
@@ -105,6 +83,9 @@ async function onLoginSuccess(user) {
     await sb.auth.signOut();
     return;
   }
+
+  currentProfile = profile;
+  $("adminPanelBtn").classList.toggle("hidden", !profile.is_admin);
 
   $("loginScreen").classList.add("hidden");
   $("mainApp").classList.remove("hidden");
@@ -137,9 +118,16 @@ $("sidebarMenu").addEventListener("click", (e) => {
 });
 
 $("logoutBtn").addEventListener("click", async () => {
+  await flushAutosave();
+  await stopLiveMode();
+  closeLiveTypeEditor();
   await sb.auth.signOut();
+  // Reset per-user state so the next login starts clean
   currentUser = null;
   currentProfile = null;
+  activeCase = null;
+  glossaryCache = [];
+  $("adminPanelBtn").classList.add("hidden");
   $("mainApp").classList.add("hidden");
   $("loginScreen").classList.remove("hidden");
 });
@@ -149,18 +137,7 @@ window.addEventListener("DOMContentLoaded", checkExistingSession);
 // ============================================
 // ADMIN PANEL
 // ============================================
-function showAdminBtnIfAdmin() {
-  if (currentProfile && currentProfile.is_admin) {
-    $("adminPanelBtn").classList.remove("hidden");
-  }
-}
-
-function showJudgeBtnIfJudge() {
-  // Judge approval is removed. Judge does not need the Judge Panel.
-}
-
 $("adminPanelBtn").addEventListener("click", async () => {
-  $("hamburgerMenu").classList.add("hidden");
   const { data: pending } = await sb.from("profiles").select("*").eq("status", "pending").order("created_at", { ascending: false });
   const list = $("pendingUsersList");
   if (!pending || pending.length === 0) {
@@ -171,7 +148,7 @@ $("adminPanelBtn").addEventListener("click", async () => {
         <p class="font-semibold text-sm">${escapeHtml(u.full_name)}</p>
         <p class="text-xs text-slate-500">${escapeHtml(u.email || '')} · ${u.role === 'judge' ? '👨‍⚖️ Judge' : u.role === 'steno' ? '📝 Steno' : '👤 User'} · ${escapeHtml(u.court_name || '')}</p>
         <div class="flex gap-2 mt-2">
-          <button class="approve-user-btn bg-green-600 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}" data-role="${u.role}">✅ Approve</button>
+          <button class="approve-user-btn bg-green-600 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}">✅ Approve</button>
           <button class="reject-user-btn bg-red-500 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}">❌ Reject</button>
         </div>
       </div>
@@ -181,62 +158,23 @@ $("adminPanelBtn").addEventListener("click", async () => {
 });
 
 document.addEventListener("click", async (e) => {
-  const approveBtn = e.target.closest(".approve-user-btn");
-  if (approveBtn) {
-    const id = approveBtn.dataset.id;
-    const role = approveBtn.dataset.role;
-    const newStatus = 'active';
-    await sb.from("profiles").update({ status: newStatus, approved_by_admin: true, approved_by_judge: true }).eq("id", id);
-    approveBtn.closest(".bg-slate-50")?.remove();
+  const btn = e.target.closest(".approve-user-btn, .reject-user-btn");
+  if (!btn) return;
+  const isApprove = btn.classList.contains("approve-user-btn");
+  const update = isApprove
+    ? { status: "active", approved_by_admin: true, approved_by_judge: true }
+    : { status: "rejected" };
+  btn.disabled = true;
+  const { error } = await sb.from("profiles").update(update).eq("id", btn.dataset.id);
+  if (error) {
+    btn.disabled = false;
+    showToast("Update fail: " + error.message, "error");
+    return;
   }
-  const rejectBtn = e.target.closest(".reject-user-btn");
-  if (rejectBtn) {
-    const id = rejectBtn.dataset.id;
-    await sb.from("profiles").update({ status: 'rejected' }).eq("id", id);
-    rejectBtn.closest(".bg-slate-50")?.remove();
-  }
+  btn.closest(".bg-slate-50")?.remove();
 });
 
 $("closeAdminPanelBtn").addEventListener("click", () => $("adminPanelModal").classList.add("hidden"));
-
-// ============================================
-// JUDGE PANEL
-// ============================================
-$("judgePanelBtn").addEventListener("click", async () => {
-  $("hamburgerMenu").classList.add("hidden");
-  const { data: pending } = await sb.from("profiles").select("*").eq("status", "admin_approved").order("created_at", { ascending: false });
-  const list = $("pendingJudgeApprovalList");
-  if (!pending || pending.length === 0) {
-    list.innerHTML = `<p class="text-slate-400 text-sm text-center py-4">Koi user judge approval ka wait nahi kar raha.</p>`;
-  } else {
-    list.innerHTML = pending.map(u => `
-      <div class="bg-slate-50 rounded-xl p-3">
-        <p class="font-semibold text-sm">${escapeHtml(u.full_name)}</p>
-        <p class="text-xs text-slate-500">${escapeHtml(u.email || '')} · ${u.role === 'steno' ? '📝 Steno' : '👤 User'} · ${escapeHtml(u.court_name || '')}</p>
-        <div class="flex gap-2 mt-2">
-          <button class="judge-approve-btn bg-green-600 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}">✅ Approve</button>
-          <button class="judge-reject-btn bg-red-500 text-white text-xs px-4 py-1.5 rounded-lg font-semibold" data-id="${u.id}">❌ Reject</button>
-        </div>
-      </div>
-    `).join("");
-  }
-  $("judgePanelModal").classList.remove("hidden");
-});
-
-document.addEventListener("click", async (e) => {
-  const approveBtn = e.target.closest(".judge-approve-btn");
-  if (approveBtn) {
-    await sb.from("profiles").update({ status: 'active', approved_by_judge: true, judge_id: currentProfile?.id }).eq("id", approveBtn.dataset.id);
-    approveBtn.closest(".bg-slate-50")?.remove();
-  }
-  const rejectBtn = e.target.closest(".judge-reject-btn");
-  if (rejectBtn) {
-    await sb.from("profiles").update({ status: 'rejected' }).eq("id", rejectBtn.dataset.id);
-    rejectBtn.closest(".bg-slate-50")?.remove();
-  }
-});
-
-$("closeJudgePanelBtn").addEventListener("click", () => $("judgePanelModal").classList.add("hidden"));
 
 // ============================================
 // REGISTER (Sign Up)
@@ -255,26 +193,19 @@ $("toggleAuthBtn").addEventListener("click", () => {
   $("loginError").classList.add("hidden");
   $("regSuccess").classList.add("hidden");
   regSelectedRole = null;
-  document.querySelectorAll(".reg-role-btn").forEach(b => b.classList.remove("bg-green-700", "text-white"));
+  document.querySelectorAll(".reg-role-btn").forEach(b => b.classList.remove("active"));
   $("regExtraFields").classList.add("hidden");
 });
 
 document.querySelectorAll(".reg-role-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     regSelectedRole = btn.dataset.role;
-    document.querySelectorAll(".reg-role-btn").forEach(b => b.classList.remove("bg-green-700", "text-white"));
-    btn.classList.add("bg-green-700", "text-white");
+    document.querySelectorAll(".reg-role-btn").forEach(b => b.classList.toggle("active", b === btn));
 
     $("regExtraFields").classList.remove("hidden");
     $("regStenoEmailRow").classList.toggle("hidden", btn.dataset.role === "steno");
-    const label = $("regExtraFields").querySelector("label");
-    if (btn.dataset.role === "steno") {
-      label.textContent = "Court Name";
-      $("regCourtName").placeholder = "e.g. District Court Lahore";
-    } else {
-      label.textContent = "Court Name (apne steno se poochein)";
-      $("regCourtName").placeholder = "e.g. District Court Lahore";
-    }
+    $("regExtraFields").querySelector("label").textContent =
+      btn.dataset.role === "steno" ? "Court Name" : "Court Name (apne steno se poochein)";
   });
 });
 
@@ -286,9 +217,9 @@ $("registerBtn").addEventListener("click", async () => {
   const stenoEmail = $("regStenoEmail").value.trim();
   if (!name || !email || !password) { showLoginError("Name, email aur password bharain."); return; }
   if (!regSelectedRole) { showLoginError("Role select karein."); return; }
-  if (regSelectedRole !== 'steno' && !courtName) { showLoginError("Court name bharain (apne steno se poochein)."); return; }
+  if (password.length < 8) { showLoginError("Password kam az kam 8 characters ka hona chahiye."); return; }
+  if (!courtName) { showLoginError("Court name bharain."); return; }
   if (regSelectedRole !== 'steno' && !stenoEmail) { showLoginError("Steno ka email address bharain."); return; }
-  if (regSelectedRole === 'steno' && !courtName) { showLoginError("Court name bharain."); return; }
 
   $("registerBtn").disabled = true;
   $("spin-register").classList.remove("hidden");
@@ -314,10 +245,9 @@ $("registerBtn").addEventListener("click", async () => {
     const { error: profileError } = await sb.from("profiles").insert(profileData);
     if (profileError) throw profileError;
 
-    let msg = "✅ Register ho gaya! Admin approval ka wait karein.";
-    if (isFirstAdmin) msg = "✅ Admin register ho gaya! Ab login karein.";
-    else msg = "✅ Register ho gaya! Steno admin approval ka wait karein.";
-    $("regSuccess").textContent = msg;
+    $("regSuccess").textContent = isFirstAdmin
+      ? "✅ Admin register ho gaya! Ab login karein."
+      : "✅ Register ho gaya! Admin approval ka wait karein.";
     $("regSuccess").classList.remove("hidden");
     $("loginError").classList.add("hidden");
 
@@ -342,7 +272,7 @@ function hideAllScreens() {
     const el = $(id);
     if (el) el.classList.add("hidden");
   });
-  if ($("liveTypeOverlay")) $("liveTypeOverlay").classList.add("hidden");
+  closeLiveTypeEditor();
 }
 
 function showDashboard() {
@@ -355,7 +285,7 @@ $("newCaseBtn").addEventListener("click", () => {
   hideAllScreens();
   $("newCaseScreen").classList.remove("hidden");
   selectedCaseType = null;
-  document.querySelectorAll(".case-type-btn").forEach(b => b.classList.remove("bg-blue-700", "text-white"));
+  document.querySelectorAll(".case-type-btn").forEach(b => b.classList.remove("active"));
 });
 
 $("backFromNewCaseBtn").addEventListener("click", showDashboard);
@@ -367,15 +297,16 @@ $("backToDashBtn").addEventListener("click", showDashboard);
 async function loadDashboardCounts() {
   try {
     const promises = ["pending", "review", "finalized"].map(async (status) => {
-      const { data, error } = await sb.from("cases").select("id").eq("status", status);
-      if (!error && data) {
-        $(`count${status.charAt(0).toUpperCase() + status.slice(1)}`).textContent = `${data.length} cases`;
+      // head:true + count avoids downloading every row just to count them
+      const { count, error } = await sb.from("cases").select("id", { count: "exact", head: true }).eq("status", status);
+      if (!error) {
+        $(`count${status.charAt(0).toUpperCase() + status.slice(1)}`).textContent = `${count ?? 0} cases`;
       }
     });
     await Promise.all(promises);
 
     // Load recent feedback panel for non-judges
-    if (currentProfile?.role !== 'judge') {
+    if (currentProfile && currentProfile.role !== 'judge') {
       const { data: feedbackCases, error: feedbackErr } = await sb.from("cases")
         .select("id, case_title, category, case_type, review_comment")
         .eq("status", "pending")
@@ -523,14 +454,24 @@ async function openCaseList(status) {
       openCaseList(status);
     } else if (target.classList.contains("review-approve-btn")) {
       e.stopPropagation();
-      await sb.from("cases").update({ status: 'finalized', review_comment: null }).eq("id", target.dataset.id);
+      const c = cases.find(x => String(x.id) === target.dataset.id);
+      if (!c?.judgement_output?.trim()) { showToast("Is case ka judgement draft khali hai.", "error"); return; }
+      if (!confirm("Is case ko approve aur finalize karein?")) return;
+      target.disabled = true;
+      try {
+        await finalizeCaseById(c.id, c.judgement_output);
+        showToast("Case approved and finalized!", "success");
+      } catch (err) {
+        showToast("Approve error: " + err.message, "error");
+      }
       await loadDashboardCounts();
       openCaseList(status);
     } else if (target.classList.contains("review-sendback-btn")) {
       e.stopPropagation();
       const comment = prompt("Send back ka karan likhein (comment):");
-      if (!comment) return;
-      await sb.from("cases").update({ status: 'pending', current_step: 5, review_comment: comment }).eq("id", target.dataset.id);
+      if (!comment?.trim()) return;
+      const { error } = await sb.from("cases").update({ status: 'pending', current_step: 5, review_comment: comment.trim() }).eq("id", target.dataset.id);
+      if (error) showToast("Send back fail: " + error.message, "error");
       await loadDashboardCounts();
       openCaseList(status);
     }
@@ -538,7 +479,9 @@ async function openCaseList(status) {
 }
 
 function escapeHtml(str) {
-  return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return String(str ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // ============================================
@@ -575,13 +518,14 @@ $("goToReuseBtn").addEventListener("click", () => {
 // ============================================
 // SETTINGS + GLOSSARY
 // ============================================
-const DEFAULT_MODELS = { claude: "claude-sonnet-4-6", gemini: "gemini-2.5-flash", openai: "gpt-4o-mini" };
+const DEFAULT_MODELS = { claude: "claude-opus-5-5", gemini: "gemini-2.5-flash", openai: "gpt-5.5-instant" };
 
 const MODEL_OPTIONS = {
   claude: [
-    { value: "", label: "Default (Sonnet 4.6)" },
-    { value: "claude-sonnet-4-6", label: "Sonnet 4.6 — Better — Expensive" },
-    { value: "claude-opus-4-7", label: "Opus 4.7 — Best — Most Expensive" },
+    { value: "", label: "Default (Opus 5.5)" },
+    { value: "claude-opus-5-5", label: "Opus 5.5 — Best — Expensive" },
+    { value: "claude-fable-5-1", label: "Fable 5.1 — Most capable — Most Expensive" },
+    { value: "claude-sonnet-5-5", label: "Sonnet 5.5 — Better — Moderate" },
     { value: "claude-haiku-4-5", label: "Haiku 4.5 — Good — Cheap" }
   ],
   gemini: [
@@ -605,33 +549,34 @@ function populateModelDropdown(prov) {
   sel.innerHTML = MODEL_OPTIONS[prov]?.map(o => `<option value="${o.value}">${o.label}</option>`).join("") || "";
 }
 
+function readStoredKeys(prov) {
+  const stored = localStorage.getItem(`ai_api_key_${prov}`);
+  if (!stored) return [];
+  try {
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [String(parsed)];
+  } catch {
+    return [stored];
+  }
+}
+
 function loadProviderFields() {
   const prov = $("providerSelect").value;
   populateModelDropdown(prov);
-  let keys = [];
-  const stored = localStorage.getItem(`ai_api_key_${prov}`);
-  if (stored) {
-    try { keys = JSON.parse(stored); }
-    catch { keys = [stored]; }
-  }
+  const keys = readStoredKeys(prov);
   $("apiKeyInput1").value = keys[0] || "";
   $("apiKeyInput2").value = keys[1] || "";
   $("apiKeyInput3").value = keys[2] || "";
   const savedModel = localStorage.getItem(`ai_model_${prov}`) || "";
-  $("modelInput").value = savedModel;
+  // A saved model that no longer exists in the list falls back to "Default"
+  $("modelInput").value = MODEL_OPTIONS[prov]?.some(o => o.value === savedModel) ? savedModel : "";
 }
 
 function getSettings() {
   const prov = localStorage.getItem("ai_provider") || "claude";
-  let keys = [];
-  const stored = localStorage.getItem(`ai_api_key_${prov}`);
-  if (stored) {
-    try { keys = JSON.parse(stored); }
-    catch { keys = [stored]; }
-  }
   return {
     provider: prov,
-    apiKeys: keys.filter(k => k),
+    apiKeys: readStoredKeys(prov).filter(k => k),
     model: localStorage.getItem(`ai_model_${prov}`) || ""
   };
 }
@@ -645,7 +590,6 @@ $("settingsBtn").addEventListener("click", () => {
 $("closeSettingsBtn").addEventListener("click", () => $("settingsModal").classList.add("hidden"));
 
 $("glossaryMenuBtn").addEventListener("click", () => {
-  $("hamburgerMenu").classList.add("hidden");
   loadGlossary();
   renderPresetList();
   $("glossaryModal").classList.remove("hidden");
@@ -934,7 +878,6 @@ function renderDictionaryList() {
 }
 
 $("dictionaryMenuBtn").addEventListener("click", () => {
-  $("hamburgerMenu").classList.add("hidden");
   renderDictionaryList();
   $("dictionaryModal").classList.remove("hidden");
 });
@@ -1008,62 +951,100 @@ document.addEventListener("input", (e) => {
 // ============================================
 // AI CALL (multi-provider, glossary-aware)
 // ============================================
-async function callAI(prompt, maxTokens = 2048) {
+// Claude models whose API supports server-side refusal fallbacks ("default" routing)
+const CLAUDE_FALLBACK_MODELS = new Set(["claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1"]);
+
+async function readApiError(res, label) {
+  const body = (await res.text()).slice(0, 300);
+  const err = new Error(`${label} ${res.status}: ${body}`);
+  err.status = res.status;
+  return err;
+}
+
+// One request to the selected provider. `parts` = [{ text }] or [{ image: { mimeType, data } }]
+async function requestProvider(provider, key, model, parts, maxTokens) {
+  if (provider === "claude") {
+    const content = parts.map(p => p.image
+      ? { type: "image", source: { type: "base64", media_type: p.image.mimeType, data: p.image.data } }
+      : { type: "text", text: p.text });
+    const headers = {
+      "Content-Type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      // Required for calling the API straight from the browser with the user's own key
+      "anthropic-dangerous-direct-browser-access": "true"
+    };
+    // Adaptive thinking tokens count against max_tokens, so leave generous headroom
+    const body = { model, max_tokens: Math.max(maxTokens * 4, 16000), messages: [{ role: "user", content }] };
+    if (CLAUDE_FALLBACK_MODELS.has(model)) {
+      headers["anthropic-beta"] = "server-side-fallback-2026-07-01";
+      body.fallbacks = "default";
+    }
+    const res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers, body: JSON.stringify(body) });
+    if (!res.ok) throw await readApiError(res, "Claude");
+    const data = await res.json();
+    if (data.stop_reason === "refusal") throw new Error("Claude ne ye request decline kar di (safety filter).");
+    return (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+  }
+
+  if (provider === "gemini") {
+    const geminiParts = parts.map(p => p.image
+      ? { inline_data: { mime_type: p.image.mimeType, data: p.image.data } }
+      : { text: p.text });
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: "POST",
+      // Key in a header instead of the URL so it doesn't end up in logs/history
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({ contents: [{ parts: geminiParts }] })
+    });
+    if (!res.ok) throw await readApiError(res, "Gemini");
+    const data = await res.json();
+    return (data.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+  }
+
+  if (provider === "openai") {
+    const content = parts.map(p => p.image
+      ? { type: "image_url", image_url: { url: `data:${p.image.mimeType};base64,${p.image.data}` } }
+      : { type: "text", text: p.text });
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+      // GPT-5.x models reject the legacy `max_tokens` field
+      body: JSON.stringify({ model, max_completion_tokens: Math.max(maxTokens * 4, 8000), messages: [{ role: "user", content }] })
+    });
+    if (!res.ok) throw await readApiError(res, "OpenAI");
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "";
+  }
+
+  throw new Error("Unknown provider: " + provider);
+}
+
+// Tries each saved key in order; moves to the next key only on auth / quota / server errors
+async function runWithKeyFallback(parts, maxTokens) {
   const s = getSettings();
-  if (!s.apiKeys || s.apiKeys.length === 0) throw new Error("API key set nahi hai. Settings (⚙️) mein jaa ke add karein.");
+  if (!s.apiKeys.length) throw new Error("API key set nahi hai. Settings (⚙️) mein jaa ke add karein.");
   const model = s.model || DEFAULT_MODELS[s.provider];
+  let lastError = null;
+  for (let i = 0; i < s.apiKeys.length; i++) {
+    try {
+      return await requestProvider(s.provider, s.apiKeys[i], model, parts, maxTokens);
+    } catch (err) {
+      lastError = err;
+      console.warn(`AI key ${i + 1} failed:`, err);
+      const retryable = !err.status || [401, 402, 403, 429].includes(err.status) || err.status >= 500;
+      if (!retryable) break;
+      if (i < s.apiKeys.length - 1) showToast(`Key ${i + 1} fail hui. Fallback Key ${i + 2} try ho rahi hai...`, "warning");
+    }
+  }
+  throw lastError;
+}
+
+async function callAI(prompt, maxTokens = 2048) {
   const finalPrompt = prompt
     + "\n\nIMPORTANT: Apna pura jawab sirf English language mein likhein, chahe source documents Urdu mein hon."
     + buildGlossaryInstructions();
-
-  let lastError = null;
-  for (let i = 0; i < s.apiKeys.length; i++) {
-    const key = s.apiKeys[i];
-    try {
-      if (s.provider === "claude") {
-        const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-          ? 'http://localhost:3000' : 'https://api.yourproductiondomain.com';
-        const res = await fetch(`${API_BASE}/api/ai`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            provider: "anthropic",
-            apiKey: key,
-            model,
-            messages: [{ role: "user", content: finalPrompt }]
-          })
-        });
-        if (!res.ok) throw new Error("Claude API error: " + (await res.text()));
-        const data = await res.json();
-        return data.text || "";
-      }
-      if (s.provider === "gemini") {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: finalPrompt }] }] })
-        });
-        if (!res.ok) throw new Error("Gemini API error: " + (await res.text()));
-        const data = await res.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      }
-      if (s.provider === "openai") {
-        const res = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-          body: JSON.stringify({ model, max_tokens: maxTokens, messages: [{ role: "user", content: finalPrompt }] })
-        });
-        if (!res.ok) throw new Error("OpenAI API error: " + (await res.text()));
-        const data = await res.json();
-        return data.choices?.[0]?.message?.content || "";
-      }
-    } catch (err) {
-      lastError = err;
-      console.warn(`callAI Key ${i + 1} failed:`, err);
-      if (i < s.apiKeys.length - 1) {
-        showToast(`API limit reached. Trying Fallback Key ${i + 2}...`, "warning");
-      }
-    }
-  }
-  throw lastError || new Error("Unknown provider");
+  return runWithKeyFallback([{ text: finalPrompt }], maxTokens);
 }
 
 // ============================================
@@ -1076,6 +1057,7 @@ let liveModeOn = false;
 let liveChannel = null;
 
 $("backFromWizardBtn").addEventListener("click", async () => {
+  await flushAutosave();
   await stopLiveMode();
   showDashboard();
 });
@@ -1085,56 +1067,65 @@ $("backFromWizardBtn").addEventListener("click", async () => {
 // ============================================
 let liveTypeChannel = null;
 let liveTypeTimer = null;
-let liveTypeIsRemoteUpdate = false;
+let liveTypeNoteId = null;
+// The dashboard editor is one shared scratch pad for the whole team
+const LIVE_TYPE_NOTE_ID = "live-note-1";
 
 $("liveTypeBtn").addEventListener("click", async () => {
+  liveTypeNoteId = LIVE_TYPE_NOTE_ID;
   $("liveTypeOverlay").classList.remove("hidden");
-  document.body.style.overflow = "hidden"; // Disable background scrolling
-  // Fetch existing content
-  const noteId = `live-note-${typeof activeCase !== 'undefined' && activeCase ? activeCase.id : '1'}`;
-  const { data } = await sb.from("live_notes").select("content").eq("id", noteId).maybeSingle();
+  document.body.style.overflow = "hidden";
+  $("liveTypeTextarea").value = "";
+  const { data } = await sb.from("live_notes").select("content").eq("id", liveTypeNoteId).maybeSingle();
   $("liveTypeTextarea").value = data?.content || "";
 
-  // Subscribe to real-time changes
-  liveTypeChannel = sb.channel("live-notes")
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "live_notes", filter: `id=eq.${typeof activeCase !== 'undefined' && activeCase ? 'live-note-' + activeCase.id : 'live-note-1'}` }, (payload) => {
+  if (liveTypeChannel) sb.removeChannel(liveTypeChannel);
+  liveTypeChannel = sb.channel(`live-notes-${liveTypeNoteId}`)
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "live_notes", filter: `id=eq.${liveTypeNoteId}` }, (payload) => {
       if (payload.new && payload.new.updated_by !== currentProfile?.id && document.activeElement?.id !== "liveTypeTextarea") {
-        liveTypeIsRemoteUpdate = true;
         $("liveTypeTextarea").value = payload.new.content || "";
-        liveTypeIsRemoteUpdate = false;
       }
     })
     .subscribe();
 });
 
-$("liveTypeCloseBtn").addEventListener("click", async () => {
+async function saveLiveTypeNote() {
+  if (!liveTypeNoteId) return;
+  const { error } = await sb.from("live_notes").upsert({
+    id: liveTypeNoteId,
+    content: $("liveTypeTextarea").value,
+    updated_by: currentProfile?.id,
+    updated_at: new Date().toISOString()
+  });
+  if (error) showToast("Live note save nahi hua: " + error.message, "error");
+}
+
+function closeLiveTypeEditor() {
+  if (liveTypeTimer) {
+    // Don't lose the last keystrokes typed right before closing
+    clearTimeout(liveTypeTimer);
+    liveTypeTimer = null;
+    saveLiveTypeNote();
+  }
   if (liveTypeChannel) { sb.removeChannel(liveTypeChannel); liveTypeChannel = null; }
-  $("liveTypeOverlay").classList.add("hidden");
-  document.body.style.overflow = ""; // Enable background scrolling
-});
+  liveTypeNoteId = null;
+  if (!$("liveTypeOverlay").classList.contains("hidden")) {
+    $("liveTypeOverlay").classList.add("hidden");
+    document.body.style.overflow = "";
+  }
+}
+
+$("liveTypeCloseBtn").addEventListener("click", closeLiveTypeEditor);
 
 $("liveTypeTextarea").addEventListener("input", () => {
-  if (liveTypeIsRemoteUpdate) return;
   clearTimeout(liveTypeTimer);
-  liveTypeTimer = setTimeout(async () => {
-    await sb.from("live_notes").upsert({
-      id: `live-note-${typeof activeCase !== 'undefined' && activeCase ? activeCase.id : '1'}`,
-      content: $("liveTypeTextarea").value,
-      updated_by: currentProfile?.id,
-      updated_at: new Date().toISOString()
-    });
-  }, 800);
+  liveTypeTimer = setTimeout(() => { liveTypeTimer = null; saveLiveTypeNote(); }, 800);
 });
 
 $("liveTypeWordBtn").addEventListener("click", () => {
   const text = $("liveTypeTextarea").value;
   if (!text.trim()) { showToast("Pehle kuch type karein.", "error"); return; }
-  const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-  <head><meta charset='utf-8'><title>Live Type</title></head>
-  <body style="font-family:'Times New Roman';font-size:14pt;line-height:1.6;">${text.split("\n").map(p => `<p>${escapeHtml(p)}</p>`).join("")}</body></html>`;
-  const blob = new Blob(['\ufeff', html], { type: "application/msword" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob); link.download = "live-type.doc"; link.click();
+  downloadAsWord(text, "live-type.doc", "Live Type");
 });
 
 // ============================================
@@ -1142,8 +1133,15 @@ $("liveTypeWordBtn").addEventListener("click", () => {
 // ============================================
 async function openWizardForCase(caseId) {
   const { data: caseData, error } = await sb.from("cases").select("*").eq("id", caseId).single();
-  if (error || !caseData) {   showToast("Case load nahi ho saka.", "error"); return; }
+  if (error || !caseData) { showToast("Case load nahi ho saka.", "error"); return; }
+  await flushAutosave();
+  await stopLiveMode();
   activeCase = caseData;
+
+  // Reset sections left open by a previously opened case
+  ["factsOutput", "admitDenyOutput", "disputesOutput", "findingsOutput", "outputSection", "chatSection",
+   "judgeReviewActions", "finalizeBtn"].forEach(id => $(id).classList.add("hidden"));
+  $("chatLog").innerHTML = "";
 
   hideAllScreens();
   $("wizardScreen").classList.remove("hidden");
@@ -1163,16 +1161,7 @@ async function openWizardForCase(caseId) {
   if (caseData.findings_text) $("findingsOutput").classList.remove("hidden");
   $("shortOrder").value = caseData.short_order || "";
   $("judgementOutput").value = caseData.judgement_output || "";
-  if (caseData.judgement_output) {
-    $("outputSection").classList.remove("hidden");
-    $("chatSection").classList.remove("hidden");
-    const isJudge = currentProfile?.role === 'judge';
-    const isReview = caseData.status === 'review';
-    $("judgeReviewActions").classList.toggle("hidden", !(isJudge && isReview));
-    $("finalizeBtn").classList.toggle("hidden", !isJudge || isReview);
-    $("submitReviewBtn").classList.toggle("hidden", isJudge || caseData.status !== 'pending');
-  }
-  $("wizStatus").value = caseData.status;
+  if (caseData.judgement_output) showJudgementActions();
 
   // Show review feedback banner if present
   const banner = $("reviewFeedbackBanner");
@@ -1198,56 +1187,66 @@ async function openWizardForCase(caseId) {
 // ============================================
 // AUTOSAVE (debounced, fires on any field change)
 // ============================================
-function attachAutosaveListeners() {
-  const fields = ["plaintText","factsText","wsText","admitDenyText","issuesText","disputesText","evidenceText","findingsText","shortOrder","judgementOutput"];
-  fields.forEach(id => {
-    $(id).oninput = () => scheduleAutosave();
-  });
-  $("wizStatus").onchange = async () => {
-    await saveOrUpdateCase({ status: $("wizStatus").value });
-    await loadDashboardCounts();
-  };
+function showJudgementActions() {
+  $("outputSection").classList.remove("hidden");
+  $("chatSection").classList.remove("hidden");
+  const isJudge = currentProfile?.role === 'judge';
+  const status = activeCase?.status;
+  $("judgeReviewActions").classList.toggle("hidden", !(isJudge && status === 'review'));
+  $("finalizeBtn").classList.toggle("hidden", !isJudge || status !== 'pending');
 }
 
+function attachAutosaveListeners() {
+  Object.values(CASE_FIELD_MAP).forEach(id => {
+    $(id).oninput = () => scheduleAutosave();
+  });
+}
+
+let pendingAutosave = null; // { caseId, payload } waiting for the debounce timer
+
 function scheduleAutosave() {
+  if (!activeCase) return;
   clearTimeout(saveTimer);
-  const currentCase = activeCase;
-  const payload = {
-    plaint_text: $("plaintText").value,
-    facts_text: $("factsText").value,
-    written_statement_text: $("wsText").value,
-    admit_deny_text: $("admitDenyText").value,
-    issues_text: $("issuesText").value,
-    disputes_text: $("disputesText").value,
-    evidence_text: $("evidenceText").value,
-    findings_text: $("findingsText").value,
-    short_order: $("shortOrder").value,
-    judgement_output: $("judgementOutput").value
-  };
-  saveTimer = setTimeout(async () => {
-    $("autosaveIndicator").textContent = "Saving...";
-    if (activeCase !== currentCase) {
-      if (currentCase?.id) await sb.from("cases").update(payload).eq("id", currentCase.id);
-      return;
-    }
-    await saveOrUpdateCase(payload);
-    $("autosaveIndicator").textContent = "✓ Saved";
-    setTimeout(() => {
-      if ($("autosaveIndicator").textContent === "✓ Saved") $("autosaveIndicator").textContent = "";
-    }, 1500);
-  }, 2000);
+  pendingAutosave = { caseId: activeCase.id, payload: getWizardFields() };
+  saveTimer = setTimeout(runAutosave, 2000);
+}
+
+async function runAutosave() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  const job = pendingAutosave;
+  pendingAutosave = null;
+  if (!job) return;
+  $("autosaveIndicator").textContent = "Saving...";
+  if (activeCase?.id === job.caseId) {
+    await saveOrUpdateCase(job.payload);
+  } else {
+    // User already moved to another case — still save the old one
+    await sb.from("cases").update({ ...job.payload, last_updated_by: currentProfile?.id }).eq("id", job.caseId);
+  }
+  $("autosaveIndicator").textContent = "✓ Saved";
+  setTimeout(() => {
+    if ($("autosaveIndicator").textContent === "✓ Saved") $("autosaveIndicator").textContent = "";
+  }, 1500);
+}
+
+// Save immediately if a debounced save is still waiting (used before leaving a case)
+async function flushAutosave() {
+  if (pendingAutosave) await runAutosave();
 }
 
 async function saveOrUpdateCase(fields) {
-  if (!activeCase) return;
+  if (!activeCase) return false;
   try {
-    fields.last_updated_by = currentProfile?.id;
-    const { error } = await sb.from("cases").update(fields).eq("id", activeCase.id);
+    const payload = { ...fields, last_updated_by: currentProfile?.id };
+    const { error } = await sb.from("cases").update(payload).eq("id", activeCase.id);
     if (error) throw error;
-    Object.assign(activeCase, fields);
+    Object.assign(activeCase, payload);
+    return true;
   } catch (err) {
     console.error("Save failed:", err);
     showToast("Data save karne mein masla aya: " + err.message, "error");
+    return false;
   }
 }
 
@@ -1268,19 +1267,22 @@ function getStepSequence() {
   return activeCase?.case_type === "ex_parte" ? [1, 3, 4, 5] : [1, 2, 3, 4, 5];
 }
 
+// DB column -> textarea id
+const CASE_FIELD_MAP = {
+  plaint_text: "plaintText",
+  facts_text: "factsText",
+  written_statement_text: "wsText",
+  admit_deny_text: "admitDenyText",
+  issues_text: "issuesText",
+  disputes_text: "disputesText",
+  evidence_text: "evidenceText",
+  findings_text: "findingsText",
+  short_order: "shortOrder",
+  judgement_output: "judgementOutput"
+};
+
 function getWizardFields() {
-  return {
-    plaint_text: $("plaintText").value,
-    facts_text: $("factsText").value,
-    written_statement_text: $("wsText").value,
-    admit_deny_text: $("admitDenyText").value,
-    issues_text: $("issuesText").value,
-    disputes_text: $("disputesText").value,
-    evidence_text: $("evidenceText").value,
-    findings_text: $("findingsText").value,
-    short_order: $("shortOrder").value,
-    judgement_output: $("judgementOutput").value
-  };
+  return Object.fromEntries(Object.entries(CASE_FIELD_MAP).map(([col, id]) => [col, $(id).value]));
 }
 
 function showWizStep(n) {
@@ -1297,9 +1299,7 @@ function showWizStep(n) {
   $("wizNextBtn").classList.toggle("hidden", seq.indexOf(n) === seq.length - 1);
   // Submit for Review button - har step pe dikhe (non-judge users, case pending ho)
   $("wizReviewBtn").classList.toggle("hidden", currentProfile?.role === 'judge' || activeCase?.status !== 'pending');
-  saveOrUpdateCase({ current_step: n });
-
-
+  if (activeCase && activeCase.current_step !== n) saveOrUpdateCase({ current_step: n });
 }
 
 
@@ -1321,13 +1321,17 @@ $("wizNextBtn").addEventListener("click", async () => {
 });
 
 
-$("wizReviewBtn").addEventListener("click", async () => {
+async function submitForReview() {
   if (!confirm("Case review ke liye submit karein? Judge approve ya send back kar sakta hai.")) return;
-  await saveOrUpdateCase({ status: "review" });
-  $("wizStatus").value = "review";
+  clearTimeout(saveTimer);
+  pendingAutosave = null;
+  const ok = await saveOrUpdateCase({ ...getWizardFields(), status: "review" });
+  if (!ok) return;
   showToast("Case review ke liye submit ho gaya!", "success");
+  await stopLiveMode();
   showDashboard();
-});
+}
+$("wizReviewBtn").addEventListener("click", submitForReview);
 
 // ============================================
 // FULL SCREEN MODE
@@ -1370,13 +1374,7 @@ function fileToBase64(file) {
   });
 }
 
-async function visionOCR(file) {
-  const s = getSettings();
-  console.log("visionOCR using provider:", s.provider, "model:", s.model || "default");
-  if (!s.apiKeys || s.apiKeys.length === 0) throw new Error("API key set nahi hai. Settings (⚙️) mein jaa ke add karein.");
-  const base64 = await fileToBase64(file);
-  const mimeType = file.type;
-  const instr = `Extract all text from this image accurately (Urdu/English, handwritten or printed).
+const OCR_INSTRUCTIONS = `Extract all text from this image accurately (Urdu/English, handwritten or printed).
 
 IMPORTANT RULES:
 - Handle both Pakistani Civil and Family Court documents.
@@ -1386,54 +1384,9 @@ IMPORTANT RULES:
 - Do not translate — only transliterate names
 - Return only extracted text, no commentary`;
 
-  let lastError = null;
-  for (let i = 0; i < s.apiKeys.length; i++) {
-    const key = s.apiKeys[i];
-    try {
-      if (s.provider === "gemini") {
-        const model = s.model || DEFAULT_MODELS.gemini;
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: instr }, { inline_data: { mime_type: mimeType, data: base64 } }] }] })
-        });
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      }
-      if (s.provider === "claude") {
-        const model = s.model || DEFAULT_MODELS.claude;
-        const res = await fetch("http://localhost:3000/api/ai", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            provider: "anthropic",
-            apiKey: key,
-            model,
-            messages: [{ role: "user", content: [{ type: "text", text: instr }, { type: "image", source: { type: "base64", media_type: mimeType, data: base64 } }] }]
-          })
-        });
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        return data.text || "";
-      }
-      if (s.provider === "openai") {
-        const model = s.model || DEFAULT_MODELS.openai;
-        const res = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
-          body: JSON.stringify({ model, max_tokens: 2000, messages: [{ role: "user", content: [{ type: "text", text: instr }, { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } }] }] })
-        });
-        if (!res.ok) throw new Error("OpenAI " + res.status + ": " + (await res.text()).slice(0, 200));
-        const data = await res.json();
-        return data.choices?.[0]?.message?.content || "";
-      }
-    } catch (err) {
-      lastError = err;
-      console.warn(`visionOCR Key ${i + 1} failed:`, err);
-      if (i < s.apiKeys.length - 1) {
-        showToast(`API limit reached. Trying Fallback Key ${i + 2}...`, "warning");
-      }
-    }
-  }
-  throw lastError || new Error("Unknown provider");
+async function visionOCR(file) {
+  const data = await fileToBase64(file);
+  return runWithKeyFallback([{ text: OCR_INSTRUCTIONS }, { image: { mimeType: file.type, data } }], 2000);
 }
 
 function buildUploadWidget(target, textareaId) {
@@ -1452,11 +1405,14 @@ function buildUploadWidget(target, textareaId) {
   const previewArea = container.querySelector(".preview-area"), statusEl = container.querySelector(".ocr-status");
   camBtn.onclick = () => camInput.click();
   fileBtn.onclick = () => fileInput.click();
-  camInput.onchange = (e) => processImages(e.target.files, previewArea, statusEl, textareaId);
-  fileInput.onchange = (e) => processImages(e.target.files, previewArea, statusEl, textareaId);
+  const onPick = (e) => {
+    const files = Array.from(e.target.files);
+    e.target.value = ""; // allow picking the same file again
+    processImages(files, previewArea, statusEl, textareaId);
+  };
+  camInput.onchange = onPick;
+  fileInput.onchange = onPick;
 }
-
-let processingQueue = false;
 
 function removeImageText(wrap, textareaEl) {
   if (wrap._insertedText) {
@@ -1576,7 +1532,7 @@ async function processImages(fileList, previewArea, statusEl, textareaId) {
   const textareaEl = $(textareaId);
   // Step 1: Open batch editor — user edits all images, then presses Upload All
   const editedFiles = await new Promise(resolve => {
-    openBatchEditor(fileList, (results) => resolve(results));
+    openBatchEditor(files, (results) => resolve(results));
   });
   if (!editedFiles || !editedFiles.length) return;
   const startIndex = previewArea.children.length;
@@ -1636,7 +1592,6 @@ let imgEditorCropBox = null;
 let imgEditorCropActive = false;
 
 $("imgEditorClose").addEventListener("click", closeImgEditor);
-if ($("imgEditorCancel")) $("imgEditorCancel").addEventListener("click", closeImgEditor);
 
 function closeImgEditor() {
   $("imageEditorModal").classList.add("hidden");
@@ -2065,7 +2020,6 @@ $("batchResetImg").addEventListener("click", () => {
 });
 
 // ---- ENHANCED CROP ----
-let batchCropActive = false;
 let batchCropHandlers = null;
 
 function initBatchCrop() {
@@ -2082,7 +2036,6 @@ function initBatchCrop() {
   win.style.top = dr.y + "px";
   win.style.width = dr.w + "px";
   win.style.height = dr.h + "px";
-  batchCropActive = true;
   const handleSz = Math.max(36, Math.min(80, Math.min(cw, ch) * 0.1));
   const half = handleSz / 2;
   win.querySelectorAll(".crop-handle").forEach(el => {
@@ -2157,7 +2110,6 @@ function initBatchCrop() {
 
 function removeBatchCrop() {
   $("batchCropOverlay").classList.add("hidden");
-  batchCropActive = false;
 }
 
 function doApplyCrop() {
@@ -2900,247 +2852,119 @@ Judgement must start directly with Introduction`;
     const result = await callAI(prompt, 3500);
     await logAIStep("final_judgement", prompt, result);
     $("judgementOutput").value = result; $("judgementOutput").dispatchEvent(new Event("input"));
-    $("outputSection").classList.remove("hidden");
-    $("chatSection").classList.remove("hidden");
-    const isJudge = currentProfile?.role === 'judge';
-    const isReview = activeCase?.status === 'review';
-    $("judgeReviewActions").classList.toggle("hidden", !(isJudge && isReview));
-    $("finalizeBtn").classList.toggle("hidden", !isJudge || isReview);
-    $("submitReviewBtn").classList.toggle("hidden", isJudge || activeCase?.status !== 'pending');
+    showJudgementActions();
     $("chatLog").innerHTML = "";
   } catch (err) { showToast("Error: " + err.message, "error"); }
   finally { setBtnLoading("generateFinalBtn", "spin-generateFinal", false, "judgementOutput"); }
 });
 
-// SUBMIT FOR REVIEW
-$("submitReviewBtn").addEventListener("click", async () => {
-  if (!confirm("Case review ke liye submit karein? Judge approve ya send back kar sakta hai.")) return;
-  await saveOrUpdateCase({ status: "review" });
-  $("wizStatus").value = "review";
-  showToast("Case review ke liye submit ho gaya!", "success");
-  await loadDashboardCounts();
-});
+// ============================================
+// APPROVE / FINALIZE / SEND BACK
+// ============================================
+const TITLE_GROUNDS_PROMPT = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to extract ONLY the case title and legal grounds from the given judgement.
 
-// JUDGE APPROVE FROM WIZARD
-$("wizApproveBtn").addEventListener("click", async () => {
+========================
+CORE INSTRUCTION
+
+- Handle both Civil and Family cases.
+- Transliterate any Urdu script proper nouns to Roman English.
+- Extract information ONLY from the given judgement text
+- DO NOT generate, assume, or infer anything
+- DO NOT create new titles or legal grounds
+
+========================
+TITLE RULE (STRICT)
+
+- Create a SHORT title using:
+  - Nature of case (if clearly mentioned)
+  - Plaintiff vs Defendant (names if available)
+- If names are not clearly available, write:
+  [Not specified in judgement]
+- DO NOT add extra facts, dates, locations or creative wording
+
+========================
+GROUNDS RULE (STRICT)
+
+- Extract ONLY explicitly mentioned laws, ordinances and sections
+- If multiple are mentioned, list all in one line, separated by commas
+- If NO law or section is clearly mentioned, write:
+  [Not specified in judgement]
+- DO NOT guess or add legal provisions
+
+========================
+OUTPUT FORMAT (STRICT)
+
+TITLE: <text>
+GROUNDS: <text>
+
+Plain text only. No markdown, no asterisks, no explanations, no extra lines.
+
+========================
+Judgement:
+`;
+
+async function extractTitleAndGrounds(judgement) {
+  const result = await callAI(TITLE_GROUNDS_PROMPT + judgement, 300);
+  const titleMatch = result.match(/TITLE:\s*(.+)/i);
+  const groundsMatch = result.match(/GROUNDS:\s*(.+)/i);
+  return {
+    case_title: titleMatch ? titleMatch[1].trim() : "Untitled Case",
+    legal_grounds: groundsMatch ? groundsMatch[1].trim() : ""
+  };
+}
+
+// Marks a case finalized with an AI-extracted title/grounds. Used by the wizard and the review list.
+async function finalizeCaseById(caseId, judgement) {
+  showToast("Title & legal grounds extract ho rahe hain...", "info");
+  const meta = await extractTitleAndGrounds(judgement);
+  const { error } = await sb.from("cases").update({
+    judgement_output: judgement,
+    status: "finalized",
+    review_comment: null,
+    last_updated_by: currentProfile?.id,
+    ...meta
+  }).eq("id", caseId);
+  if (error) throw error;
+}
+
+async function finalizeActiveCase(btn, successMsg) {
   const judgement = $("judgementOutput").value.trim();
   if (!judgement) { showToast("Judgement draft empty hai.", "error"); return; }
-  if (!confirm("Kya aap is draft ko approve aur finalize karna chahte hain?")) return;
-
-  const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to extract ONLY the case title and legal grounds from the given judgement.
-
-========================
-CORE INSTRUCTION
-
-- Handle both Civil and Family cases.
-- Transliterate any Urdu script proper nouns to Roman English.
-- Extract information ONLY from the given judgement text
-- DO NOT generate, assume, or infer anything
-- DO NOT create new titles or legal grounds
-
-========================
-TITLE RULE (STRICT)
-
-- Create a SHORT title using:
-  
-  - Nature of case (if clearly mentioned)
-  - Plaintiff vs Defendant (names if available)
-
-- If names are not clearly available, write:
-  [Not specified in judgement]
-
-- DO NOT:
-  
-  - Add extra facts
-  - Add dates or locations
-  - Use creative wording
-
-========================
-GROUNDS RULE (STRICT)
-
-- Extract ONLY explicitly mentioned:
-  
-  - Laws
-  - Ordinances
-  - Sections
-
-- If multiple are mentioned:
-  
-  - List all in one line, separated by commas
-
-- If NO law or section is clearly mentioned:
-  
-  - Write:
-    [Not specified in judgement]
-
-- DO NOT guess or add legal provisions
-
-========================
-INPUT
-
-Judgement:
-${judgement}
-
-========================
-OUTPUT FORMAT (STRICT)
-
-TITLE: <text>
-GROUNDS: <text>
-
-========================
-CRITICAL RULES
-
-- DO NOT explain anything
-- DO NOT add extra lines
-- DO NOT rephrase laws
-- DO NOT include anything outside judgement
-
-========================
-STYLE
-
-Plain text only
-No markdown
-No asterisks
-No introductory or concluding sentences`;
-
+  if (!confirm("Kya aap is draft ko finalize karna chahte hain?")) return;
+  btn.disabled = true;
   try {
-    showToast("Extracting title & legal grounds...", "info");
-    const result = await callAI(prompt, 300);
-    const titleMatch = result.match(/TITLE:\s*(.+)/i);
-    const groundsMatch = result.match(/GROUNDS:\s*(.+)/i);
-    
-    await saveOrUpdateCase({
-      judgement_output: judgement,
-      status: "finalized",
-      review_comment: null,
-      case_title: titleMatch ? titleMatch[1].trim() : "Untitled Case",
-      legal_grounds: groundsMatch ? groundsMatch[1].trim() : ""
-    });
-    
-    $("wizStatus").value = "finalized";
-    showToast("Case approved and finalized!", "success");
-    await loadDashboardCounts();
+    clearTimeout(saveTimer);
+    pendingAutosave = null;
+    await saveOrUpdateCase(getWizardFields());
+    await finalizeCaseById(activeCase.id, judgement);
+    showToast(successMsg, "success");
+    await stopLiveMode();
     showDashboard();
   } catch (err) {
-    showToast("Approve error: " + err.message, "error");
+    showToast("Finalize error: " + err.message, "error");
+  } finally {
+    btn.disabled = false;
   }
-});
+}
 
-// JUDGE SEND BACK FROM WIZARD
+$("wizApproveBtn").addEventListener("click", () => finalizeActiveCase($("wizApproveBtn"), "Case approved and finalized!"));
+$("finalizeBtn").addEventListener("click", () => finalizeActiveCase($("finalizeBtn"), "Case finalize ho gaya!"));
+
 $("wizSendBackBtn").addEventListener("click", async () => {
-  const judgement = $("judgementOutput").value.trim();
   const comment = prompt("Send back karne ki wajah / correction instructions likhein:");
-  if (!comment) return;
-  
-  try {
-    await saveOrUpdateCase({
-      judgement_output: judgement,
-      status: "pending",
-      current_step: 5,
-      review_comment: comment
-    });
-    
-    $("wizStatus").value = "pending";
-    showToast("Case Steno ko send back ho gaya!", "success");
-    await loadDashboardCounts();
-    showDashboard();
-  } catch (err) {
-    showToast("Send back error: " + err.message, "error");
-  }
-});
-
-// FINALIZE: extract title + legal grounds, set status
-$("finalizeBtn").addEventListener("click", async () => {
-  const judgement = $("judgementOutput").value.trim();
-  if (!judgement) return;
-  const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to extract ONLY the case title and legal grounds from the given judgement.
-
-========================
-CORE INSTRUCTION
-
-- Handle both Civil and Family cases.
-- Transliterate any Urdu script proper nouns to Roman English.
-- Extract information ONLY from the given judgement text
-- DO NOT generate, assume, or infer anything
-- DO NOT create new titles or legal grounds
-
-========================
-TITLE RULE (STRICT)
-
-- Create a SHORT title using:
-  
-  - Nature of case (if clearly mentioned)
-  - Plaintiff vs Defendant (names if available)
-
-- If names are not clearly available, write:
-  [Not specified in judgement]
-
-- DO NOT:
-  
-  - Add extra facts
-  - Add dates or locations
-  - Use creative wording
-
-========================
-GROUNDS RULE (STRICT)
-
-- Extract ONLY explicitly mentioned:
-  
-  - Laws
-  - Ordinances
-  - Sections
-
-- If multiple are mentioned:
-  
-  - List all in one line, separated by commas
-
-- If NO law or section is clearly mentioned:
-  
-  - Write:
-    [Not specified in judgement]
-
-- DO NOT guess or add legal provisions
-
-========================
-INPUT
-
-Judgement:
-${judgement}
-
-========================
-OUTPUT FORMAT (STRICT)
-
-TITLE: <text>
-GROUNDS: <text>
-
-========================
-CRITICAL RULES
-
-- DO NOT explain anything
-- DO NOT add extra lines
-- DO NOT rephrase laws
-- DO NOT include anything outside judgement
-
-========================
-STYLE
-
-Plain text only
-No markdown
-No asterisks
-No introductory or concluding sentences`;
-  try {
-    const result = await callAI(prompt, 300);
-    const titleMatch = result.match(/TITLE:\s*(.+)/i);
-    const groundsMatch = result.match(/GROUNDS:\s*(.+)/i);
-    await saveOrUpdateCase({
-      status: "finalized",
-      case_title: titleMatch ? titleMatch[1].trim() : "Untitled Case",
-      legal_grounds: groundsMatch ? groundsMatch[1].trim() : ""
-    });
-    $("wizStatus").value = "finalized";
-    showToast("Case finalize ho gaya!", "success");
-    await loadDashboardCounts();
-  } catch (err) { showToast("Error: " + err.message, "error"); }
+  if (!comment?.trim()) return;
+  clearTimeout(saveTimer);
+  pendingAutosave = null;
+  const ok = await saveOrUpdateCase({
+    ...getWizardFields(),
+    status: "pending",
+    current_step: 5,
+    review_comment: comment.trim()
+  });
+  if (!ok) return;
+  showToast("Case Steno ko send back ho gaya!", "success");
+  await stopLiveMode();
+  showDashboard();
 });
 
 // ============================================
@@ -3153,7 +2977,7 @@ function addChatBubble(text, isUser) {
   div.textContent = text; log.appendChild(div); log.scrollTop = log.scrollHeight;
 }
 $("chatSendBtn").addEventListener("click", sendChatMessage);
-$("chatInput").addEventListener("keypress", (e) => { if (e.key === "Enter") sendChatMessage(); });
+$("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("chatSendBtn").disabled) sendChatMessage(); });
 async function sendChatMessage() {
   const instruction = $("chatInput").value.trim();
   if (!instruction) return;
@@ -3244,29 +3068,44 @@ No introductory or concluding sentences`;
 // ============================================
 // COPY & WORD DOWNLOAD
 // ============================================
-$("copyBtn").addEventListener("click", () => {
-  navigator.clipboard.writeText($("judgementOutput").value);
-  $("copyBtn").textContent = "Copied!"; setTimeout(() => $("copyBtn").textContent = "Copy", 1500);
+async function copyText(text, btn, doneLabel = "✅ Copied!") {
+  try {
+    await navigator.clipboard.writeText(text);
+    const original = btn.textContent;
+    btn.textContent = doneLabel;
+    setTimeout(() => btn.textContent = original, 1500);
+  } catch {
+    showToast("Copy nahi ho saka. Text manually select karein.", "error");
+  }
+}
+$("copyBtn").addEventListener("click", () => copyText($("judgementOutput").value, $("copyBtn"), "Copied!"));
+$("downloadBtn").addEventListener("click", () => {
+  const text = $("judgementOutput").value;
+  if (!text.trim()) { showToast("Judgement khali hai.", "error"); return; }
+  downloadAsWord(text, "judgement.doc", "Judgement");
 });
-$("downloadBtn").addEventListener("click", () => downloadAsWord($("judgementOutput").value));
-function downloadAsWord(text) {
+function downloadAsWord(text, fileName, title) {
   const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-  <head><meta charset='utf-8'><title>Judgement</title></head>
+  <head><meta charset='utf-8'><title>${escapeHtml(title)}</title></head>
   <body style="font-family:'Times New Roman'; font-size:14pt; line-height:1.6;">
     ${text.split("\n").map(p => `<p>${escapeHtml(p)}</p>`).join("")}
   </body></html>`;
   const blob = new Blob(['\ufeff', html], { type: "application/msword" });
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob); link.download = "judgement.doc"; link.click();
+  link.href = url; link.download = fileName; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // ============================================
 // LIVE MODE (presence + periodic sync)
 // ============================================
 $("liveModeToggle").addEventListener("click", async () => {
-  liveModeOn = !liveModeOn;
-  $("liveModeToggle").textContent = liveModeOn ? "🟢 Live: ON" : "🔴 Live: OFF";
-  if (liveModeOn) await startLiveMode(); else await stopLiveMode();
+  if (liveModeOn) { await stopLiveMode(); return; }
+  liveModeOn = true;
+  $("liveModeToggle").textContent = "🟢 Live: ON";
+  $("liveModeToggle").classList.add("on");
+  await startLiveMode();
 });
 
 async function startLiveMode() {
@@ -3276,11 +3115,10 @@ async function startLiveMode() {
   liveChannel = sb.channel(`case-${activeCase.id}`)
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "cases", filter: `id=eq.${activeCase.id}` }, (payload) => {
       if (payload.new.last_updated_by !== currentProfile.id) {
-        ["plaint_text","facts_text","written_statement_text","admit_deny_text","issues_text","disputes_text","evidence_text","findings_text","short_order","judgement_output"].forEach((col, i) => {
-          const ids = ["plaintText","factsText","wsText","admitDenyText","issuesText","disputesText","evidenceText","findingsText","shortOrder","judgementOutput"];
-          if (document.activeElement.id !== ids[i] && payload.new[col] !== undefined) $(ids[i]).value = payload.new[col];
+        Object.entries(CASE_FIELD_MAP).forEach(([col, id]) => {
+          if (document.activeElement?.id !== id && payload.new[col] !== undefined) $(id).value = payload.new[col] ?? "";
         });
-        $("liveIndicator").textContent = `🟢 ${payload.new.last_updated_by === currentProfile.id ? "You" : "Other user"} updated this case just now`;
+        $("liveIndicator").textContent = "🟢 Other user updated this case just now";
         $("liveIndicator").classList.remove("hidden");
       }
     })
@@ -3294,9 +3132,15 @@ async function startLiveMode() {
 }
 
 async function stopLiveMode() {
-  if (liveChannel) { sb.removeChannel(liveChannel); liveChannel = null; }
-  if (activeCase) await sb.from("live_sessions").delete().eq("case_id", activeCase.id).eq("active_user_id", currentProfile.id);
+  const wasOn = liveModeOn || liveChannel;
+  liveModeOn = false;
+  $("liveModeToggle").textContent = "🔴 Live: OFF";
+  $("liveModeToggle").classList.remove("on");
   $("liveIndicator").classList.add("hidden");
+  if (liveChannel) { sb.removeChannel(liveChannel); liveChannel = null; }
+  if (wasOn && activeCase && currentProfile) {
+    await sb.from("live_sessions").delete().eq("case_id", activeCase.id).eq("active_user_id", currentProfile.id);
+  }
 }
 
 // ============================================
@@ -3327,27 +3171,19 @@ let stepContents = {};   // Stores edited paragraph content for each step
 let originalStepContents = {}; // Backup of stepContents for revert
 let wizardSteps = [];    // Dynamic list of steps depending on mode
 
-// Setup Mode buttons in HTML
-function initReuseWizardModes() {
-  const modeContested = $("modeContestedBtn");
-  const modeExParte = $("modeExParteBtn");
-  if (modeContested && modeExParte) {
-    modeContested.addEventListener("click", () => {
-      selectedCaseMode = "contested";
-      modeContested.className = "flex-1 border-2 border-blue-600 bg-blue-50 text-blue-700 rounded-xl py-3 text-sm font-semibold";
-      modeExParte.className = "flex-1 border-2 border-slate-200 text-slate-600 rounded-xl py-3 text-sm font-semibold";
-      updateStepsArray();
-      updateWizardUI();
-    });
-    modeExParte.addEventListener("click", () => {
-      selectedCaseMode = "ex_parte";
-      modeExParte.className = "flex-1 border-2 border-blue-600 bg-blue-50 text-blue-700 rounded-xl py-3 text-sm font-semibold";
-      modeContested.className = "flex-1 border-2 border-slate-200 text-slate-600 rounded-xl py-3 text-sm font-semibold";
-      updateStepsArray();
-      updateWizardUI();
-    });
-  }
+function setReuseModeButtons() {
+  $("modeContestedBtn").classList.toggle("active", selectedCaseMode === "contested");
+  $("modeExParteBtn").classList.toggle("active", selectedCaseMode === "ex_parte");
 }
+
+document.querySelectorAll(".reuse-mode-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    selectedCaseMode = btn.dataset.mode;
+    setReuseModeButtons();
+    updateStepsArray();
+    updateWizardUI();
+  });
+});
 
 // Update the list of steps based on chosen mode
 function updateStepsArray() {
@@ -3380,18 +3216,21 @@ async function openReuseFlow(judgementId) {
   hideAllScreens();
   $("reuseFormScreen").classList.remove("hidden");
   
-  // Reset wizard states
-  selectedCaseMode = "contested";
+  // Reset wizard states (otherwise the previous template's edits leak into this one)
+  selectedCaseMode = source.case_type === "ex_parte" ? "ex_parte" : "contested";
   wizardCreatedCaseId = null;
+  stepContents = {};
+  originalStepContents = {};
+  parsedSections = {};
+  $("reuseWizDecisionBox").value = "";
   const modeContested = $("modeContestedBtn");
   const modeExParte = $("modeExParteBtn");
-  if (modeContested && modeExParte) {
-    modeContested.className = "flex-1 border-2 border-blue-600 bg-blue-50 text-blue-700 rounded-xl py-3 text-sm font-semibold";
-    modeExParte.className = "flex-1 border-2 border-slate-200 text-slate-600 rounded-xl py-3 text-sm font-semibold";
-  }
+  setReuseModeButtons();
 
   updateStepsArray();
   currentWizStepIndex = 0;
+  updateWizardUI();
+  $("reuseWizNextBtn").disabled = true;
   
   $("reuseFieldsContainer").innerHTML = `<p class="text-sm text-slate-400">AI is analyzing template structure...</p>`;
   
@@ -3431,9 +3270,10 @@ Return ONLY valid JSON:
   }
 
   // Step 2: Extract variables for Step 1 Form
-  const fieldsPrompt = `Identify ONLY case-specific variable fields from the given judgement.
-Return ONLY valid JSON array:
-[{"label": "Plaintiff Name", "placeholder": "Ali Ahmed"}]
+  const fieldsPrompt = `Identify ONLY case-specific variable fields (names, dates, amounts, case numbers, places) from the given judgement.
+For each field, "old_value" MUST be the exact text as it appears in the judgement, so it can be find-and-replaced.
+Return ONLY a valid JSON array:
+[{"label": "Plaintiff Name", "old_value": "Ali Ahmed"}]
 
 Judgement:
 ${source.judgement_output}`;
@@ -3442,27 +3282,31 @@ ${source.judgement_output}`;
     const fieldsResult = await callAI(fieldsPrompt, 1500);
     const fieldsMatch = fieldsResult.match(/\[[\s\S]*\]/);
     const fields = fieldsMatch ? JSON.parse(fieldsMatch[0]) : [];
-    renderReuseFields(fields);
+    renderReuseFields(Array.isArray(fields) ? fields : []);
   } catch (err) {
     renderReuseFields([]);
   }
 
+  $("reuseWizNextBtn").disabled = false;
   updateWizardUI();
 }
 
 function renderReuseFields(fields) {
   const container = $("reuseFieldsContainer");
   container.innerHTML = "";
-  fields.forEach(f => addReuseFieldRow(f.label, f.placeholder));
+  fields.forEach(f => addReuseFieldRow(f.label, f.old_value ?? f.placeholder));
   if (fields.length === 0) addReuseFieldRow("", "");
 }
 
-function addReuseFieldRow(label = "", placeholder = "") {
+// `oldValue` is the text in the template that gets replaced by the new value
+function addReuseFieldRow(label = "", oldValue = "") {
   const row = document.createElement("div");
   row.className = "reuse-field-row mb-3";
   row.innerHTML = `
     <input type="text" class="reuse-label w-full border rounded-lg p-2 text-sm font-medium mb-1 bg-white" value="${escapeHtml(label)}" placeholder="Field name (e.g., Plaintiff Name)" />
-    <input type="text" class="reuse-value w-full border rounded-lg p-2 text-sm" placeholder="${escapeHtml(placeholder)}" />`;
+    <input type="text" class="reuse-old w-full border rounded-lg p-2 text-sm mb-1" value="${escapeHtml(oldValue)}" placeholder="Purani judgement mein text (e.g., Ali Ahmed)" />
+    <input type="text" class="reuse-value w-full border rounded-lg p-2 text-sm" placeholder="Naya value" />`;
+  row.querySelectorAll("input").forEach(el => el.dir = "auto");
   $("reuseFieldsContainer").appendChild(row);
 }
 
@@ -3498,13 +3342,9 @@ function updateWizardUI() {
     if (stepContents[step.sectionKey] === undefined) {
       // Replace variables in the section template text
       let sectionText = parsedSections[step.sectionKey] || "";
-      const variables = getFilledVariables();
-      variables.forEach(v => {
-        if (v.value) {
-          // Replace matching placeholders or old variable occurrences (case-insensitive)
-          const regex = new RegExp(escapeRegExp(v.label), "gi");
-          sectionText = sectionText.replace(regex, v.value);
-        }
+      getFilledVariables().forEach(v => {
+        // Replace every occurrence of the template's old value with the new one
+        sectionText = sectionText.replace(new RegExp(escapeRegExp(v.oldValue), "gi"), () => v.value);
       });
       stepContents[step.sectionKey] = sectionText;
       originalStepContents[step.sectionKey] = sectionText;
@@ -3520,9 +3360,9 @@ function updateWizardUI() {
 function getFilledVariables() {
   const rows = document.querySelectorAll(".reuse-field-row");
   return Array.from(rows).map(r => ({
-    label: r.querySelector(".reuse-label").value.trim(),
+    oldValue: r.querySelector(".reuse-old").value.trim(),
     value: r.querySelector(".reuse-value").value.trim()
-  })).filter(f => f.label);
+  })).filter(f => f.oldValue && f.value);
 }
 
 function escapeRegExp(string) {
@@ -3552,8 +3392,13 @@ async function saveCurrentStepDataToDb() {
     stepContents[step.sectionKey] = text;
     if (step.sectionKey === "plaint_facts") payload.facts_text = text;
     if (step.sectionKey === "written_statement") payload.written_statement_text = text;
-    if (step.sectionKey === "plaintiff_evidence") payload.evidence_text = text;
-    if (step.sectionKey === "defendant_evidence") payload.admit_deny_text = text;
+    if (step.sectionKey === "plaintiff_evidence" || step.sectionKey === "defendant_evidence") {
+      // Both sides' evidence live in the single evidence_text column
+      payload.evidence_text = [
+        stepContents.plaintiff_evidence && `PLAINTIFF EVIDENCE:\n${stepContents.plaintiff_evidence}`,
+        stepContents.defendant_evidence && `DEFENDANT EVIDENCE:\n${stepContents.defendant_evidence}`
+      ].filter(Boolean).join("\n\n");
+    }
     if (step.sectionKey === "findings_arguments") payload.findings_text = text;
   } else if (step.type === "final") {
     const text = $("reuseWizDecisionBox").value;
@@ -3561,11 +3406,8 @@ async function saveCurrentStepDataToDb() {
   }
   
   payload.last_updated_by = currentProfile?.id;
-  try {
-    await sb.from("cases").update(payload).eq("id", wizardCreatedCaseId);
-  } catch (err) {
-    console.error("Auto-save to database failed:", err);
-  }
+  const { error } = await sb.from("cases").update(payload).eq("id", wizardCreatedCaseId);
+  if (error) showToast("Draft save nahi hua: " + error.message, "error");
 }
 
 $("reuseWizRevertBtn").addEventListener("click", () => {
@@ -3581,7 +3423,7 @@ $("reuseWizNextBtn").addEventListener("click", async () => {
   if (currentWizStepIndex === 0) {
     // Create the case row in the database on Step 1 Next
     if (!wizardCreatedCaseId) {
-      setBtnLoading("reuseWizNextBtn", "spin-reuseWizNext", true, "addReuseFieldBtn");
+      setBtnLoading("reuseWizNextBtn", "spin-reuseWizNext", true);
       try {
         const { data, error } = await sb.from("cases").insert({
           category: reuseSourceCase.category,
@@ -3596,10 +3438,9 @@ $("reuseWizNextBtn").addEventListener("click", async () => {
         wizardCreatedCaseId = data.id;
       } catch (err) {
         showToast("Error creating case: " + err.message, "error");
-        setBtnLoading("reuseWizNextBtn", "spin-reuseWizNext", false, "addReuseFieldBtn");
         return;
       } finally {
-        setBtnLoading("reuseWizNextBtn", "spin-reuseWizNext", false, "addReuseFieldBtn");
+        setBtnLoading("reuseWizNextBtn", "spin-reuseWizNext", false);
       }
     }
   } else {
@@ -3659,15 +3500,18 @@ async function generateFinalJudgement() {
 
   setBtnLoading("reuseWizNextBtn", "spin-reuseWizNext", true, "reuseWizDecisionBox");
 
-  const buildText = () => {
-    let output = "";
-    if (selectedCaseMode === "contested") {
-      output = `PLANT/FACTS:\n${stepContents.plaint_facts || ""}\n\nWRITTEN STATEMENT:\n${stepContents.written_statement || ""}\n\nPLAINTIFF EVIDENCE:\n${stepContents.plaintiff_evidence || ""}\n\nDEFENDANT EVIDENCE:\n${stepContents.defendant_evidence || ""}\n\nFINDINGS & ARGUMENTS:\n${stepContents.findings_arguments || ""}`;
-    } else {
-      output = `PLANT/FACTS:\n${stepContents.plaint_facts || ""}\n\nPLAINTIFF EVIDENCE:\n${stepContents.plaintiff_evidence || ""}\n\nFINDINGS & ARGUMENTS:\n${stepContents.findings_arguments || ""}`;
-    }
-    return output;
+  const SECTION_HEADINGS = {
+    plaint_facts: "PLAINT/FACTS",
+    written_statement: "WRITTEN STATEMENT",
+    plaintiff_evidence: "PLAINTIFF EVIDENCE",
+    defendant_evidence: "DEFENDANT EVIDENCE",
+    findings_arguments: "FINDINGS & ARGUMENTS"
   };
+  // Only the sections that exist in the current mode's steps
+  const buildText = () => wizardSteps
+    .filter(st => st.type === "hybrid")
+    .map(st => `${SECTION_HEADINGS[st.sectionKey]}:\n${stepContents[st.sectionKey] || ""}`)
+    .join("\n\n");
 
   const finalPrompt = `You are a senior judge. Combine the provided section drafts and the final decision into a clean, complete, unified formal Court Judgement.
 - Use a formal, authoritative legal tone.
@@ -3687,8 +3531,10 @@ ${decision}`;
     // Update the existing Case row with finalized status and output
     const { data, error } = await sb.from("cases").update({
       judgement_output: result,
+      short_order: decision,
       status: "pending",
-      current_step: 5
+      current_step: 5,
+      last_updated_by: currentProfile?.id
     }).eq("id", wizardCreatedCaseId).select().single();
     
     if (error) throw error;
@@ -3707,11 +3553,6 @@ ${decision}`;
     setBtnLoading("reuseWizNextBtn", "spin-reuseWizNext", false, "reuseWizDecisionBox");
   }
 }
-
-// Call on startup
-document.addEventListener("DOMContentLoaded", () => {
-  initReuseWizardModes();
-});
 
 // ============================================
 // TEMPLATE FEATURE (Add / Upload / Paste)
@@ -3889,7 +3730,7 @@ $("generateOrderBtn").addEventListener("click", async () => {
   // Get selected directive if any
   const directives = getDirectives();
   const selectedIdx = $("owDirective").value;
-  const selectedDirective = selectedIdx !== "" ? directives[selectedIdx] : null;
+  const selectedDirective = selectedIdx !== "" ? directives[Number(selectedIdx)] || null : null;
 
   const prompt = `You are a Pakistani court official drafting a formal court order. Convert the following case details into a proper, concise legal court order in English.
 
@@ -3926,11 +3767,11 @@ STRICT RULES:
 10. CRITICAL DATE FORMAT RULE: You MUST write all dates (including today's date and the next date) strictly in the numeric format "DD-MM-YYYY" (e.g., "26-07-2026"). Do NOT write months in words or use ordinal suffixes (e.g., do NOT use "26th July, 2026" or "26 July 2026").
 
 ${isSamePurpose ? "11. CRITICAL: The next purpose is the same as today's purpose. Do NOT use the words 'same purpose' in the final output. Instead, write the actual purpose (e.g., 'evidence of the plaintiff', 'arguments', etc.)." : ""}
-13. CRITICAL TURN-TAKING RULE (Next Purpose specificity):
+12. CRITICAL TURN-TAKING RULE (Next Purpose specificity):
     - Carefully analyze today's proceeding text. If one party (e.g., plaintiff) has addressed arguments or produced evidence today, and the case is adjourned because the other party (e.g., defendant) sought an adjournment, the next purpose in the adjournment line (Rule 6) MUST reflect this turn-taking.
     - E.g., if plaintiff addressed arguments and defendant sought an adjournment, the next purpose in the adjournment line MUST be specific (e.g., "final arguments by/of the defendant" or "arguments of the defendant"), instead of just writing the generic case purpose "final arguments".
     - Apply this same specific logic if the defendant completed their turn and the plaintiff is to perform theirs on the next date.
-${selectedDirective ? `12. MANDATORY CLAUSE: You MUST adapt and integrate this warning instruction: "${selectedDirective.text}"
+${selectedDirective ? `13. MANDATORY CLAUSE: You MUST adapt and integrate this warning instruction: "${selectedDirective.text}"
     - Replace the placeholder "the party" with "the plaintiff" or "the defendant" (whoever is seeking the adjournment or whose turn it is).
     - Replace the placeholder "{proceeding}" or any generic phrase like "complete the proceeding" or "do so" with the specific purpose (e.g., "produce evidence", "submit written statement", "address arguments") based on what today's case was fixed for ("Today this case was fixed for: ${fixedFor}").
     - ONLY if the placeholder "{legal_reference}" is present in the warning instruction, replace it with the exact legal provision:
@@ -3956,67 +3797,35 @@ ${selectedDirective ? `12. MANDATORY CLAUSE: You MUST adapt and integrate this w
   }
 });
 
-$("owCopyBtn").addEventListener("click", () => {
-  navigator.clipboard.writeText($("owOutput").value);
-  $("owCopyBtn").textContent = "✅ Copied!";
-  setTimeout(() => $("owCopyBtn").textContent = "📋 Copy", 1500);
-});
+$("owCopyBtn").addEventListener("click", () => copyText($("owOutput").value, $("owCopyBtn")));
 
-// Send order to Steno 1
-$("owSendStenoBtn").addEventListener("click", async () => {
+async function sendOrderToSteno(btn, keyPrefix, label) {
   const text = $("owOutput").value.trim();
-  const caseTitle = $("owCaseTitle").value.trim() || "Untitled Case";
-  if (!text) return;
-  $("owSendStenoBtn").disabled = true;
+  if (!text) { showToast("Pehle order generate karein.", "error"); return; }
+  btn.disabled = true;
   try {
-    const orderId = `order-steno-${Date.now()}`;
-    const payload = JSON.stringify({
-      case_title: caseTitle,
-      order_text: text,
-      sent_at: new Date().toISOString()
-    });
-    const { error } = await sb.from("live_notes").upsert({
-      id: orderId,
-      content: payload,
+    const now = new Date().toISOString();
+    const { error } = await sb.from("live_notes").insert({
+      id: `${keyPrefix}-${Date.now()}`,
+      content: JSON.stringify({
+        case_title: $("owCaseTitle").value.trim() || "Untitled Case",
+        order_text: text,
+        sent_at: now
+      }),
       updated_by: currentProfile?.id,
-      updated_at: new Date().toISOString()
+      updated_at: now
     });
     if (error) throw error;
-    showToast("Order Steno 1 ko send ho gaya!", "success");
+    showToast(`Order ${label} ko send ho gaya!`, "success");
   } catch (e) {
     showToast("Send error: " + e.message, "error");
   } finally {
-    $("owSendStenoBtn").disabled = false;
+    btn.disabled = false;
   }
-});
+}
 
-// Send order to Steno 2
-$("owSendSteno2Btn").addEventListener("click", async () => {
-  const text = $("owOutput").value.trim();
-  const caseTitle = $("owCaseTitle").value.trim() || "Untitled Case";
-  if (!text) return;
-  $("owSendSteno2Btn").disabled = true;
-  try {
-    const orderId = `order-steno2-${Date.now()}`;
-    const payload = JSON.stringify({
-      case_title: caseTitle,
-      order_text: text,
-      sent_at: new Date().toISOString()
-    });
-    const { error } = await sb.from("live_notes").upsert({
-      id: orderId,
-      content: payload,
-      updated_by: currentProfile?.id,
-      updated_at: new Date().toISOString()
-    });
-    if (error) throw error;
-    showToast("Order Steno 2 ko send ho gaya!", "success");
-  } catch (e) {
-    showToast("Send error: " + e.message, "error");
-  } finally {
-    $("owSendSteno2Btn").disabled = false;
-  }
-});
+$("owSendStenoBtn").addEventListener("click", () => sendOrderToSteno($("owSendStenoBtn"), "order-steno", "Steno 1"));
+$("owSendSteno2Btn").addEventListener("click", () => sendOrderToSteno($("owSendSteno2Btn"), "order-steno2", "Steno 2"));
 
 let activeInboxKey = "";
 
@@ -4065,12 +3874,12 @@ async function refreshInboxList() {
               <p class="font-bold text-sm text-slate-800" style="margin:0;">${escapeHtml(order.case_title)}</p>
               <p class="text-[10px] text-slate-400" style="margin:2px 0 0 0;">Sent on ${dateStr} at ${timeStr}</p>
             </div>
-            <button class="inbox-del-btn text-red-500 hover:text-red-700 font-bold text-sm" style="background:none;border:none;cursor:pointer;padding:0 5px;" data-id="${order.id}">✕</button>
+            <button class="inbox-del-btn text-red-500 hover:text-red-700 font-bold text-sm" style="background:none;border:none;cursor:pointer;padding:0 5px;" data-id="${escapeHtml(order.id)}">✕</button>
           </div>
           <pre style="font-family:\'Times New Roman\', serif;font-size:0.85rem;white-space:pre-wrap;background:#fff;border:1px solid #e2e8f0;padding:0.5rem;border-radius:0.5rem;max-height:120px;overflow-y:auto;margin:0;line-height:1.4;">${escapeHtml(order.order_text)}</pre>
           <div style="display:flex;gap:0.5rem;">
-            <button class="inbox-copy-btn bg-teal-600 text-white text-xs px-3 py-1.5 rounded font-semibold" style="border:none;cursor:pointer;" data-text="${escapeHtml(order.order_text)}">📋 Copy</button>
-            <button class="inbox-load-btn bg-slate-700 text-white text-xs px-3 py-1.5 rounded font-semibold" style="border:none;cursor:pointer;" data-id="${order.id}" data-text="${escapeHtml(order.order_text)}">📥 Load to Editor</button>
+            <button class="inbox-copy-btn bg-teal-600 text-white text-xs px-3 py-1.5 rounded font-semibold" data-id="${escapeHtml(order.id)}">📋 Copy</button>
+            <button class="inbox-load-btn bg-slate-700 text-white text-xs px-3 py-1.5 rounded font-semibold" data-id="${escapeHtml(order.id)}">📥 Load to Editor</button>
           </div>
         </div>
       `;
@@ -4085,18 +3894,15 @@ async function refreshInboxList() {
       };
     });
     
+    const orderText = (id) => orders.find(o => o.id === id)?.order_text || "";
+
     listContainer.querySelectorAll(".inbox-copy-btn").forEach(btn => {
-      btn.onclick = () => {
-        navigator.clipboard.writeText(btn.dataset.text);
-        btn.textContent = "✅ Copied!";
-        setTimeout(() => btn.textContent = "📋 Copy", 1500);
-        showToast("Order copied to clipboard!", "success");
-      };
+      btn.onclick = () => copyText(orderText(btn.dataset.id), btn);
     });
     
     listContainer.querySelectorAll(".inbox-load-btn").forEach(btn => {
       btn.onclick = () => {
-        $("owOutput").value = btn.dataset.text;
+        $("owOutput").value = orderText(btn.dataset.id);
         $("owOutputSection").classList.remove("hidden");
         $("owInboxModal").classList.add("hidden");
         showToast("Order loaded into editor!", "success");
@@ -4138,6 +3944,7 @@ $("owClearBtn").addEventListener("click", () => {
   $("owNextPurpose").value = "";
   $("owNextDate").value = "";
   $("owOutput").value = "";
+  $("owDirective").value = "";
   $("owOutputSection").classList.add("hidden");
   $("owCaseTitle").focus();
 });

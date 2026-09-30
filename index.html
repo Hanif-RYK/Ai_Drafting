@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="description" content="AI assisted judgement and order drafting for court stenographers and judges." />
 <title>AI Drafting System</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -90,7 +91,7 @@
 </div>
 
 <!-- ===================== MAIN APP ===================== -->
-<div id="mainApp" class="hidden app-container" style="max-width:100%;overflow-x:hidden;">
+<div id="mainApp" class="hidden app-container">
 
   <!-- Sidebar Overlay -->
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -99,7 +100,7 @@
   <div id="sidebarMenu" class="sidebar-menu">
     <div class="sidebar-header">
       <h2>☰ AI Drafting</h2>
-      <button class="close-sidebar" id="closeSidebarBtn">&times;</button>
+      <button class="close-sidebar" id="closeSidebarBtn" aria-label="Close menu">&times;</button>
     </div>
     <div class="px-4 py-3 border-b border-slate-100 bg-slate-50">
       <p class="font-bold text-sm text-slate-800" id="menuUserName"></p>
@@ -108,9 +109,6 @@
     <div class="flex-1 p-2 flex flex-col gap-1">
       <button id="adminPanelBtn" class="menu-item hidden">
         🛡️ Admin Panel
-      </button>
-      <button id="judgePanelBtn" class="menu-item hidden">
-        👨‍⚖️ Judge Panel
       </button>
       <button id="settingsBtn" class="menu-item">
         ⚙️ AI Settings
@@ -131,7 +129,7 @@
 
   <!-- ====== HEADER CARD ====== -->
   <div class="header-card">
-    <button class="hamburger-btn" id="menuBtn">
+    <button class="hamburger-btn" id="menuBtn" aria-label="Open menu">
       <span></span>
       <span></span>
       <span></span>
@@ -172,10 +170,10 @@
       <div class="card-icon-box">✅</div>
     </button>
 
-    <div style="display:flex;gap:0.75rem;align-items:stretch;margin-top:0.75rem;">
-      <button id="liveTypeBtn" style="flex:1;background:linear-gradient(135deg,#7c3aed 0%,#6d28d9 100%);color:#fff;border:none;border-radius:0.85rem;padding:0.75rem;font-size:0.95rem;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,0.15);">✍️ Live Editor</button>
-      <button id="orderWriterBtn" class="btn-new-case" style="flex:1;">⚖️ Order Writer</button>
-      <button id="newCaseBtn" class="btn-new-case" style="flex:1;">+ New Case</button>
+    <div class="dash-actions">
+      <button id="liveTypeBtn" class="btn-new-case btn-live-editor">✍️ Live Editor</button>
+      <button id="orderWriterBtn" class="btn-new-case">⚖️ Order Writer</button>
+      <button id="newCaseBtn" class="btn-new-case">+ New Case</button>
     </div>
 
     <!-- Recent Feedback Panel (Visible for non-judges when there is feedback) -->
@@ -193,92 +191,88 @@
   <!-- Order Writer Modal -->
   <!-- Order Writer Screen -->
   <div id="orderWriterScreen" class="hidden">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
-      <button id="backFromOrderWriterBtn" class="btn-back-dashboard" style="margin:0;">← Dashboard</button>
-      <button id="owLoadOrderBtnTop" class="hidden" style="background:#0f766e;color:#fff;border:none;border-radius:0.75rem;padding:0.65rem 1rem;font-weight:600;font-size:0.85rem;cursor:pointer;">📥 Load Order</button>
+    <div class="screen-top-bar">
+      <button id="backFromOrderWriterBtn" class="btn-back-dashboard">← Dashboard</button>
+      <button id="owLoadOrderBtnTop" class="ow-btn ow-btn-teal hidden">📥 Load Order</button>
     </div>
-    
-    <div class="bg-white rounded-2xl shadow-lg p-5">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
-        <h2 style="font-size:1.15rem;font-weight:700;color:#0e7490;margin:0;">⚖️ Order Writer</h2>
-      </div>
+
+    <div class="card">
+      <h2 class="ow-title">⚖️ Order Writer</h2>
 
       <!-- Field 0: Case Number / Case Title -->
-      <div style="margin-bottom:1rem;">
+      <div class="ow-field">
         <label class="order-field-label">📁 Case Number / Case Title (Optional)</label>
         <input id="owCaseTitle" class="order-field-input" type="text" />
       </div>
 
       <!-- Field 1: Today case fixed for -->
-      <div style="margin-bottom:1rem;">
+      <div class="ow-field">
         <label class="order-field-label">📌 Today case fixed for</label>
         <input id="owFixedFor" class="order-field-input" type="text" />
       </div>
 
       <!-- Field 2: Today Proceeding -->
-      <div style="margin-bottom:1rem;">
+      <div class="ow-field">
         <label class="order-field-label">📋 Today proceeding (kya hua)</label>
         <textarea id="owProceeding" class="order-field-input" rows="3"></textarea>
       </div>
 
       <!-- Field 4: Next Date -->
-      <div style="margin-bottom:1rem;">
+      <div class="ow-field">
         <label class="order-field-label">📅 Next date</label>
         <input id="owNextDate" class="order-field-input" type="date" />
       </div>
 
       <!-- Field 5: Special Directions (Optional Dropdown) -->
-      <div style="margin-bottom:1rem;">
+      <div class="ow-field">
         <label class="order-field-label">📢 Special Warning / Direction (Optional)</label>
-        <select id="owDirective" class="order-field-input" style="width:100%;">
+        <select id="owDirective" class="order-field-input">
           <option value="">(None)</option>
         </select>
       </div>
 
       <!-- Field 3: Next Purpose (Next Date Fixed For) -->
-      <div style="margin-bottom:1.25rem;">
+      <div class="ow-field">
         <label class="order-field-label">🔜 Next date fixed for (Optional — khali chorne pe aaj wala purpose assume hoga)</label>
         <input id="owNextPurpose" class="order-field-input" type="text" />
       </div>
 
       <!-- Generate Button -->
-      <button id="generateOrderBtn" style="width:100%;background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;border:none;border-radius:0.85rem;padding:0.85rem;font-size:1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:0.5rem;margin-bottom:1rem;">
+      <button id="generateOrderBtn" class="btn-generate-order">
         <span id="spin-order" class="spinner hidden"></span>
         ✨ Generate Order
       </button>
 
       <!-- Output -->
       <div id="owOutputSection" class="hidden">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
-          <label class="order-field-label" style="margin:0;">📄 Generated Order</label>
+        <div class="flex justify-between items-center mb-2">
+          <label class="order-field-label mb-0">📄 Generated Order</label>
           <button class="fs-btn" data-target="owOutput" type="button">⛶</button>
         </div>
         <textarea id="owOutput" class="order-output-box"></textarea>
-        <div id="owActionGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-top:0.75rem;">
-          <button id="owCopyBtn" style="background:#0891b2;color:#fff;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;">📋 Copy</button>
-          <button id="owSendStenoBtn" style="background:#7c3aed;color:#fff;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;" class="hidden">📤 Send to Steno</button>
-          <button id="owSendSteno2Btn" style="background:#2563eb;color:#fff;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;" class="hidden">📤 Send to 2nd Steno</button>
-          <button id="owClearBtn" style="background:#f1f5f9;color:#475569;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;">🔄 New Order</button>
+        <div class="ow-action-grid">
+          <button id="owCopyBtn" class="ow-btn ow-btn-cyan">📋 Copy</button>
+          <button id="owSendStenoBtn" class="ow-btn ow-btn-violet hidden">📤 Send to Steno</button>
+          <button id="owSendSteno2Btn" class="ow-btn ow-btn-blue hidden">📤 Send to 2nd Steno</button>
+          <button id="owClearBtn" class="ow-btn ow-btn-muted">🔄 New Order</button>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Order Writer Inbox Modal -->
-  <div id="owInboxModal" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:70;display:flex;align-items:center;justify-content:center;padding:1rem;">
-    <div style="background:#fff;border-radius:1.5rem;width:100%;max-width:540px;max-height:85vh;overflow-y:auto;padding:1.5rem;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);display:flex;flex-direction:column;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;border-bottom:1px solid #e2e8f0;padding-bottom:0.75rem;">
-        <h3 id="owInboxTitle" style="font-size:1.2rem;font-weight:700;color:#0f766e;margin:0;">📥 Received Orders</h3>
-        <button id="closeOwInboxBtn" style="background:#f1f5f9;border:none;border-radius:50%;width:2rem;height:2rem;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+  <div id="owInboxModal" class="inbox-modal hidden" role="dialog" aria-modal="true" aria-labelledby="owInboxTitle">
+    <div class="inbox-panel">
+      <div class="inbox-header">
+        <h3 id="owInboxTitle">📥 Received Orders</h3>
+        <button id="closeOwInboxBtn" class="icon-close-btn" aria-label="Close">✕</button>
       </div>
-      
-      <div id="owInboxList" style="display:flex;flex-direction:column;gap:1rem;margin-bottom:1.25rem;overflow-y:auto;max-height:50vh;padding-right:0.25rem;">
-        <!-- Received orders will be rendered here -->
-      </div>
-      
-      <div style="display:flex;gap:0.75rem;margin-top:auto;">
-        <button id="owInboxClearAllBtn" style="flex:1;background:#ef4444;color:#fff;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;">🗑️ Clear All</button>
-        <button id="owInboxCloseBtn" style="flex:1;background:#f1f5f9;color:#475569;border:none;border-radius:0.75rem;padding:0.65rem;font-weight:600;cursor:pointer;">Close</button>
+
+      <div id="owInboxList" class="inbox-list"></div>
+
+      <div class="flex gap-3 mt-auto">
+        <button id="owInboxClearAllBtn" class="ow-btn ow-btn-danger flex-1">🗑️ Clear All</button>
+        <button id="owInboxCloseBtn" class="ow-btn ow-btn-muted flex-1">Close</button>
       </div>
     </div>
   </div>
@@ -290,7 +284,7 @@
       <button id="liveTypeCloseBtn" class="fs-close-btn">Close</button>
     </div>
     <textarea id="liveTypeTextarea" class="fs-textarea" placeholder="Yahan type karein..."></textarea>
-    <button id="liveTypeWordBtn" style="margin-top:0.75rem;background:#16a34a;color:#fff;border:none;padding:0.6rem 1.25rem;border-radius:0.75rem;font-weight:700;font-size:0.9rem;cursor:pointer;width:100%;">📄 Open in Word</button>
+    <button id="liveTypeWordBtn" class="btn-generate">📄 Open in Word</button>
   </div>
 
   <!-- ===================== CASE LIST ===================== -->
@@ -334,10 +328,10 @@
     
     <!-- Back + Live Editor (Same Line) -->
     <div class="wiz-top-bar">
-      <button id="backFromWizardBtn" class="btn-back-dashboard" style="flex:1;display:flex;justify-content:center;">← Dashboard</button>
-      <button id="liveModeToggle" class="live-toggle" style="flex:1;display:flex;justify-content:center;">🔴 Live: OFF</button>
+      <button id="backFromWizardBtn" class="btn-back-dashboard flex-1">← Dashboard</button>
+      <button id="liveModeToggle" class="live-toggle flex-1 justify-center">🔴 Live: OFF</button>
     </div>
-    <div id="autosaveIndicator" style="font-size:0.75rem;color:#94a3b8;text-align:right;min-height:1.1rem;margin-bottom:0.25rem;"></div>
+    <div id="autosaveIndicator" class="autosave-indicator" aria-live="polite"></div>
 
 
 
@@ -345,10 +339,6 @@
     <div id="reviewFeedbackBanner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 text-sm text-amber-800"></div>
     
     <div id="liveIndicator" class="hidden live-indicator">● Live collaboration active</div>
-    <input type="hidden" id="wizStatus" value="pending" />
-
-    <!-- Step Indicators removed -->
-
     <!-- STEP 1: PLAINT -->
     <div id="wstep1" class="wiz-step">
       <h2 class="font-bold text-xl mb-4">Step 1/5: Plaint</h2>
@@ -450,7 +440,7 @@
             <button id="downloadBtn" class="btn-action">Open in Word</button>
           </div>
         </div>
-        <textarea id="judgementOutput" rows="5" class="wiz-textarea" style="line-height:1.6;min-height:120px;"></textarea>
+        <textarea id="judgementOutput" rows="8" class="wiz-textarea"></textarea>
       </div>
 
       <div id="chatSection" class="hidden mt-4 border-t pt-4">
@@ -461,8 +451,6 @@
           <button id="chatSendBtn" class="btn-send">Send</button>
         </div>
       </div>
-
-      <button id="submitReviewBtn" class="hidden w-full mt-3 bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition text-base">📤 Submit for Review</button>
 
       <button id="finalizeBtn" class="hidden w-full mt-4 btn-finalize">✅ Finalize Case (extract Title + Legal Grounds)</button>
 
@@ -511,8 +499,8 @@
       <div id="reuseWizStep1" class="space-y-3">
         <p class="text-xs text-slate-500 mb-4">Select case mode and fill basic variables.</p>
         <div class="flex gap-3 mb-4">
-          <button class="flex-1 border-2 border-blue-600 bg-blue-50 text-blue-700 rounded-xl py-3 text-sm font-semibold" id="modeContestedBtn">Contested</button>
-          <button class="flex-1 border-2 border-slate-200 text-slate-600 rounded-xl py-3 text-sm font-semibold" id="modeExParteBtn">Ex-parte</button>
+          <button type="button" class="reuse-mode-btn choice-btn active flex-1 border-2 rounded-xl py-3 text-sm font-semibold" id="modeContestedBtn" data-mode="contested">Contested</button>
+          <button type="button" class="reuse-mode-btn choice-btn flex-1 border-2 rounded-xl py-3 text-sm font-semibold" id="modeExParteBtn" data-mode="ex_parte">Ex-parte</button>
         </div>
         <div id="reuseFieldsContainer" class="space-y-3"></div>
         <button id="addReuseFieldBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition mt-2">+ Add Missing Field</button>
@@ -536,7 +524,7 @@
 
       <!-- Step 7: Final Decision / Outcome -->
       <div id="reuseWizStepFinal" class="hidden">
-        <p class="text-xs text-slate-500 mb-3">Saddique ya Judge sahab ka faisla / Relief enter karein.</p>
+        <p class="text-xs text-slate-500 mb-3">Judge sahab ka faisla / Relief enter karein.</p>
         <label class="block text-sm font-bold text-slate-600 mb-2 uppercase tracking-wide">Final Faisla / Decision Description</label>
         <textarea id="reuseWizDecisionBox" rows="6" class="wiz-textarea" placeholder="E.g., Suit is decreed in favour of the plaintiff. Maintenance allowed @ 5000/month for Plaintiff No. 1 and 3000/month for Minor. Defendant's visitation rights are set for 1st Saturday of every month."></textarea>
       </div>
@@ -561,16 +549,6 @@
     <h3 class="font-bold text-xl mb-4 text-slate-800">🛡️ Admin Panel</h3>
     <div id="pendingUsersList" class="space-y-3 mb-4"></div>
     <button id="closeAdminPanelBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition">Close</button>
-  </div>
-</div>
-
-<!-- ===================== JUDGE PANEL MODAL ===================== -->
-<div id="judgePanelModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-  <div class="bg-white rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl">
-    <h3 class="font-bold text-xl mb-4 text-slate-800">👨‍⚖️ Judge Panel</h3>
-    <p class="text-xs text-slate-500 mb-3">Admin-approved users jo aapki approval ka wait kar rahe hain:</p>
-    <div id="pendingJudgeApprovalList" class="space-y-3 mb-4"></div>
-    <button id="closeJudgePanelBtn" class="w-full bg-slate-100 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-200 transition">Close</button>
   </div>
 </div>
 
@@ -712,7 +690,7 @@
   </div>
   <!-- Preview -->
   <div class="img-editor-preview-area">
-    <img id="imgEditorPreview" class="img-editor-img" />
+    <img id="imgEditorPreview" class="img-editor-img" alt="Image preview" />
   </div>
   <!-- Toolbar -->
   <div class="img-editor-toolbar">
@@ -742,7 +720,7 @@
   </div>
   <!-- Preview -->
   <div class="batch-preview">
-    <img id="batchPreview" />
+    <img id="batchPreview" alt="Image preview" />
     <div id="batchCropOverlay" class="hidden" style="position:absolute;inset:0;z-index:10">
       <div id="batchCropWindow" class="crop-window">
         <div class="grid-h" style="top:33.33%"></div>
@@ -787,13 +765,7 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(registration => {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        })
-        .catch(err => {
-          console.log('ServiceWorker registration failed: ', err);
-        });
+      navigator.serviceWorker.register('./sw.js').catch(err => console.warn('ServiceWorker registration failed:', err));
     });
   }
 </script>
