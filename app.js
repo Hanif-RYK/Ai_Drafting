@@ -3052,24 +3052,80 @@ async function openReuseFlow(sourceId) {
   $("reuseFieldsContainer").innerHTML = `<p class="empty"><span class="spinner"></span> AI is finding names, dates and amounts in the template...</p>`;
   const fieldsPrompt = `From the court judgement below, list ONLY the case-specific details that would change in a new similar case:
 party names, other person names, dates, amounts, case numbers, places.
-"old_value" MUST be copied exactly as it appears in the judgement. Maximum 15 items. Do not repeat the same value.
-Return ONLY a valid JSON array, e.g. [{"label": "Plaintiff Name", "old_value": "Ali Ahmed"}]
+Copy each value EXACTLY as it is written in the judgement. Maximum 15 items. Do not repeat a value.
+
+Answer with one item per line in this exact format, nothing else:
+Label | value
+
+Example:
+Plaintiff Name | Ali Ahmed
+Date of Nikah | 12-03-2018
 
 Judgement:
 ${source.judgement_output}`;
   let fields = [];
+  let aiError = null;
   try {
-    const raw = await callAI(fieldsPrompt, 1500);
-    const match = raw.match(/\[[\s\S]*\]/);
-    fields = match ? JSON.parse(match[0]) : [];
-    if (!Array.isArray(fields)) fields = [];
+    fields = parseDetectedFields(await callAI(fieldsPrompt, 1500));
   } catch (err) {
-    showToast("Could not detect details automatically — please add the fields yourself.", "warning");
+    aiError = err;
+    console.warn("Field detection failed:", err);
   }
   if (reuseSourceCase !== source) return; // user already picked another template
+  if (!fields.length) {
+    // AI failed or gave nothing usable: fall back to simple pattern matching
+    fields = detectFieldsLocally(source.judgement_output);
+    showToast(aiError
+      ? `AI could not read the template (${aiError.message.slice(0, 120)}). Showing basic detected fields — add others yourself.`
+      : "AI found no details. Showing basic detected fields — add others yourself.", "warning");
+  }
   $("reuseFieldsContainer").innerHTML = "";
-  fields.filter(f => f && f.old_value).forEach(f => addReuseFieldRow(f.label, f.old_value));
+  fields.forEach(f => addReuseFieldRow(f.label, f.old_value));
   if (!fields.length) addReuseFieldRow();
+}
+
+// Reads the AI's "Label | value" lines (and also accepts a JSON array, in case the model sends one)
+function parseDetectedFields(raw) {
+  const text = String(raw || "").replace(/```[a-z]*\n?|```/gi, "").trim();
+  const seen = new Set();
+  const out = [];
+  const add = (label, value) => {
+    value = String(value || "").trim().replace(/^["'“”]+|["'“”]+$/g, "");
+    label = String(label || "").trim().replace(/^[-*•\d.)\s]+/, "");
+    if (!value || value.length > 120 || seen.has(value.toLowerCase())) return;
+    seen.add(value.toLowerCase());
+    out.push({ label: label || "Detail", old_value: value });
+  };
+
+  const jsonMatch = text.match(/\[[\s\S]*?\]\s*$/) || text.match(/\[\s*\{[\s\S]*?\}\s*\]/);
+  if (jsonMatch) {
+    try {
+      const cleaned = jsonMatch[0].replace(/[“”]/g, '"').replace(/,\s*([\]}])/g, "$1");
+      const arr = JSON.parse(cleaned);
+      if (Array.isArray(arr)) arr.forEach(f => f && add(f.label, f.old_value ?? f.value));
+      if (out.length) return out.slice(0, 20);
+    } catch { /* not JSON — fall through to line parsing */ }
+  }
+  text.split(/\r?\n/).forEach(line => {
+    const m = line.match(/^(.{1,60}?)\s*[|:–—-]\s+(.+)$/) || line.match(/^(.{1,60}?)\s*\|\s*(.+)$/);
+    if (m && !/^label$/i.test(m[1].trim())) add(m[1], m[2]);
+  });
+  return out.slice(0, 20);
+}
+
+// Very small offline fallback: parties from "X vs Y", dates and money amounts
+function detectFieldsLocally(text) {
+  const out = [];
+  const seen = new Set();
+  const add = (label, value) => {
+    value = value.trim();
+    if (value && !seen.has(value.toLowerCase())) { seen.add(value.toLowerCase()); out.push({ label, old_value: value }); }
+  };
+  const vs = text.match(/^\s*([^\n]{2,60}?)\s+(?:vs\.?|versus|v\/s)\s+([^\n]{2,60}?)\s*$/im);
+  if (vs) { add("Plaintiff", vs[1]); add("Defendant", vs[2]); }
+  (text.match(/\b\d{1,2}[-./]\d{1,2}[-./]\d{2,4}\b/g) || []).slice(0, 6).forEach((d, i) => add(`Date ${i + 1}`, d));
+  (text.match(/\b(?:Rs\.?|PKR)\s?[\d,]+(?:\/-)?/gi) || []).slice(0, 6).forEach((a, i) => add(`Amount ${i + 1}`, a));
+  return out;
 }
 
 // Detected rows show the template value read-only; rows added by hand are fully editable
