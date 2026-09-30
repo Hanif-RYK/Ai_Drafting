@@ -47,7 +47,7 @@ self.addEventListener('fetch', event => {
   // Own files are revalidated with the server every time (cheap 304s), so a deploy
   // never mixes a new index.html with an old app.js from the browser's HTTP cache.
   event.respondWith(
-    sameOrigin ? fetchFresh(request) : fetch(request)
+    (sameOrigin ? fetchFresh(request) : fetch(request))
       .then(response => {
         if (response && (response.ok || response.type === 'opaque')) {
           const copy = response.clone();
