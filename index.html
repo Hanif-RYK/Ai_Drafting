@@ -6,8 +6,9 @@
 <meta name="description" content="AI assisted judgement and order drafting for court stenographers and judges." />
 <meta name="theme-color" content="#2563eb" />
 <title>AI Drafting System</title>
-<link rel="stylesheet" href="tailwind.css" />
-<link rel="stylesheet" href="styles.css" />
+<!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever app.js / CSS change. -->
+<link rel="stylesheet" href="tailwind.css?v=2026093001" />
+<link rel="stylesheet" href="styles.css?v=2026093001" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="icon.svg" />
@@ -676,8 +677,32 @@
   </div>
 </div>
 
-<script src="app.js" defer></script>
+<script src="app.js?v=2026093001" defer></script>
 <script>
+  // Safety net: never leave a blank page. If the app failed to start (e.g. an old cached
+  // file after a deploy), reload once without cache; if it still fails, show the login screen.
+  (function () {
+    function blank() {
+      var login = document.getElementById('loginScreen'), main = document.getElementById('mainApp');
+      return login.classList.contains('hidden') && main.classList.contains('hidden');
+    }
+    window.addEventListener('error', function () {
+      if (!blank()) return;
+      if (!sessionStorage.getItem('reloadedAfterError')) {
+        sessionStorage.setItem('reloadedAfterError', '1');
+        location.reload();
+      } else {
+        document.getElementById('loginScreen').classList.remove('hidden');
+      }
+    });
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        if (blank()) document.getElementById('loginScreen').classList.remove('hidden');
+        else sessionStorage.removeItem('reloadedAfterError');
+      }, 6000);
+    });
+  })();
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch(err => console.warn('ServiceWorker registration failed:', err));

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-drafting-v4';
+const CACHE_NAME = 'ai-drafting-v5';
 
 const APP_SHELL = [
   './',
@@ -29,6 +29,11 @@ self.addEventListener('activate', event => {
   );
 });
 
+// A navigation Request can't be re-created with new options, so fetch its URL instead
+function fetchFresh(request) {
+  return fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' });
+}
+
 self.addEventListener('fetch', event => {
   const { request } = event;
   // Only GET can be cached. Never touch API calls (Supabase, AI providers):
@@ -38,9 +43,11 @@ self.addEventListener('fetch', event => {
   const sameOrigin = url.origin === self.location.origin;
   if (!sameOrigin && !CACHEABLE_CDN_HOSTS.includes(url.hostname)) return;
 
-  // Network first, fall back to cache when offline
+  // Network first, fall back to cache when offline.
+  // Own files are revalidated with the server every time (cheap 304s), so a deploy
+  // never mixes a new index.html with an old app.js from the browser's HTTP cache.
   event.respondWith(
-    fetch(request)
+    sameOrigin ? fetchFresh(request) : fetch(request)
       .then(response => {
         if (response && (response.ok || response.type === 'opaque')) {
           const copy = response.clone();
@@ -48,6 +55,6 @@ self.addEventListener('fetch', event => {
         }
         return response;
       })
-      .catch(() => caches.match(request))
+      .catch(() => caches.match(request, { ignoreSearch: true }))
   );
 });
