@@ -7,8 +7,8 @@
 <meta name="theme-color" content="#2563eb" />
 <title>AI Drafting System</title>
 <!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever app.js / CSS change. -->
-<link rel="stylesheet" href="tailwind.css?v=2026093001" />
-<link rel="stylesheet" href="styles.css?v=2026093001" />
+<link rel="stylesheet" href="tailwind.css?v=2026093002" />
+<link rel="stylesheet" href="styles.css?v=2026093002" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="icon.svg" />
@@ -99,6 +99,7 @@
     <div class="sidebar-nav">
       <button id="adminPanelBtn" class="menu-item hidden">🛡️ Admin Panel <span id="pendingBadge" class="menu-badge hidden"></span></button>
       <button id="settingsBtn" class="menu-item">⚙️ AI Settings</button>
+      <button id="templatesMenuBtn" class="menu-item">📚 Templates</button>
       <button id="glossaryMenuBtn" class="menu-item">📖 Glossary &amp; Presets</button>
       <button id="dictionaryMenuBtn" class="menu-item">📂 Shortcuts Dictionary</button>
     </div>
@@ -239,11 +240,9 @@
       </div>
 
       <div class="card">
-        <h3 class="section-title">Ya purani judgement se shuru karein</h3>
-        <div class="grid gap-2 sm:grid-cols-2">
-          <button id="goToReuseBtn" class="btn btn-secondary">📑 Finalized judgement reuse karein</button>
-          <button id="addTemplateFromNewCase" class="btn btn-soft">📄 Naya template add karein</button>
-        </div>
+        <h3 class="section-title">⚡ Milta julta case pehle likha ja chuka hai?</h3>
+        <p class="muted mb-3">Kisi template ya purani judgement ko bunyaad bana kar AI se nayi judgement 3 steps mein banwayein.</p>
+        <button id="goToReuseBtn" class="btn btn-soft btn-block">📚 Template se judgement banayein</button>
       </div>
     </section>
 
@@ -389,65 +388,94 @@
       </div>
     </section>
 
-    <!-- ===================== REUSE LIST ===================== -->
+    <!-- ===================== TEMPLATES ===================== -->
+    <section id="templatesScreen" class="hidden">
+      <div class="screen-top-bar">
+        <button id="backFromTemplatesBtn" class="btn btn-ghost">← Dashboard</button>
+        <button id="addTemplateBtn" class="btn btn-primary btn-sm">+ Naya template</button>
+      </div>
+      <h2 class="page-title">📚 Templates</h2>
+      <p class="muted mb-4">Achhi likhi hui judgements yahan rakhein. Naya milta julta case aaye to "Is se banayein" dabayein.</p>
+      <div id="templatesList" class="list"></div>
+    </section>
+
+    <!-- ===================== REUSE: STEP 1 (choose) ===================== -->
     <section id="reuseScreen" class="hidden">
       <div class="screen-top-bar">
-        <button id="backFromReuseListBtn" class="btn btn-ghost">← Dashboard</button>
+        <button id="backFromReuseListBtn" class="btn btn-ghost">← Wapas</button>
       </div>
-      <h2 class="page-title">Reuse ke liye judgement chunein</h2>
+      <ol class="steps"><li class="active">1. Template chunein</li><li>2. Naye case ki details</li><li>3. Judgement</li></ol>
+      <div class="card mb-4">
+        <input id="reuseSearch" type="search" placeholder="🔍 Title ya law se dhoondein..." />
+        <div class="segmented mt-3" id="reuseFilter">
+          <button type="button" class="active" data-filter="all">Sab</button>
+          <button type="button" data-filter="Family">Family</button>
+          <button type="button" data-filter="Civil">Civil</button>
+        </div>
+      </div>
       <div id="reuseListContainer" class="list"></div>
     </section>
 
-    <!-- ===================== REUSE WIZARD ===================== -->
+    <!-- ===================== REUSE: STEP 2 + 3 ===================== -->
     <section id="reuseFormScreen" class="hidden">
       <div class="screen-top-bar">
-        <button id="backFromReuseFormBtn" class="btn btn-ghost">← Wapas list</button>
+        <button id="backFromReuseFormBtn" class="btn btn-ghost">← Template badlein</button>
       </div>
+      <ol class="steps"><li class="done">1. Template chunein</li><li id="reuseStep2Label" class="active">2. Naye case ki details</li><li id="reuseStep3Label">3. Judgement</li></ol>
 
-      <div class="card">
-        <div class="flex justify-between items-center gap-2 mb-4">
-          <h2 class="card-title mb-0" id="reuseWizTitle">Step 1: Variables</h2>
-          <span class="pill pill-amber" id="reuseWizStepIndicator">Step 1 of 7</span>
+      <!-- Step 2: details -->
+      <div id="reuseDetailsPanel">
+        <div class="card">
+          <p class="muted">Template:</p>
+          <h2 class="card-title mb-0" id="reuseSourceTitle"></h2>
         </div>
 
-        <div id="reuseWizStep1">
-          <p class="muted mb-3">Case mode chunein aur naye case ki details bharein.</p>
+        <div class="card">
+          <span class="label">Naye case ki qisam</span>
           <div class="segmented mb-4">
             <button type="button" class="reuse-mode-btn active" id="modeContestedBtn" data-mode="contested">Contested</button>
             <button type="button" class="reuse-mode-btn" id="modeExParteBtn" data-mode="ex_parte">Ex-parte</button>
           </div>
+
+          <h3 class="section-title">A. Naam, taareekhein, raqam badlein</h3>
+          <p class="muted mb-3">AI ne template mein se ye cheezein dhoondi hain. Naye case ki value likhein — jo khaali chhorein wo AI "[___]" likh dega taake aap baad mein bhar sakein.</p>
           <div id="reuseFieldsContainer"></div>
-          <button id="addReuseFieldBtn" class="btn btn-secondary btn-block mt-2">+ Field add karein</button>
+          <button id="addReuseFieldBtn" class="btn btn-secondary btn-sm mt-2">+ Aur field</button>
+
+          <hr class="divider" />
+          <h3 class="section-title">B. Is case mein kya alag hai? <span class="muted">(optional)</span></h3>
+          <textarea id="reuseDifferences" rows="4" placeholder="e.g. Defendant pesh hua aur written statement file kiya. Nikah 2019 mein hua. Ek bacha hai, umar 3 saal."></textarea>
+
+          <hr class="divider" />
+          <h3 class="section-title">C. Faisla / Short order</h3>
+          <textarea id="reuseDecision" rows="3" placeholder="e.g. Suit decreed. Maintenance Rs. 8000/month for plaintiff and Rs. 5000/month for minor."></textarea>
         </div>
 
-        <div id="reuseWizStepHybrid" class="hidden">
-          <p class="muted mb-3" id="hybridStepInstructions"></p>
-          <div class="field">
-            <label class="label" for="reuseWizBigBox">Text (edit kar sakte hain)</label>
-            <textarea id="reuseWizBigBox" rows="12" placeholder="Loading text..."></textarea>
+        <button id="reuseGenerateBtn" class="btn btn-primary btn-block btn-lg mt-4">
+          <span class="spinner hidden" id="spin-reuseGenerate"></span> ✨ Judgement banayein
+        </button>
+      </div>
+
+      <!-- Step 3: result -->
+      <div id="reuseResultPanel" class="hidden">
+        <div class="card">
+          <div class="field-head">
+            <label class="label" for="reuseResult">Nayi judgement (edit kar sakte hain)</label>
+            <button class="fs-btn" data-target="reuseResult">⛶ Full</button>
           </div>
-          <label class="label" for="reuseWizSmallBox">AI se rewrite karwayein <span class="muted">(optional)</span></label>
+          <textarea id="reuseResult" rows="14"></textarea>
+          <p class="hint">"[___]" wali jagahein zaroor bharein — ye wo maloomat hai jo AI ko nahi di gayi thi.</p>
+
+          <hr class="divider" />
+          <h3 class="section-title">🤖 AI se change karwayein</h3>
           <div class="chat-row">
-            <input type="text" id="reuseWizSmallBox" placeholder="e.g. names update kar dein" />
-            <button id="reuseWizAskAIBtn" class="btn btn-primary">
-              <span class="spinner hidden" id="spin-reuseWizAskAI"></span> Ask AI
-            </button>
+            <input id="reuseRefineInput" type="text" placeholder="e.g. findings wala para chhota kar dein" />
+            <button id="reuseRefineBtn" class="btn btn-primary"><span class="spinner hidden" id="spin-reuseRefine"></span> Send</button>
           </div>
         </div>
-
-        <div id="reuseWizStepFinal" class="hidden">
-          <label class="label" for="reuseWizDecisionBox">Final faisla / Relief</label>
-          <textarea id="reuseWizDecisionBox" rows="6" placeholder="E.g., Suit is decreed in favour of the plaintiff. Maintenance allowed @ 5000/month..."></textarea>
-        </div>
-
-        <hr class="divider" />
-        <div class="btn-row">
-          <button id="reuseWizBackBtn" class="btn btn-secondary">Back</button>
-          <button id="reuseWizRevertBtn" class="btn btn-danger-soft hidden">Revert</button>
-          <button id="reuseWizNextBtn" class="btn btn-primary">
-            <span class="spinner hidden" id="spin-reuseWizNext"></span>
-            <span id="reuseWizNextText">Next →</span>
-          </button>
+        <div class="btn-row mt-4">
+          <button id="reuseEditDetailsBtn" class="btn btn-secondary">← Details badlein</button>
+          <button id="reuseSaveBtn" class="btn btn-success"><span class="spinner hidden" id="spin-reuseSave"></span> 💾 Case save karein</button>
         </div>
       </div>
     </section>
@@ -677,7 +705,7 @@
   </div>
 </div>
 
-<script src="app.js?v=2026093001" defer></script>
+<script src="app.js?v=2026093002" defer></script>
 <script>
   // Safety net: never leave a blank page. If the app failed to start (e.g. an old cached
   // file after a deploy), reload once without cache; if it still fails, show the login screen.
