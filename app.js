@@ -540,33 +540,46 @@ $("goToReuseBtn").addEventListener("click", () => {
 // ============================================
 const DEFAULT_MODELS = { claude: "claude-opus-5-5", gemini: "gemini-2.5-flash", openai: "gpt-5.5-instant" };
 
+// Every entry is a real, distinct model. The DEFAULT_MODELS entry is marked "(Default)".
 const MODEL_OPTIONS = {
   claude: [
-    { value: "", label: "Default (Opus 5.5)" },
-    { value: "claude-opus-5-5", label: "Opus 5.5 — Best — Expensive" },
-    { value: "claude-fable-5-1", label: "Fable 5.1 — Most capable — Most Expensive" },
-    { value: "claude-sonnet-5-5", label: "Sonnet 5.5 — Better — Moderate" },
-    { value: "claude-haiku-4-5", label: "Haiku 4.5 — Good — Cheap" }
+    { value: "claude-opus-5-5", label: "Opus 5.5 — Behtareen quality, mehnga" },
+    { value: "claude-sonnet-5-5", label: "Sonnet 5.5 — Achhi quality, Opus se aadha kharcha" },
+    { value: "claude-haiku-4-5", label: "Haiku 4.5 — Tez, sab se sasta" },
+    { value: "claude-fable-5-1", label: "Fable 5.1 — Sab se taqatwar, bohat mehnga" }
   ],
   gemini: [
-    { value: "", label: "Default (Flash 2.5)" },
-    { value: "gemini-2.5-flash", label: "Flash 2.5 — Good — Cheap" },
-    { value: "gemini-2.5-pro", label: "Pro 2.5 — Best — Expensive" }
+    { value: "gemini-2.5-flash", label: "Flash 2.5 — Tez, sasta" },
+    { value: "gemini-2.5-pro", label: "Pro 2.5 — Behtareen quality, mehnga" }
   ],
   openai: [
-    { value: "", label: "Default (GPT-5.5 Instant)" },
-    { value: "gpt-5.5-pro", label: "GPT-5.5 Pro — Best — Most Expensive" },
-    { value: "gpt-5.5", label: "GPT-5.5 — Better — Expensive" },
-    { value: "gpt-5.5-instant", label: "GPT-5.5 Instant — Good — Moderate" },
-    { value: "gpt-5.4-pro", label: "GPT-5.4 Pro — Better — Expensive" },
-    { value: "gpt-5.4", label: "GPT-5.4 — Good — Moderate" },
-    { value: "gpt-5.4-mini", label: "GPT-5.4 Mini — Decent — Cheap" }
+    { value: "gpt-5.5-instant", label: "GPT-5.5 Instant — Achha, darmiyana kharcha" },
+    { value: "gpt-5.5", label: "GPT-5.5 — Behtar, mehnga" },
+    { value: "gpt-5.5-pro", label: "GPT-5.5 Pro — Behtareen, sab se mehnga" },
+    { value: "gpt-5.4-mini", label: "GPT-5.4 Mini — Theek, sab se sasta" }
   ]
 };
 
+const PROVIDER_NAMES = { claude: "Claude", gemini: "Gemini", openai: "OpenAI" };
+
+function modelLabel(prov, value) {
+  const opt = MODEL_OPTIONS[prov]?.find(o => o.value === value);
+  return opt ? opt.label.split(" — ")[0] : value;
+}
+
+// Catches the most common mistake: pasting another company's key
+function keyLooksWrong(prov, key) {
+  if (prov === "claude") return !key.startsWith("sk-ant-");
+  if (prov === "openai") return !key.startsWith("sk-") || key.startsWith("sk-ant-");
+  if (prov === "gemini") return !key.startsWith("AIza");
+  return false;
+}
+
 function populateModelDropdown(prov) {
   const sel = $("modelInput");
-  sel.innerHTML = MODEL_OPTIONS[prov]?.map(o => `<option value="${o.value}">${o.label}</option>`).join("") || "";
+  sel.innerHTML = (MODEL_OPTIONS[prov] || []).map(o =>
+    `<option value="${o.value}">${escapeHtml(o.label)}${o.value === DEFAULT_MODELS[prov] ? " (Default)" : ""}</option>`
+  ).join("");
 }
 
 function readStoredKeys(prov) {
@@ -587,9 +600,27 @@ function loadProviderFields() {
   $("apiKeyInput1").value = keys[0] || "";
   $("apiKeyInput2").value = keys[1] || "";
   $("apiKeyInput3").value = keys[2] || "";
-  const savedModel = localStorage.getItem(`ai_model_${prov}`) || "";
-  // A saved model that no longer exists in the list falls back to "Default"
-  $("modelInput").value = MODEL_OPTIONS[prov]?.some(o => o.value === savedModel) ? savedModel : "";
+  $("modelInput").value = getSavedModel(prov);
+  showSettingsStatus("");
+}
+
+// Saved model, or the default when nothing (or an old/removed model) was saved
+function getSavedModel(prov) {
+  const saved = localStorage.getItem(`ai_model_${prov}`) || "";
+  return MODEL_OPTIONS[prov]?.some(o => o.value === saved) ? saved : DEFAULT_MODELS[prov];
+}
+
+function showSettingsStatus(html, type = "success") {
+  const el = $("settingsStatus");
+  el.innerHTML = html;
+  el.className = html ? `settings-status ${type}` : "settings-status hidden";
+}
+
+function updateCurrentSettingsLine() {
+  const s = getSettings();
+  $("currentSettingsLine").textContent = s.apiKeys.length
+    ? `Abhi use ho raha hai: ${PROVIDER_NAMES[s.provider]} · ${modelLabel(s.provider, s.model)} · ${s.apiKeys.length} key(s)`
+    : "Abhi koi API key save nahi hai.";
 }
 
 function getSettings() {
@@ -597,7 +628,7 @@ function getSettings() {
   return {
     provider: prov,
     apiKeys: readStoredKeys(prov).filter(k => k),
-    model: localStorage.getItem(`ai_model_${prov}`) || ""
+    model: getSavedModel(prov)
   };
 }
 
@@ -605,6 +636,7 @@ $("settingsBtn").addEventListener("click", () => {
   const s = getSettings();
   $("providerSelect").value = s.provider;
   loadProviderFields();
+  updateCurrentSettingsLine();
   $("settingsModal").classList.remove("hidden");
 });
 $("closeSettingsBtn").addEventListener("click", () => $("settingsModal").classList.add("hidden"));
@@ -642,16 +674,57 @@ function showToast(msg, type = "") {
   });
 }
 
+function getEnteredKeys() {
+  return ["apiKeyInput1", "apiKeyInput2", "apiKeyInput3"].map(id => $(id).value.trim()).filter(Boolean);
+}
+
 $("saveSettingsBtn").addEventListener("click", () => {
-  const k1 = $("apiKeyInput1").value.trim();
-  const k2 = $("apiKeyInput2").value.trim();
-  const k3 = $("apiKeyInput3").value.trim();
-  if (!k1 && !k2 && !k3) { showToast("Kam az kam ek API key zaroori hai.", "error"); return; }
   const prov = $("providerSelect").value;
+  const keys = getEnteredKeys();
+  if (!keys.length) { showSettingsStatus("❌ Kam az kam ek API key zaroori hai.", "error"); return; }
+  const model = $("modelInput").value;
   localStorage.setItem("ai_provider", prov);
-  localStorage.setItem(`ai_api_key_${prov}`, JSON.stringify([k1, k2, k3]));
-  localStorage.setItem(`ai_model_${prov}`, $("modelInput").value.trim());
-  showToast("Settings save ho gayi.", "success");
+  localStorage.setItem(`ai_api_key_${prov}`, JSON.stringify(keys));
+  localStorage.setItem(`ai_model_${prov}`, model);
+  updateCurrentSettingsLine();
+
+  const wrongKeys = keys.map((k, i) => keyLooksWrong(prov, k) ? i + 1 : null).filter(Boolean);
+  const warning = wrongKeys.length
+    ? `<br>⚠️ Key ${wrongKeys.join(", ")} ${PROVIDER_NAMES[prov]} ki key nahi lagti. "Keys Test Karein" se check kar lein.`
+    : "";
+  showSettingsStatus(
+    `✅ <b>Settings save ho gayi!</b><br>Provider: <b>${PROVIDER_NAMES[prov]}</b> · Model: <b>${escapeHtml(modelLabel(prov, model))}</b> · Keys: <b>${keys.length}</b>${warning}`,
+    wrongKeys.length ? "warning" : "success"
+  );
+  showToast("✅ AI settings save ho gayi", "success");
+});
+
+// Sends a tiny request with each entered key so the user knows the key + model actually work
+$("testKeysBtn").addEventListener("click", async () => {
+  const prov = $("providerSelect").value;
+  const model = $("modelInput").value;
+  const keys = getEnteredKeys();
+  if (!keys.length) { showSettingsStatus("❌ Pehle API key likhein.", "error"); return; }
+  const btn = $("testKeysBtn");
+  btn.disabled = true;
+  showSettingsStatus("⏳ Keys test ho rahi hain...", "info");
+  const lines = [];
+  let allOk = true;
+  for (const [i, key] of keys.entries()) {
+    try {
+      await requestProvider(prov, key, model, [{ text: "Reply with just: OK" }], 20);
+      lines.push(`✅ Key ${i + 1}: kaam kar rahi hai`);
+    } catch (err) {
+      allOk = false;
+      const reason = err.status === 401 || err.status === 403 ? "key ghalat hai ya band hai"
+        : err.status === 429 ? "limit / balance khatam"
+        : err.status === 404 || err.status === 400 ? "ye model is key par available nahi"
+        : "connection masla";
+      lines.push(`❌ Key ${i + 1}: ${reason}`);
+    }
+  }
+  showSettingsStatus(`<b>${PROVIDER_NAMES[prov]} · ${escapeHtml(modelLabel(prov, model))}</b><br>${lines.join("<br>")}`, allOk ? "success" : "error");
+  btn.disabled = false;
 });
 
 let glossaryCache = [];

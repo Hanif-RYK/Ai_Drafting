@@ -1369,6 +1369,20 @@
   }
   .img-tool-btn svg { width: 26px; height: 26px; }
 
+  /* ---- Settings status box ---- */
+  .settings-status {
+    border-radius: 0.75rem;
+    padding: 0.75rem 0.9rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+    border: 1px solid;
+  }
+  .settings-status.success { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+  .settings-status.warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+  .settings-status.error   { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+  .settings-status.info    { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+
   /* ---- Template Modal ---- */
   .template-upload-area {
     border: 2px dashed rgba(37,99,235,0.3);
