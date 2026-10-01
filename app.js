@@ -64,13 +64,20 @@ $("loginBtn").addEventListener("click", async () => {
 });
 
 function showLoginError(msg) {
+  // The login screen is hidden early on reload (preventFlicker), so make sure the error is visible
+  $("loginScreen").classList.remove("hidden");
   $("loginError").textContent = msg;
   $("loginError").classList.remove("hidden");
 }
 
 async function onLoginSuccess(user) {
   const { data: profile, error } = await sb.from("profiles").select("*").eq("id", user.id).maybeSingle();
-  if (error || !profile) {
+  if (error) {
+    // Network / server problem: keep the session so a retry (or reload) can log in again
+    showLoginError("Could not load your profile (" + error.message + "). Check your internet connection and try again.");
+    return;
+  }
+  if (!profile) {
     showLoginError("Profile not found. Please contact your court admin.");
     await sb.auth.signOut();
     return;
@@ -98,8 +105,7 @@ async function onLoginSuccess(user) {
   $("menuUserRole").textContent = roleLabels[profile.role] || profile.role;
   await detectTemplateColumn();
   await loadGlossary();
-  await loadDashboardCounts();
-  showDashboard();
+  showDashboard(); // also loads the dashboard counts
 }
 
 // Modals: close on backdrop tap or Escape
@@ -371,7 +377,8 @@ async function loadDashboardCounts() {
         $("feedbackList").querySelectorAll(".dismiss-feedback-btn").forEach(btn => {
           btn.onclick = async () => {
             if (!confirm("Dismiss this feedback?")) return;
-            await sb.from("cases").update({ review_comment: null }).eq("id", btn.dataset.id);
+            const { error } = await sb.from("cases").update({ review_comment: null }).eq("id", btn.dataset.id);
+            if (error) { showToast("Could not dismiss: " + error.message, "error"); return; }
             await loadDashboardCounts();
           };
         });
@@ -466,8 +473,8 @@ async function openCaseList(status) {
       if (!confirm("Approve and finalize this case?")) return;
       target.disabled = true;
       try {
-        await finalizeCaseById(c.id, c.judgement_output);
-        showToast("Case approved and finalized!", "success");
+        const titled = await finalizeCaseById(c.id, c.judgement_output);
+        showToast(titled ? "Case approved and finalized!" : "Case finalized (AI could not extract the title).", titled ? "success" : "warning");
       } catch (err) {
         showToast("Approve error: " + err.message, "error");
       }
@@ -715,7 +722,8 @@ let editingGlossaryId = null;
 let editingPresetIdx = null;
 
 async function loadGlossary() {
-  const { data } = await sb.from("glossary_rules").select("*").eq("user_id", currentProfile.id).order("created_at", { ascending: false });
+  const { data, error } = await sb.from("glossary_rules").select("*").eq("user_id", currentProfile.id).order("created_at", { ascending: false });
+  if (error) { console.error("Glossary load failed:", error); return; } // keep the rules we already have
   glossaryCache = data || [];
   renderGlossaryList();
 }
@@ -757,7 +765,8 @@ function renderGlossaryList() {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
       if (!confirm("Delete this rule?")) return;
-      await sb.from("glossary_rules").delete().eq("id", btn.dataset.id);
+      const { error } = await sb.from("glossary_rules").delete().eq("id", btn.dataset.id);
+      if (error) { showToast("Delete failed: " + error.message, "error"); return; }
       await loadGlossary();
     });
   });
@@ -779,14 +788,14 @@ $("addGlossaryBtn").addEventListener("click", async () => {
   const instruction = $("glossaryInstructionInput").value.trim();
   if (!term || !instruction) { showToast("Please enter both the term and the rule.", "error"); return; }
   
+  const { error } = editingGlossaryId
+    ? await sb.from("glossary_rules").update({ term, instruction }).eq("id", editingGlossaryId)
+    : await sb.from("glossary_rules").insert({ user_id: currentProfile.id, term, instruction });
+  if (error) { showToast("Could not save the rule: " + error.message, "error"); return; }
+  showToast(editingGlossaryId ? "Rule updated." : "Rule added.", "success");
   if (editingGlossaryId) {
-    await sb.from("glossary_rules").update({ term, instruction }).eq("id", editingGlossaryId);
-    showToast("Rule updated.", "success");
     editingGlossaryId = null;
     $("addGlossaryBtn").textContent = "+ Add rule";
-  } else {
-    await sb.from("glossary_rules").insert({ user_id: currentProfile.id, term, instruction });
-    showToast("Rule added.", "success");
   }
   
   $("glossaryTermInput").value = ""; $("glossaryInstructionInput").value = "";
@@ -1128,8 +1137,14 @@ let liveTypeNoteId = null;
 // The dashboard editor is one shared scratch pad per court
 function getLiveTypeNoteId() {
   // Slug keeps the id safe inside realtime filters (no spaces or special characters)
-  const slug = (currentProfile?.court_name || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return `live-note-${slug || "default"}`;
+  const court = (currentProfile?.court_name || "").trim().toLowerCase();
+  const slug = court.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  if (slug || !court) return `live-note-${slug || "default"}`;
+  // Non-Latin court names (e.g. Urdu) give an empty slug; hash them so different courts
+  // don't all share (and get blocked by RLS on) one "default" note
+  let h = 0x811c9dc5;
+  for (const ch of court) h = Math.imul(h ^ ch.codePointAt(0), 0x01000193) >>> 0;
+  return `live-note-c${h.toString(16)}`;
 }
 
 $("liveTypeBtn").addEventListener("click", async () => {
@@ -1241,7 +1256,10 @@ async function openWizardForCase(caseId) {
   buildUploadWidget("issues", "issuesText");
   buildUploadWidget("evidence", "evidenceText");
 
-  showWizStep(caseData.current_step || 1);
+  // An ex-parte case has no step 2 (e.g. the type was changed later) — go to the next real step
+  const seq = getStepSequence();
+  const savedStep = caseData.current_step || 1;
+  showWizStep(seq.find(s => s >= savedStep) ?? seq[0]);
   attachAutosaveListeners();
 }
 
@@ -1280,13 +1298,16 @@ async function runAutosave() {
   pendingAutosave = null;
   if (!job) return;
   $("autosaveIndicator").textContent = "Saving...";
+  let ok;
   if (activeCase?.id === job.caseId) {
-    await saveOrUpdateCase(job.payload);
+    ok = await saveOrUpdateCase(job.payload);
   } else {
     // User already moved to another case — still save the old one
-    await sb.from("cases").update({ ...job.payload, last_updated_by: currentProfile?.id }).eq("id", job.caseId);
+    const { error } = await sb.from("cases").update({ ...job.payload, last_updated_by: currentProfile?.id }).eq("id", job.caseId);
+    ok = !error;
+    if (error) showToast("Previous case was not saved: " + error.message, "error");
   }
-  $("autosaveIndicator").textContent = "✓ Saved";
+  $("autosaveIndicator").textContent = ok ? "✓ Saved" : "⚠️ Not saved";
   setTimeout(() => {
     if ($("autosaveIndicator").textContent === "✓ Saved") $("autosaveIndicator").textContent = "";
   }, 1500);
@@ -1312,10 +1333,10 @@ async function saveOrUpdateCase(fields) {
   }
 }
 
-async function logAIStep(step, input, output) {
-  if (!activeCase) return;
+async function logAIStep(step, input, output, caseId = activeCase?.id) {
+  if (!caseId) return;
   try {
-    const { error } = await sb.from("ai_logs").insert({ case_id: activeCase.id, step, input_text: input, output_text: output });
+    const { error } = await sb.from("ai_logs").insert({ case_id: caseId, step, input_text: input, output_text: output });
     if (error) console.error("Log AI step failed:", error);
   } catch (err) {
     console.error("Log AI step exception:", err);
@@ -1654,7 +1675,9 @@ const FILTER_PRESETS = {
 
 function openBatchEditor(fileList, callback) {
   const files = Array.from(fileList).filter(f => f.type === "image/jpeg" || f.type === "image/png");
-  if (!files.length) { showToast("Only JPG and PNG images are supported.", "error"); return; }
+  if (!files.length) { showToast("Only JPG and PNG images are supported.", "error"); callback?.([]); return; }
+  // A previous editor that was never finished must still resolve its caller
+  if (batchState?.callback) batchState.callback([]);
   batchState = {
     files,
     edits: files.map(() => ({ rotation: 0, filter: 'original' })),
@@ -2022,6 +2045,31 @@ function setBtnLoading(btnId, spinId, isLoading, targetTextareaId = null) {
   }
 }
 
+// Runs one wizard AI step. The case is remembered when the request starts: if the user opens
+// another case while the AI is still working, the result is saved to the case it was made for
+// instead of being written into (and autosaved over) the case now on screen.
+async function runWizardAiStep({ btnId, spinId, targetId, outputId, step, prompt, maxTokens, onApplied }) {
+  const caseId = activeCase?.id;
+  if (!caseId) return;
+  setBtnLoading(btnId, spinId, true, targetId);
+  try {
+    const result = await callAI(prompt, maxTokens);
+    await logAIStep(step, prompt, result, caseId);
+    if (activeCase?.id === caseId) {
+      $(targetId).value = result;
+      $(targetId).dispatchEvent(new Event("input"));
+      if (outputId) $(outputId).classList.remove("hidden");
+      onApplied?.();
+    } else {
+      const column = Object.keys(CASE_FIELD_MAP).find(col => CASE_FIELD_MAP[col] === targetId);
+      const { error } = await sb.from("cases").update({ [column]: result, last_updated_by: currentProfile?.id }).eq("id", caseId);
+      if (error) throw error;
+      showToast("AI result saved to the case it was started for.", "info");
+    }
+  } catch (err) { showToast("Error: " + err.message, "error"); }
+  finally { setBtnLoading(btnId, spinId, false, targetId); }
+}
+
 $("extractFactsBtn").addEventListener("click", async () => {
   const inputText = $("plaintText").value.trim();
   if (!inputText) { showToast("The plaint text is empty.", "error"); return; }
@@ -2111,15 +2159,10 @@ ${inputText}
 OUTPUT:
 Provide ONLY the structured output as described. No explanation. No preamble. No extra headings beyond PARTIES, NATURE OF SUIT, and FACTS.`;
 
-  setBtnLoading("extractFactsBtn", "spin-extractFacts", true, "factsText");
-  try {
-    const result = await callAI(prompt, 2500);
-    await logAIStep("facts_extraction", prompt, result);
-    $("factsText").value = result;
-    $("factsText").dispatchEvent(new Event("input"));
-    $("factsOutput").classList.remove("hidden");
-  } catch (err) { showToast("Error: " + err.message, "error"); }
-  finally { setBtnLoading("extractFactsBtn", "spin-extractFacts", false, "factsText"); }
+  await runWizardAiStep({
+    btnId: "extractFactsBtn", spinId: "spin-extractFacts", targetId: "factsText", outputId: "factsOutput",
+    step: "facts_extraction", prompt, maxTokens: 2500
+  });
 });
 
 $("extractAdmitDenyBtn").addEventListener("click", async () => {
@@ -2228,14 +2271,10 @@ No asterisks
 No introductory or concluding sentences
 Start directly with Para 1`;
 
-  setBtnLoading("extractAdmitDenyBtn", "spin-extractAdmitDeny", true, "admitDenyText");
-  try {
-    const result = await callAI(prompt, 2200);
-    await logAIStep("admit_deny", prompt, result);
-    $("admitDenyText").value = result; $("admitDenyText").dispatchEvent(new Event("input"));
-    $("admitDenyOutput").classList.remove("hidden");
-  } catch (err) { showToast("Error: " + err.message, "error"); }
-  finally { setBtnLoading("extractAdmitDenyBtn", "spin-extractAdmitDeny", false, "admitDenyText"); }
+  await runWizardAiStep({
+    btnId: "extractAdmitDenyBtn", spinId: "spin-extractAdmitDeny", targetId: "admitDenyText", outputId: "admitDenyOutput",
+    step: "admit_deny", prompt, maxTokens: 2200
+  });
 });
 
 $("mapDisputesBtn").addEventListener("click", async () => {
@@ -2347,14 +2386,10 @@ Plain text only
 No markdown
 No asterisks
 No introductory or concluding sentences`;
-  setBtnLoading("mapDisputesBtn", "spin-mapDisputes", true, "disputesText");
-  try {
-    const result = await callAI(prompt, 2000);
-    await logAIStep("dispute_mapping", prompt, result);
-    $("disputesText").value = result; $("disputesText").dispatchEvent(new Event("input"));
-    $("disputesOutput").classList.remove("hidden");
-  } catch (err) { showToast("Error: " + err.message, "error"); }
-  finally { setBtnLoading("mapDisputesBtn", "spin-mapDisputes", false, "disputesText"); }
+  await runWizardAiStep({
+    btnId: "mapDisputesBtn", spinId: "spin-mapDisputes", targetId: "disputesText", outputId: "disputesOutput",
+    step: "dispute_mapping", prompt, maxTokens: 2000
+  });
 });
 
 $("analyzeEvidenceBtn").addEventListener("click", async () => {
@@ -2454,14 +2489,10 @@ Plain text only
 No markdown
 No asterisks
 No introductory or concluding sentences`;
-  setBtnLoading("analyzeEvidenceBtn", "spin-analyzeEvidence", true, "findingsText");
-  try {
-    const result = await callAI(prompt, 3000);
-    await logAIStep("evidence_analysis", prompt, result);
-    $("findingsText").value = result; $("findingsText").dispatchEvent(new Event("input"));
-    $("findingsOutput").classList.remove("hidden");
-  } catch (err) { showToast("Error: " + err.message, "error"); }
-  finally { setBtnLoading("analyzeEvidenceBtn", "spin-analyzeEvidence", false, "findingsText"); }
+  await runWizardAiStep({
+    btnId: "analyzeEvidenceBtn", spinId: "spin-analyzeEvidence", targetId: "findingsText", outputId: "findingsOutput",
+    step: "evidence_analysis", prompt, maxTokens: 3000
+  });
 });
 
 $("generateFinalBtn").addEventListener("click", async () => {
@@ -2565,15 +2596,11 @@ No markdown
 No asterisks
 No introductory or concluding sentences
 Judgement must start directly with Introduction`;
-  setBtnLoading("generateFinalBtn", "spin-generateFinal", true, "judgementOutput");
-  try {
-    const result = await callAI(prompt, 3500);
-    await logAIStep("final_judgement", prompt, result);
-    $("judgementOutput").value = result; $("judgementOutput").dispatchEvent(new Event("input"));
-    showJudgementActions();
-    $("chatLog").innerHTML = "";
-  } catch (err) { showToast("Error: " + err.message, "error"); }
-  finally { setBtnLoading("generateFinalBtn", "spin-generateFinal", false, "judgementOutput"); }
+  await runWizardAiStep({
+    btnId: "generateFinalBtn", spinId: "spin-generateFinal", targetId: "judgementOutput",
+    step: "final_judgement", prompt, maxTokens: 3500,
+    onApplied: () => { showJudgementActions(); $("chatLog").innerHTML = ""; }
+  });
 });
 
 // ============================================
@@ -2625,16 +2652,26 @@ async function extractTitleAndGrounds(judgement) {
   const result = await callAI(TITLE_GROUNDS_PROMPT + judgement, 300);
   const titleMatch = result.match(/TITLE:\s*(.+)/i);
   const groundsMatch = result.match(/GROUNDS:\s*(.+)/i);
-  return {
-    case_title: titleMatch ? titleMatch[1].trim() : "Untitled Case",
-    legal_grounds: groundsMatch ? groundsMatch[1].trim() : ""
-  };
+  // Only return what was found, so an existing title / grounds is never wiped out
+  const meta = {};
+  if (titleMatch?.[1].trim()) meta.case_title = titleMatch[1].trim().slice(0, 300);
+  if (groundsMatch?.[1].trim()) meta.legal_grounds = groundsMatch[1].trim().slice(0, 500);
+  return meta;
 }
 
 // Marks a case finalized with an AI-extracted title/grounds. Used by the wizard and the review list.
+// Returns false when the AI could not extract the title (the case is still finalized).
 async function finalizeCaseById(caseId, judgement) {
   showToast("Extracting title & legal grounds...", "info");
-  const meta = await extractTitleAndGrounds(judgement);
+  let meta = {};
+  let titled = true;
+  try {
+    meta = await extractTitleAndGrounds(judgement);
+  } catch (err) {
+    // No key / quota / network: finalizing must not depend on the AI
+    console.warn("Title extraction failed:", err);
+    titled = false;
+  }
   const { error } = await sb.from("cases").update({
     judgement_output: judgement,
     status: "finalized",
@@ -2643,6 +2680,7 @@ async function finalizeCaseById(caseId, judgement) {
     ...meta
   }).eq("id", caseId);
   if (error) throw error;
+  return titled;
 }
 
 async function finalizeActiveCase(btn, successMsg) {
@@ -2653,9 +2691,10 @@ async function finalizeActiveCase(btn, successMsg) {
   try {
     clearTimeout(saveTimer);
     pendingAutosave = null;
-    await saveOrUpdateCase(getWizardFields());
-    await finalizeCaseById(activeCase.id, judgement);
-    showToast(successMsg, "success");
+    // Don't finalize if the latest edits could not be saved (saveOrUpdateCase already showed why)
+    if (!(await saveOrUpdateCase(getWizardFields()))) return;
+    const titled = await finalizeCaseById(activeCase.id, judgement);
+    showToast(titled ? successMsg : "Case finalized (AI could not extract the title).", titled ? "success" : "warning");
     await stopLiveMode();
     showDashboard();
   } catch (err) {
@@ -2693,14 +2732,17 @@ function addChatBubble(text, isUser) {
   const div = document.createElement("div");
   div.className = `chat-bubble ${isUser ? "chat-bubble-user" : "chat-bubble-ai"}`;
   div.textContent = text; log.appendChild(div); log.scrollTop = log.scrollHeight;
+  return div;
 }
 $("chatSendBtn").addEventListener("click", sendChatMessage);
 $("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("chatSendBtn").disabled) sendChatMessage(); });
 async function sendChatMessage() {
   const instruction = $("chatInput").value.trim();
   if (!instruction) return;
+  const caseId = activeCase?.id;
+  if (!caseId) return;
   addChatBubble(instruction, true); $("chatInput").value = "";
-  addChatBubble("Thinking...", false);
+  const thinking = addChatBubble("Thinking...", false);
   $("chatSendBtn").disabled = true;
   try {
     const prompt = `You are a legal assistant for Pakistani Civil and Family Courts. Your task is to update the given judgement STRICTLY according to the provided instruction.
@@ -2775,11 +2817,22 @@ No markdown
 No asterisks
 No introductory or concluding sentences`;
     const refined = await callAI(prompt, 3500);
-    await logAIStep("refine", instruction, refined);
-    $("chatLog").lastChild.remove();
+    await logAIStep("refine", instruction, refined, caseId);
+    thinking.remove();
+    if (activeCase?.id !== caseId) {
+      // User opened another case meanwhile — save the refined text to the original case
+      const { error } = await sb.from("cases").update({ judgement_output: refined, last_updated_by: currentProfile?.id }).eq("id", caseId);
+      if (error) throw error;
+      showToast("Refined judgement saved to the case it was started for.", "info");
+      return;
+    }
     addChatBubble("✅ Updated.", false);
     $("judgementOutput").value = refined; $("judgementOutput").dispatchEvent(new Event("input"));
-  } catch (err) { $("chatLog").lastChild.remove(); addChatBubble("❌ " + err.message, false); }
+  } catch (err) {
+    thinking.remove();
+    if (activeCase?.id === caseId) addChatBubble("❌ " + err.message, false);
+    else showToast("Refine failed: " + err.message, "error");
+  }
   finally { $("chatSendBtn").disabled = false; }
 }
 
@@ -2828,6 +2881,7 @@ $("liveModeToggle").addEventListener("click", async () => {
 
 async function startLiveMode() {
   if (!activeCase) return;
+  if (liveChannel) { sb.removeChannel(liveChannel); liveChannel = null; }
   await sb.from("live_sessions").upsert({ case_id: activeCase.id, active_user_id: currentProfile.id, active_user_name: currentProfile.full_name, last_ping: new Date().toISOString() });
 
   liveChannel = sb.channel(`case-${activeCase.id}`)
@@ -3158,9 +3212,31 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Matches text ignoring case and differences in spacing / line breaks
+// Pattern that matches text ignoring case and differences in spacing / line breaks.
+// Values that start/end with a letter or digit must match whole words only, so a name
+// like "Ali" is not replaced inside "Alimony" and "12" is not replaced inside "2012".
+function flexiblePattern(text) {
+  const t = text.trim();
+  const isWordChar = (ch) => /[\p{L}\p{N}]/u.test(ch);
+  return (isWordChar(t[0]) ? "(?<![\\p{L}\\p{N}])" : "")
+    + escapeRegExp(t).replace(/\s+/g, "\\s+")
+    + (isWordChar(t[t.length - 1]) ? "(?![\\p{L}\\p{N}])" : "");
+}
+
 function flexibleRegExp(text) {
-  return new RegExp(escapeRegExp(text.trim()).replace(/\s+/g, "\\s+"), "gi");
+  return new RegExp(flexiblePattern(text), "giu");
+}
+
+// Replaces all old values in ONE pass: a new value is never changed again by a later row
+// (e.g. A→B and B→C), and longer values win over shorter ones ("Ali Ahmed" before "Ali").
+function applyReplacements(text, replacements) {
+  const list = replacements.filter(r => r.oldValue && r.value)
+    .sort((a, b) => b.oldValue.length - a.oldValue.length);
+  if (!list.length) return text;
+  const norm = (v) => v.trim().replace(/\s+/g, " ").toLowerCase();
+  const newValueFor = new Map(list.map(r => [norm(r.oldValue), r.value]));
+  const pattern = new RegExp(list.map(r => flexiblePattern(r.oldValue)).join("|"), "giu");
+  return text.replace(pattern, (match) => newValueFor.get(norm(match)) ?? match);
 }
 
 // ---------- Step 3: generate, refine, save ----------
@@ -3173,8 +3249,7 @@ $("reuseGenerateBtn").addEventListener("click", async () => {
   // Swap known values in code first (ignoring case and extra spaces), so names and amounts
   // don't depend on the AI. The AI also gets the full list below, because the detected
   // "template value" may be spelled slightly differently from the template text.
-  let templateText = reuseSourceCase.judgement_output;
-  known.forEach(r => { templateText = templateText.replace(flexibleRegExp(r.oldValue), () => r.value); });
+  const templateText = applyReplacements(reuseSourceCase.judgement_output, known);
   const mapping = known.map(r => `- ${r.label || "Detail"}: "${r.oldValue}" → "${r.value}"`).join("\n");
   const unknown = replacements.filter(r => !r.value).map(r => `- ${r.label || "Detail"} (was "${r.oldValue}")`).join("\n");
   const differences = $("reuseDifferences").value.trim();
@@ -3387,7 +3462,7 @@ function getDirectives() {
   const stored = localStorage.getItem("ow_directives_v7");
   if (!stored) {
     localStorage.setItem("ow_directives_v7", JSON.stringify(DEFAULT_DIRECTIVES));
-    return DEFAULT_DIRECTIVES;
+    return DEFAULT_DIRECTIVES.map(d => ({ ...d })); // copy: callers edit the list
   }
   try {
     const parsed = JSON.parse(stored);
@@ -3395,7 +3470,7 @@ function getDirectives() {
     throw new Error("Not an array");
   } catch {
     localStorage.setItem("ow_directives_v7", JSON.stringify(DEFAULT_DIRECTIVES));
-    return DEFAULT_DIRECTIVES;
+    return DEFAULT_DIRECTIVES.map(d => ({ ...d }));
   }
 }
 
@@ -3407,7 +3482,9 @@ function loadDirectiveDropdown() {
 }
 
 $("orderWriterBtn").addEventListener("click", () => {
-  const today = new Date().toISOString().split("T")[0];
+  // Local date (toISOString is UTC, which is still "yesterday" after midnight in Pakistan)
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   $("owNextDate").min = today;
   $("owNextDate").value = "";
   $("owCaseTitle").value = "";
@@ -3612,7 +3689,8 @@ async function refreshInboxList() {
     listContainer.querySelectorAll(".inbox-del-btn").forEach(btn => {
       btn.onclick = async () => {
         if (!confirm("Remove this order from the inbox?")) return;
-        await sb.from("live_notes").delete().eq("id", btn.dataset.id);
+        const { error } = await sb.from("live_notes").delete().eq("id", btn.dataset.id);
+        if (error) { showToast("Delete failed: " + error.message, "error"); return; }
         await refreshInboxList();
         showToast("Shared order cleared.", "success");
       };

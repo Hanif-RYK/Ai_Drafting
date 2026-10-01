@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-drafting-v5';
+const CACHE_NAME = 'ai-drafting-v6';
 
 const APP_SHELL = [
   './',
