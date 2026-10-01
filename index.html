@@ -7,8 +7,8 @@
 <meta name="theme-color" content="#2563eb" />
 <title>AI Drafting System</title>
 <!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever app.js / CSS change. -->
-<link rel="stylesheet" href="tailwind.css?v=2026093005" />
-<link rel="stylesheet" href="styles.css?v=2026093005" />
+<link rel="stylesheet" href="tailwind.css?v=2026100101" />
+<link rel="stylesheet" href="styles.css?v=2026100101" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="icon.svg" />
@@ -403,6 +403,7 @@
     <section id="reuseScreen" class="hidden">
       <div class="screen-top-bar">
         <button id="backFromReuseListBtn" class="btn btn-ghost">← Back</button>
+        <button id="reuseAddTemplateBtn" class="btn btn-primary btn-sm">+ New template</button>
       </div>
       <ol class="steps"><li class="active">1. Choose template</li><li>2. New case details</li><li>3. Judgement</li></ol>
       <div class="card mb-4">
@@ -706,7 +707,7 @@
   </div>
 </div>
 
-<script src="app.js?v=2026093005" defer></script>
+<script src="app.js?v=2026100101" defer></script>
 <script>
   // Safety net: never leave a blank page. If the app failed to start (e.g. an old cached
   // file after a deploy), reload once without cache; if it still fails, show the login screen.
