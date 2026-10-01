@@ -2972,6 +2972,7 @@ let reuseFilter = "all";
 
 $("goToReuseBtn").addEventListener("click", openReuseChooser);
 $("backFromReuseListBtn").addEventListener("click", showDashboard);
+$("reuseAddTemplateBtn").addEventListener("click", openTemplateModal);
 $("reuseListContainer").addEventListener("click", handleSourceCardClick);
 $("reuseSearch").addEventListener("input", renderReuseSources);
 $("reuseFilter").addEventListener("click", (e) => {
@@ -3003,7 +3004,10 @@ function renderReuseSources() {
     (!q || `${c.case_title || ""} ${c.legal_grounds || ""}`.toLowerCase().includes(q)));
   $("reuseListContainer").innerHTML = items.length
     ? items.map(c => renderSourceCard(c)).join("")
-    : `<p class="empty">${reuseSources.length ? "Nothing matches your search." : "No templates or finalized judgements yet. Add one from Menu → 📚 Templates."}</p>`;
+    : (reuseSources.length
+        ? `<p class="empty">Nothing matches your search.</p>`
+        : `<p class="empty">No templates or finalized judgements yet.</p>
+           <button class="btn btn-primary btn-block" onclick="openTemplateModal()">+ Add your first template</button>`);
 }
 
 // ---------- Step 2: details ----------
@@ -3359,7 +3363,9 @@ $("saveTemplateBtn").addEventListener("click", async () => {
     $("templateModal").classList.add("hidden");
     $("templateTitle").value = "";
     $("templateJudgementText").value = "";
+    // Refresh whichever list the template was added from
     if (!$("templatesScreen").classList.contains("hidden")) openTemplatesScreen();
+    if (!$("reuseScreen").classList.contains("hidden")) openReuseChooser();
   } catch (err) {
     showToast("Error: " + err.message, "error");
   } finally {
