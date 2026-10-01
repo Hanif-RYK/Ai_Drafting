@@ -3495,11 +3495,11 @@ $("orderWriterBtn").addEventListener("click", () => {
   $("owOutputSection").classList.add("hidden");
   loadDirectiveDropdown();
 
-  // Toggle steno load button next to back button vs send buttons in action grid
+  // Stenos get their own inbox; everyone else gets the "send to steno" picker
   const isSteno = currentProfile?.role === 'steno';
   $("owLoadOrderBtnTop").classList.toggle("hidden", !isSteno);
-  $("owSendStenoBtn").classList.toggle("hidden", isSteno);
-  $("owSendSteno2Btn").classList.toggle("hidden", isSteno);
+  $("owSendRow").classList.toggle("hidden", isSteno);
+  if (!isSteno) loadStenoOptions();
 
   hideAllScreens();
   $("orderWriterScreen").classList.remove("hidden");
@@ -3601,14 +3601,38 @@ ${selectedDirective ? `13. MANDATORY CLAUSE: You MUST adapt and integrate this w
 
 $("owCopyBtn").addEventListener("click", () => copyText($("owOutput").value, $("owCopyBtn")));
 
-async function sendOrderToSteno(btn, keyPrefix, label) {
+// Every steno has a personal inbox: live_notes rows whose id starts with "order-to-<steno id>-"
+function stenoInboxKey(stenoId) {
+  return `order-to-${stenoId}`;
+}
+
+// Active stenos of this court (RLS already limits profiles to the user's court)
+async function loadStenoOptions() {
+  const select = $("owStenoSelect");
+  const previous = select.value;
+  select.innerHTML = `<option value="">Loading stenos...</option>`;
+  const { data, error } = await sb.from("profiles")
+    .select("id, full_name").eq("role", "steno").eq("status", "active").order("full_name");
+  if (error) { select.innerHTML = `<option value="">Could not load stenos</option>`; return; }
+  select.innerHTML = data.length
+    ? `<option value="">Select steno...</option>` + data.map(p => `<option value="${p.id}">${escapeHtml(p.full_name)}</option>`).join("")
+    : `<option value="">No active steno in your court</option>`;
+  if (data.some(p => p.id === previous)) select.value = previous;
+}
+
+async function sendOrderToSteno() {
+  const btn = $("owSendStenoBtn");
+  const select = $("owStenoSelect");
+  const stenoId = select.value;
   const text = $("owOutput").value.trim();
   if (!text) { showToast("Generate the order first.", "error"); return; }
+  if (!stenoId) { showToast("Please select a steno.", "error"); select.focus(); return; }
+  const label = select.options[select.selectedIndex].textContent;
   btn.disabled = true;
   try {
     const now = new Date().toISOString();
     const { error } = await sb.from("live_notes").insert({
-      id: `${keyPrefix}-${Date.now()}`,
+      id: `${stenoInboxKey(stenoId)}-${Date.now()}`,
       content: JSON.stringify({
         case_title: $("owCaseTitle").value.trim() || "Untitled Case",
         order_text: text,
@@ -3626,14 +3650,13 @@ async function sendOrderToSteno(btn, keyPrefix, label) {
   }
 }
 
-$("owSendStenoBtn").addEventListener("click", () => sendOrderToSteno($("owSendStenoBtn"), "order-steno", "Steno 1"));
-$("owSendSteno2Btn").addEventListener("click", () => sendOrderToSteno($("owSendSteno2Btn"), "order-steno2", "Steno 2"));
+$("owSendStenoBtn").addEventListener("click", sendOrderToSteno);
 
 let activeInboxKey = "";
 
 async function openInbox(stenoKey) {
   activeInboxKey = stenoKey;
-  $("owInboxTitle").textContent = stenoKey === "order-steno" ? "📥 Steno 1 Received Orders" : "📥 Steno 2 Received Orders";
+  $("owInboxTitle").textContent = "📥 My Received Orders";
   $("owInboxModal").classList.remove("hidden");
   await refreshInboxList();
 }
@@ -3735,8 +3758,8 @@ $("owInboxClearAllBtn").onclick = async () => {
 };
 
 $("owLoadOrderBtnTop").onclick = () => {
-  const stenoKey = currentProfile?.is_admin ? "order-steno" : "order-steno2";
-  openInbox(stenoKey);
+  if (!currentProfile) return;
+  openInbox(stenoInboxKey(currentProfile.id));
 };
 
 $("owClearBtn").addEventListener("click", () => {
