@@ -1,745 +1,335 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="description" content="AI assisted judgement and order drafting for court stenographers and judges." />
-<meta name="theme-color" content="#2563eb" />
-<title>AI Drafting System</title>
-<!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever app.js / CSS change. -->
-<link rel="stylesheet" href="tailwind.css?v=2026100103" />
-<link rel="stylesheet" href="styles.css?v=2026100103" />
-<link rel="manifest" href="manifest.json" />
-<link rel="icon" href="icon.svg" type="image/svg+xml" />
-<link rel="apple-touch-icon" href="icon.svg" />
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Faisla Desk</title>
+<meta name="description" content="Court drafting desk: daily orders, issues, orders on applications, judgments and criminal orders in the Judge's own style.">
+<meta name="theme-color" content="#1f5f5b">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap">
+<!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever the CSS / JS change. -->
+<link rel="stylesheet" href="styles.css?v=2026111101">
+<script defer src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 </head>
 <body>
+<noscript><p style="padding:20px;font-family:sans-serif">Faisla Desk needs JavaScript. Please enable it and reload.</p></noscript>
 
-<!-- ===================== LOGIN / REGISTER ===================== -->
-<div id="loginScreen" class="auth-wrap">
-  <div class="card auth-card">
-    <div class="auth-logo">AI</div>
-    <h1 class="auth-title">AI Drafting System</h1>
-    <p class="auth-subtitle">For court stenographers &amp; judges</p>
-
-    <form id="loginForm" onsubmit="return false">
-      <div class="field">
-        <label class="label" for="loginEmail">Email</label>
-        <input type="email" id="loginEmail" autocomplete="email" placeholder="judge@court.local" />
+<!-- LOGIN / REGISTER -->
+<div class="auth" id="authScreen" hidden>
+  <div class="authcard">
+    <div class="authbrand">Faisla Desk<small>Court drafting desk</small></div>
+    <form id="loginForm" class="stack" autocomplete="on">
+      <h2>Log in</h2>
+      <label>Email<input id="loginEmail" type="email" autocomplete="email" inputmode="email" required></label>
+      <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required></label>
+      <button class="btn" type="submit" id="loginBtn">Log in</button>
+      <div class="row" style="justify-content:space-between">
+        <button type="button" class="linkbtn" data-auth="register">Create an account</button>
+        <button type="button" class="linkbtn" data-auth="reset">Forgot password?</button>
       </div>
-      <div class="field">
-        <label class="label" for="loginPassword">Password</label>
-        <div class="input-with-btn">
-          <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••" />
-          <button type="button" class="pw-toggle" data-target="loginPassword">Show</button>
-        </div>
-      </div>
-      <button id="loginBtn" type="submit" class="btn btn-primary btn-block btn-lg">
-        <span class="spinner hidden" id="spin-login"></span> Login
-      </button>
     </form>
-
-    <form id="registerForm" class="hidden" onsubmit="return false">
-      <div class="field">
-        <label class="label" for="regName">Full Name</label>
-        <input type="text" id="regName" autocomplete="name" placeholder="Your name" />
-      </div>
-      <div class="field">
-        <label class="label" for="regEmail">Email</label>
-        <input type="email" id="regEmail" autocomplete="email" placeholder="email@court.local" />
-      </div>
-      <div class="field">
-        <label class="label" for="regPassword">Password</label>
-        <div class="input-with-btn">
-          <input type="password" id="regPassword" autocomplete="new-password" placeholder="At least 8 characters" />
-          <button type="button" class="pw-toggle" data-target="regPassword">Show</button>
-        </div>
-      </div>
-      <div class="field">
-        <span class="label">Role</span>
-        <div class="segmented">
-          <button type="button" class="reg-role-btn" data-role="steno">📝 Steno</button>
-          <button type="button" class="reg-role-btn" data-role="judge">👨‍⚖️ Judge</button>
-          <button type="button" class="reg-role-btn" data-role="user">👤 User</button>
-        </div>
-      </div>
-      <div id="regExtraFields" class="field hidden">
-        <label class="label" for="regCourtName">Court Name</label>
-        <input type="text" id="regCourtName" placeholder="e.g. District Court Lahore" />
-        <p class="hint">Judge and steno must type exactly the same court name — cases are shared by court.</p>
-      </div>
-      <button id="registerBtn" type="submit" class="btn btn-success btn-block btn-lg">
-        <span class="spinner hidden" id="spin-register"></span> Register
-      </button>
+    <form id="registerForm" class="stack" hidden>
+      <h2>Create an account</h2>
+      <label>Full name<input id="regName" autocomplete="name" required></label>
+      <label>Email<input id="regEmail" type="email" autocomplete="email" inputmode="email" required></label>
+      <label>Password (at least 8 characters)<input id="regPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+      <button class="btn" type="submit" id="registerBtn">Create account</button>
+      <button type="button" class="linkbtn" data-auth="login">← Back to log in</button>
     </form>
-
-    <p id="loginError" class="auth-msg error hidden" role="alert"></p>
-    <p id="regSuccess" class="auth-msg success hidden" role="status"></p>
-
-    <div class="auth-switch">
-      <button id="toggleAuthBtn" type="button" class="link-btn">📝 Create an account</button>
-    </div>
+    <form id="resetForm" class="stack" hidden>
+      <h2>Reset password</h2>
+      <label>Email<input id="resetEmail" type="email" autocomplete="email" required></label>
+      <button class="btn" type="submit">Send reset link</button>
+      <button type="button" class="linkbtn" data-auth="login">← Back to log in</button>
+    </form>
+    <form id="newPassForm" class="stack" hidden>
+      <h2>Choose a new password</h2>
+      <label>New password<input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+      <button class="btn" type="submit">Save password</button>
+    </form>
+    <p class="status" id="authMsg" role="alert"></p>
   </div>
 </div>
 
-<!-- ===================== MAIN APP ===================== -->
-<div id="mainApp" class="hidden">
+<!-- NO TEAM YET: accept an invitation or create a team -->
+<div class="auth" id="teamScreen" hidden>
+  <div class="authcard">
+    <div class="authbrand">Faisla Desk<small>Court drafting desk</small></div>
+    <h2>Welcome, <span id="tsName"></span></h2>
+    <p class="note" style="margin:0">You are not in a team yet. Accept an invitation from your team's admin, or create a new team for your court. The person who creates the team is its admin and invites the others.</p>
+    <div id="tsInvites" class="list"></div>
+    <form id="createTeamForm" class="stack">
+      <label>New team name<input id="teamNameInput" placeholder="e.g. Court of Civil Judge, Rahim Yar Khan" required></label>
+      <button class="btn" type="submit" id="createTeamBtn">Create team</button>
+    </form>
+    <p class="status" id="tsMsg" role="alert"></p>
+    <div class="row"><button class="btn plain" id="tsRefresh" type="button">Check again</button><button class="btn danger" id="tsSignOut" type="button">Sign out</button></div>
+  </div>
+</div>
 
-  <div class="sidebar-overlay" id="sidebarOverlay"></div>
-  <nav id="sidebarMenu" class="sidebar-menu" aria-label="Main menu">
-    <div class="sidebar-header">
-      <h2>AI Drafting</h2>
-      <button class="modal-close" id="closeSidebarBtn" aria-label="Close menu">✕</button>
+<div class="app" id="app" hidden>
+  <nav class="rail" id="rail" aria-label="Sections">
+    <div class="brandrow">
+      <div class="brand">Faisla Desk<small id="brandSub">Court drafting desk</small></div>
+      <button class="iconbtn" id="railClose" aria-label="Close side panel" title="Close side panel">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
+      </button>
     </div>
-    <div class="sidebar-user">
-      <p class="sidebar-user-name" id="menuUserName"></p>
-      <p class="sidebar-user-role" id="menuUserRole"></p>
-    </div>
-    <div class="sidebar-nav">
-      <button id="adminPanelBtn" class="menu-item hidden">🛡️ Admin Panel <span id="pendingBadge" class="menu-badge hidden"></span></button>
-      <button id="settingsBtn" class="menu-item">⚙️ AI Settings</button>
-      <button id="templatesMenuBtn" class="menu-item">📚 Templates</button>
-      <button id="glossaryMenuBtn" class="menu-item">📖 Glossary &amp; Presets</button>
-      <button id="dictionaryMenuBtn" class="menu-item">📂 Shortcuts Dictionary</button>
-    </div>
-    <div class="sidebar-footer">
-      <button id="logoutBtn" class="menu-item logout">🚪 Logout</button>
-    </div>
+    <h6>Work</h6>
+    <button class="nav" data-view="order"><span>Order<span class="sub">Daily order sheet</span></span></button>
+    <button class="nav" data-view="issues"><span>Issues<span class="sub">Framing of issues</span></span></button>
+    <button class="nav" data-view="misc"><span>Misc<span class="long"> Application</span><span class="sub">Orders on applications</span></span></button>
+    <button class="nav" data-view="judgment"><span>Judgment<span class="sub">Civil, Family, Rent ...</span></span></button>
+    <button class="nav" data-view="criminal"><span>Criminal<span class="long"> (Sec-30)</span><span class="sub">Charge, 342, challan ...</span></span></button>
+    <h6>Record</h6>
+    <button class="nav" data-view="history"><span>History<span class="sub">Saved cases</span></span><span class="badge" id="histCount">0</span></button>
+    <button class="nav" data-view="samples"><span>Samples<span class="sub">Train the app</span></span><span class="badge" id="sampCount">0</span></button>
+    <button class="nav" data-view="settings"><span>Settings<span class="sub">Judge and courts</span></span></button>
+    <h6>Team</h6>
+    <button class="nav" data-view="team"><span>Team<span class="sub">Members and invites</span></span></button>
+    <div class="userbox"><span id="ubName"></span><small id="ubTeam"></small><button class="btn plain" id="signOutBtn" type="button">Sign out</button></div>
   </nav>
 
-  <header class="app-header">
-    <button class="hamburger-btn" id="menuBtn" aria-label="Open menu"><span></span><span></span><span></span></button>
-    <div>
-      <div class="app-header-title">AI Drafting System</div>
-      <div class="app-header-date" id="currentDate"></div>
-    </div>
-  </header>
+  <main class="main" id="main">
+    <button class="btn plain menubtn" id="railOpen" hidden aria-label="Open side panel">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu
+    </button>
+    <div class="banner" id="conn">Loading your team's data...</div>
 
-  <main class="app-container">
-
-    <!-- ===================== DASHBOARD ===================== -->
-    <section id="dashboardScreen">
-      <div class="stat-grid">
-        <button class="stat-card pending dash-tab-btn" data-status="pending">
-          <span class="stat-label">📋 Pending</span>
-          <span class="stat-count" id="countPending">0</span>
-        </button>
-        <button class="stat-card review dash-tab-btn" data-status="review">
-          <span class="stat-label">🔍 Review</span>
-          <span class="stat-count" id="countReview">0</span>
-        </button>
-        <button class="stat-card finalized dash-tab-btn" data-status="finalized">
-          <span class="stat-label">✅ Finalized</span>
-          <span class="stat-count" id="countFinalized">0</span>
-        </button>
+    <!-- WORK VIEW (shared by the five sections) -->
+    <section id="workView" hidden>
+      <div class="head">
+        <div><h1 id="wTitle">Order</h1></div>
+        <div class="row"><button class="btn plain" id="newCase">New case</button></div>
       </div>
+      <div class="cols">
+        <div class="stack">
 
-      <div class="quick-actions">
-        <button id="newCaseBtn" class="action-tile primary"><span class="tile-icon">➕</span>New Case</button>
-        <button id="orderWriterBtn" class="action-tile"><span class="tile-icon">⚖️</span>Order Writer</button>
-        <button id="liveTypeBtn" class="action-tile"><span class="tile-icon">✍️</span>Live Editor</button>
-      </div>
-
-      <div id="recentFeedbackPanel" class="card hidden mt-4">
-        <h3 class="section-title flex items-center gap-2">💬 Judge Feedback <span class="pill pill-amber" id="feedbackCount">0</span></h3>
-        <div id="feedbackList" class="list"></div>
-      </div>
-    </section>
-
-    <!-- ===================== ORDER WRITER ===================== -->
-    <section id="orderWriterScreen" class="hidden">
-      <div class="screen-top-bar">
-        <button id="backFromOrderWriterBtn" class="btn btn-ghost">← Dashboard</button>
-        <button id="owLoadOrderBtnTop" class="btn btn-teal btn-sm hidden">📥 Received Orders</button>
-      </div>
-
-      <div class="card">
-        <h2 class="card-title">⚖️ Order Writer</h2>
-
-        <div class="field">
-          <label class="label" for="owCaseTitle">Case Number / Title <span class="muted">(optional)</span></label>
-          <input id="owCaseTitle" type="text" />
-        </div>
-        <div class="field">
-          <label class="label" for="owFixedFor">Today the case was fixed for</label>
-          <input id="owFixedFor" type="text" placeholder="e.g. evidence of plaintiff" />
-        </div>
-        <div class="field">
-          <label class="label" for="owProceeding">Today's proceeding (what happened)</label>
-          <textarea id="owProceeding" rows="3"></textarea>
-        </div>
-        <div class="grid gap-x-4 sm:grid-cols-2">
-          <div class="field">
-            <label class="label" for="owNextDate">Next date</label>
-            <input id="owNextDate" type="date" />
+          <!-- Order: previous order picture, next order, four boxes -->
+          <div class="card stack" id="orderCard" hidden>
+            <div class="slot" id="oSlot">
+              <div class="slothead"><span class="num">1</span><b>Previous order (picture)</b><span class="cnt" id="oCnt"></span>
+                <label class="addpic">+ Pictures<input type="file" accept="image/*,.pdf" multiple class="fileover" id="oFile"></label></div>
+              <div class="thumbs" id="oThumbs"></div>
+            </div>
+            <label><span><span class="num">2</span> Next order (optional)</span>
+              <textarea id="o_text" rows="4" placeholder="e.g. Counsel for the plaintiff sought time. Leave it empty if you only tick a box."></textarea></label>
+            <div class="chips" id="o_chips" aria-label="Quick words"></div>
+            <div class="grid">
+              <label>Next date (required)<span class="datewrap"><input id="o_next" data-day-target placeholder="dd.mm.yyyy"><span class="calbtn" title="Pick a date"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg><input type="date" class="datepick" data-for="o_next" aria-label="Pick the next date from a calendar"></span></span><span class="weekday" data-day-for="o_next"></span><span class="fielderr" id="o_nextErr" role="alert" hidden></span></label>
+            </div>
+            <div class="checks">
+              <label class="chk"><input type="checkbox" id="o_same"> Same order</label>
+              <label class="chk"><input type="checkbox" id="o_lo"> Last opportunity</label>
+              <label class="chk"><input type="checkbox" id="o_loCost"> Last opportunity with cost</label>
+              <label class="chk"><input type="checkbox" id="o_loWarn"> Last opportunity with right close warning</label>
+            </div>
+            <label id="o_costWrap" hidden>Cost (Rs.)<input id="o_cost" inputmode="numeric" placeholder="e.g. 500" style="max-width:200px"></label>
           </div>
-          <div class="field">
-            <label class="label" for="owDirective">Warning / Direction <span class="muted">(optional)</span></label>
-            <select id="owDirective"><option value="">(None)</option></select>
-          </div>
-        </div>
-        <div class="field">
-          <label class="label" for="owNextPurpose">Next date fixed for <span class="muted">(optional)</span></label>
-          <input id="owNextPurpose" type="text" />
-          <p class="hint">Leave empty to keep today's purpose.</p>
-        </div>
 
-        <button id="generateOrderBtn" class="btn btn-primary btn-block btn-lg">
-          <span id="spin-order" class="spinner hidden"></span> ✨ Generate Order
-        </button>
-
-        <div id="owOutputSection" class="hidden wiz-output">
-          <div class="field-head">
-            <span class="label">📄 Generated Order</span>
-            <button class="fs-btn" data-target="owOutput" type="button" aria-label="Full screen">⛶ Full</button>
-          </div>
-          <textarea id="owOutput" class="order-output-box"></textarea>
-          <div class="grid grid-cols-2 gap-2 mt-3">
-            <button id="owCopyBtn" class="btn btn-soft">📋 Copy</button>
-            <button id="owClearBtn" class="btn btn-secondary">🔄 New Order</button>
-          </div>
-          <div id="owSendRow" class="flex gap-2 mt-3 hidden">
-            <select id="owStenoSelect" class="flex-1 min-w-0" aria-label="Send to steno"></select>
-            <button id="owSendStenoBtn" class="btn btn-accent">📤 Send</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===================== CASE LIST ===================== -->
-    <section id="caseListScreen" class="hidden">
-      <div class="screen-top-bar">
-        <button id="backToDashBtn" class="btn btn-ghost">← Dashboard</button>
-      </div>
-      <h2 id="caseListTitle" class="page-title"></h2>
-      <div id="caseListContainer" class="list"></div>
-    </section>
-
-    <!-- ===================== NEW CASE ===================== -->
-    <section id="newCaseScreen" class="hidden">
-      <div class="screen-top-bar">
-        <button id="backFromNewCaseBtn" class="btn btn-ghost">← Dashboard</button>
-      </div>
-
-      <div class="card">
-        <h2 class="card-title">New Case</h2>
-        <div class="field">
-          <label class="label" for="newCaseCategory">Category</label>
-          <select id="newCaseCategory">
-            <option value="Family">Family</option>
-            <option value="Civil">Civil</option>
-          </select>
-        </div>
-        <div class="field">
-          <span class="label">Case Type</span>
-          <div class="segmented">
-            <button type="button" class="case-type-btn" data-type="contested">Contested</button>
-            <button type="button" class="case-type-btn" data-type="ex_parte">Ex-parte</button>
-          </div>
-        </div>
-        <button id="startCaseBtn" class="btn btn-primary btn-block btn-lg">Start Case →</button>
-      </div>
-
-      <div class="card">
-        <h3 class="section-title">⚡ Already written a similar case?</h3>
-        <p class="muted mb-3">Use a template or an old judgement as the base and let AI draft the new judgement in 3 steps.</p>
-        <button id="goToReuseBtn" class="btn btn-soft btn-block">📚 Create judgement from template</button>
-      </div>
-    </section>
-
-    <!-- ===================== WIZARD ===================== -->
-    <section id="wizardScreen" class="hidden">
-      <div class="wiz-top-bar">
-        <button id="backFromWizardBtn" class="btn btn-ghost">← Dashboard</button>
-        <button id="liveModeToggle" class="btn btn-secondary live-toggle">🔴 Live: OFF</button>
-      </div>
-      <div id="autosaveIndicator" class="autosave-indicator" aria-live="polite"></div>
-      <div class="wiz-progress"><div id="wizProgressBar" class="wiz-progress-bar"></div></div>
-
-      <div id="reviewFeedbackBanner" class="notice notice-warning hidden mb-3"></div>
-      <div id="liveIndicator" class="hidden live-indicator">● Live collaboration active</div>
-
-      <!-- STEP 1: PLAINT -->
-      <div id="wstep1" class="wiz-step card">
-        <h2>Step 1/5: Plaint</h2>
-        <div id="uploadArea-plaint"></div>
-        <div class="field-head mt-2">
-          <label class="label" for="plaintText">Plaint text (OCR / paste)</label>
-          <button class="fs-btn" data-target="plaintText">⛶ Full</button>
-        </div>
-        <textarea id="plaintText" rows="6"></textarea>
-        <button id="extractFactsBtn" class="btn btn-primary btn-block">
-          <span class="spinner hidden" id="spin-extractFacts"></span> ✨ Extract Facts (AI)
-        </button>
-        <div id="factsOutput" class="hidden wiz-output">
-          <div class="field-head">
-            <label class="label" for="factsText">Extracted Facts</label>
-            <button class="fs-btn" data-target="factsText">⛶ Full</button>
-          </div>
-          <textarea id="factsText" rows="6"></textarea>
-        </div>
-      </div>
-
-      <!-- STEP 2: WRITTEN STATEMENT -->
-      <div id="wstep2" class="wiz-step card hidden">
-        <h2>Step 2/5: Written Statement</h2>
-        <div id="uploadArea-ws"></div>
-        <div class="field-head mt-2">
-          <label class="label" for="wsText">Written statement text</label>
-          <button class="fs-btn" data-target="wsText">⛶ Full</button>
-        </div>
-        <textarea id="wsText" rows="6"></textarea>
-        <button id="extractAdmitDenyBtn" class="btn btn-primary btn-block">
-          <span class="spinner hidden" id="spin-extractAdmitDeny"></span> ✨ Analyze Admit/Deny (AI)
-        </button>
-        <div id="admitDenyOutput" class="hidden wiz-output">
-          <div class="field-head">
-            <label class="label" for="admitDenyText">Admit/Deny Table</label>
-            <button class="fs-btn" data-target="admitDenyText">⛶ Full</button>
-          </div>
-          <textarea id="admitDenyText" rows="6"></textarea>
-        </div>
-      </div>
-
-      <!-- STEP 3: ISSUES -->
-      <div id="wstep3" class="wiz-step card hidden">
-        <h2>Step 3/5: Issues</h2>
-        <div id="uploadArea-issues"></div>
-        <div class="field-head mt-2">
-          <label class="label" for="issuesText">Issues text</label>
-          <button class="fs-btn" data-target="issuesText">⛶ Full</button>
-        </div>
-        <textarea id="issuesText" rows="6"></textarea>
-        <button id="mapDisputesBtn" class="btn btn-primary btn-block">
-          <span class="spinner hidden" id="spin-mapDisputes"></span> ✨ Map Disputes (AI)
-        </button>
-        <div id="disputesOutput" class="hidden wiz-output">
-          <div class="field-head">
-            <label class="label" for="disputesText">Dispute Mapping</label>
-            <button class="fs-btn" data-target="disputesText">⛶ Full</button>
-          </div>
-          <textarea id="disputesText" rows="6"></textarea>
-        </div>
-      </div>
-
-      <!-- STEP 4: EVIDENCE -->
-      <div id="wstep4" class="wiz-step card hidden">
-        <h2>Step 4/5: Evidence</h2>
-        <div id="uploadArea-evidence"></div>
-        <div class="field-head mt-2">
-          <label class="label" for="evidenceText">Evidence text</label>
-          <button class="fs-btn" data-target="evidenceText">⛶ Full</button>
-        </div>
-        <textarea id="evidenceText" rows="6"></textarea>
-        <button id="analyzeEvidenceBtn" class="btn btn-primary btn-block">
-          <span class="spinner hidden" id="spin-analyzeEvidence"></span> ✨ Analyze Evidence (AI)
-        </button>
-        <div id="findingsOutput" class="hidden wiz-output">
-          <div class="field-head">
-            <label class="label" for="findingsText">Per-Issue Findings</label>
-            <button class="fs-btn" data-target="findingsText">⛶ Full</button>
-          </div>
-          <textarea id="findingsText" rows="6"></textarea>
-        </div>
-      </div>
-
-      <!-- STEP 5: JUDGEMENT -->
-      <div id="wstep5" class="wiz-step card hidden">
-        <h2>Step 5/5: Short Order &amp; Final Judgement</h2>
-        <label class="label" for="shortOrder">Short order</label>
-        <textarea id="shortOrder" rows="4" placeholder="e.g. suit decreed, dowry articles returned"></textarea>
-        <button id="generateFinalBtn" class="btn btn-success btn-block">
-          <span class="spinner hidden" id="spin-generateFinal"></span> ✨ Generate Final Judgement (AI)
-        </button>
-
-        <div id="outputSection" class="hidden wiz-output">
-          <div class="field-head">
-            <label class="label" for="judgementOutput">Judgement</label>
-            <div class="flex gap-2">
-              <button class="fs-btn" data-target="judgementOutput">⛶ Full</button>
-              <button id="copyBtn" class="fs-btn">📋 Copy</button>
-              <button id="downloadBtn" class="fs-btn">📄 Word</button>
+          <div class="card stack" id="cardType">
+            <div class="grid">
+              <label>Type<select id="f_subtype"></select></label>
+              <label id="stageWrap">Stage<select id="f_stage"></select></label>
             </div>
           </div>
-          <textarea id="judgementOutput" rows="10"></textarea>
-        </div>
 
-        <div id="chatSection" class="hidden wiz-output">
-          <hr class="divider" />
-          <h3 class="section-title">🤖 Ask AI to change something</h3>
-          <div id="chatLog" class="chat-log"></div>
-          <div class="chat-row">
-            <input id="chatInput" type="text" placeholder="e.g. make the findings shorter (English or Urdu)" />
-            <button id="chatSendBtn" class="btn btn-primary">Send</button>
+          <div class="card stack" id="cardPics">
+            <div class="row" style="justify-content:space-between"><strong>1. Record pictures</strong><span class="note" id="imgNote"></span></div>
+            <div class="slot" id="recSlot">
+              <div class="needlist" id="needList"></div>
+              <div class="slothead"><label class="addpic">+ Pictures<input type="file" accept="image/*,.pdf" multiple class="fileover" id="recUp"></label><span class="cnt" id="recCnt"></span></div>
+              <div class="thumbs" id="slots"></div>
+            </div>
+          </div>
+
+          <div class="card stack" id="cardFields">
+            <strong>2. Next order / instructions</strong>
+            <textarea id="f_decision" rows="4" aria-label="Next order or instructions"></textarea>
+            <div class="chips" id="f_chips" aria-label="Quick words"></div>
+            <div class="grid" id="fields"></div>
+            <details id="optBox"><summary>Case details (optional)</summary>
+              <div class="grid" id="optFields" style="margin-top:10px"></div>
+            </details>
+            <div class="row"><button class="btn ghost" id="readBtn">Read record</button><span class="status" id="readStatus"></span></div>
+            <div id="missBox" class="stack" hidden></div>
+            <div id="qWrap" hidden class="stack">
+              <strong style="color:var(--warn)">Please answer (required)</strong>
+              <div class="stack" id="questions"></div>
+            </div>
+            <div id="flagsWrap" hidden><strong style="color:var(--warn)">Please check</strong><ul class="flags" id="flags"></ul></div>
+            <div id="pointsWrap" hidden class="stack">
+              <strong>Decision on each claim / issue</strong>
+              <div class="points" id="points"></div>
+            </div>
           </div>
         </div>
 
-        <button id="finalizeBtn" class="hidden btn btn-success btn-block btn-lg mt-4">✅ Finalize Case</button>
-
-        <div id="judgeReviewActions" class="hidden btn-row mt-4">
-          <button id="wizApproveBtn" class="btn btn-success">✅ Approve &amp; Finalize</button>
-          <button id="wizSendBackBtn" class="btn btn-warning">↩️ Send Back</button>
-        </div>
-      </div>
-
-      <div class="wiz-nav">
-        <button id="wizBackBtn" class="btn btn-secondary hidden">← Back</button>
-        <button id="wizReviewBtn" class="btn btn-soft hidden">📤 Send for review</button>
-        <button id="wizNextBtn" class="btn btn-primary hidden">Next →</button>
-      </div>
-    </section>
-
-    <!-- ===================== TEMPLATES ===================== -->
-    <section id="templatesScreen" class="hidden">
-      <div class="screen-top-bar">
-        <button id="backFromTemplatesBtn" class="btn btn-ghost">← Dashboard</button>
-        <button id="addTemplateBtn" class="btn btn-primary btn-sm">+ New template</button>
-      </div>
-      <h2 class="page-title">📚 Templates</h2>
-      <p class="muted mb-4">Keep well-written judgements here. When a similar case comes in, press "Use this".</p>
-      <div id="templatesList" class="list"></div>
-    </section>
-
-    <!-- ===================== REUSE: STEP 1 (choose) ===================== -->
-    <section id="reuseScreen" class="hidden">
-      <div class="screen-top-bar">
-        <button id="backFromReuseListBtn" class="btn btn-ghost">← Back</button>
-        <button id="reuseAddTemplateBtn" class="btn btn-primary btn-sm">+ New template</button>
-      </div>
-      <ol class="steps"><li class="active">1. Choose template</li><li>2. New case details</li><li>3. Judgement</li></ol>
-      <div class="card mb-4">
-        <input id="reuseSearch" type="search" placeholder="🔍 Search by title or law..." />
-        <div class="segmented mt-3" id="reuseFilter">
-          <button type="button" class="active" data-filter="all">All</button>
-          <button type="button" data-filter="Family">Family</button>
-          <button type="button" data-filter="Civil">Civil</button>
-        </div>
-      </div>
-      <div id="reuseListContainer" class="list"></div>
-    </section>
-
-    <!-- ===================== REUSE: STEP 2 + 3 ===================== -->
-    <section id="reuseFormScreen" class="hidden">
-      <div class="screen-top-bar">
-        <button id="backFromReuseFormBtn" class="btn btn-ghost">← Change template</button>
-      </div>
-      <ol class="steps"><li class="done">1. Choose template</li><li id="reuseStep2Label" class="active">2. New case details</li><li id="reuseStep3Label">3. Judgement</li></ol>
-
-      <!-- Step 2: details -->
-      <div id="reuseDetailsPanel">
-        <div class="card">
-          <p class="muted">Template:</p>
-          <h2 class="card-title mb-0" id="reuseSourceTitle"></h2>
-        </div>
-
-        <div class="card">
-          <span class="label">New case type</span>
-          <div class="segmented mb-4">
-            <button type="button" class="reuse-mode-btn active" id="modeContestedBtn" data-mode="contested">Contested</button>
-            <button type="button" class="reuse-mode-btn" id="modeExParteBtn" data-mode="ex_parte">Ex-parte</button>
-          </div>
-
-          <h3 class="section-title">A. Replace names, dates and amounts</h3>
-          <p class="muted mb-3">AI found these details in the template (grey boxes). Type the value for the new case in the white box. Leave it empty if unknown — the AI will write "[___]" so you can fill it in later.</p>
-          <div id="reuseFieldsContainer"></div>
-          <button id="addReuseFieldBtn" class="btn btn-secondary btn-sm mt-2">+ Add field</button>
-
-          <hr class="divider" />
-          <h3 class="section-title">B. What is different in this case? <span class="muted">(optional)</span></h3>
-          <textarea id="reuseDifferences" rows="4" placeholder="English or Urdu, e.g. The defendant appeared and filed a written statement. Nikah in 2019. One child, age 3."></textarea>
-
-          <hr class="divider" />
-          <h3 class="section-title">C. Decision / Short order</h3>
-          <textarea id="reuseDecision" rows="3" placeholder="English or Urdu, e.g. Suit decreed. Maintenance Rs. 8000/month for plaintiff and Rs. 5000/month for minor."></textarea>
-        </div>
-
-        <button id="reuseGenerateBtn" class="btn btn-primary btn-block btn-lg mt-4">
-          <span class="spinner hidden" id="spin-reuseGenerate"></span> ✨ Generate judgement
-        </button>
-      </div>
-
-      <!-- Step 3: result -->
-      <div id="reuseResultPanel" class="hidden">
-        <div id="reuseMissingNotice" class="notice notice-warning hidden mb-3"></div>
-        <div class="card">
-          <div class="field-head">
-            <label class="label" for="reuseResult">New judgement (editable)</label>
-            <button class="fs-btn" data-target="reuseResult">⛶ Full</button>
-          </div>
-          <textarea id="reuseResult" rows="14"></textarea>
-          <p class="hint">Fill in every "[___]" — that is information the AI was not given.</p>
-
-          <hr class="divider" />
-          <h3 class="section-title">🤖 Ask AI to change something</h3>
-          <div class="chat-row">
-            <input id="reuseRefineInput" type="text" placeholder="e.g. Make the findings shorter (English or Urdu)" />
-            <button id="reuseRefineBtn" class="btn btn-primary"><span class="spinner hidden" id="spin-reuseRefine"></span> Send</button>
+        <div class="stack">
+          <div class="card stack">
+            <div class="row" style="justify-content:space-between">
+              <strong id="draftTitle">3. Draft</strong>
+              <div class="row">
+                <button class="btn" id="draftBtn">Generate draft</button>
+                <button class="btn plain" id="stopBtn" hidden>Stop</button>
+              </div>
+            </div>
+            <div class="status" id="draftStatus"></div>
+            <div class="sheetwrap"><div class="sheet" id="sheet" contenteditable="true" spellcheck="false" data-empty="The draft will appear here. You can edit it right on this page."></div></div>
+            <div class="row">
+              <button class="btn" id="saveBtn">Save</button>
+              <button class="btn plain" id="wordBtn">Word file</button>
+              <button class="btn plain" id="copyBtn">Copy</button>
+              <span class="status" id="saveStatus"></span>
+            </div>
+            <div id="draftNotesWrap" hidden><strong>Claude's notes</strong><div class="notes" id="draftNotes"></div></div>
           </div>
         </div>
-        <div class="btn-row mt-4">
-          <button id="reuseEditDetailsBtn" class="btn btn-secondary">← Edit details</button>
-          <button id="reuseSaveBtn" class="btn btn-success"><span class="spinner hidden" id="spin-reuseSave"></span> 💾 Save case</button>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="historyView" hidden>
+      <div class="head"><div><h1>History</h1><p>Orders and judgments saved by your team. Open one to continue working on it.</p></div></div>
+      <div class="card stack">
+        <div class="row"><input id="histSearch" placeholder="Search by name, CMS No., suit or FIR" style="max-width:420px"><div class="tabs" id="histTabs"></div></div>
+        <div class="list" id="histList"></div>
+      </div>
+    </section>
+
+    <!-- SAMPLES -->
+    <section id="samplesView" hidden>
+      <div class="head"><div><h1>Samples</h1><p>Upload the final versions of the Judge's orders and judgments, the ones corrected and completed in Word. The app studies them and drafts the same way. The more samples you add, the better the drafts.</p></div></div>
+      <div class="cols">
+        <div class="stack">
+          <div class="card stack">
+            <strong>Add samples</strong>
+            <div class="grid">
+              <label>Section<select id="s_section"></select></label>
+              <label>Type<select id="s_type"></select></label>
+            </div>
+            <div class="drop" id="sDrop">
+              Drop Word files (.docx), text files or pictures here, or choose them:<br>
+              <label class="addpic">Choose files<input type="file" id="sFile" accept=".docx,.txt,image/*" multiple class="fileover"></label>
+              <div class="note" style="margin-top:6px">You can add many files at once. Each Word or text file is one sample; pictures added together are read as the pages of one sample.</div>
+            </div>
+            <details><summary>Paste text instead</summary>
+              <div class="stack" style="margin-top:10px">
+                <label>Title<input id="s_title" placeholder="e.g. Ex-parte khula judgment"></label>
+                <label>Text<textarea id="s_text" rows="8" placeholder="Paste the full final text of the order or judgment"></textarea></label>
+                <div class="row"><button class="btn plain" id="sPasteAdd">Add sample</button></div>
+              </div>
+            </details>
+            <div class="progbox" id="sProg" role="status" aria-live="polite" hidden></div>
+            <div class="status" id="sStatus"></div>
+          </div>
+          <div class="card stack">
+            <strong>Your rules</strong>
+            <p class="note" style="margin:0">Short instructions every draft must follow, e.g. "In list of witnesses orders, never write the witnesses' names."</p>
+            <div class="grid"><label>Applies to<select id="l_section"></select></label></div>
+            <label>Rule<textarea id="l_text" rows="2"></textarea></label>
+            <div class="row"><button class="btn" id="l_add">Add rule</button><span class="status" id="l_status"></span></div>
+            <div class="list" id="ruleList"></div>
+          </div>
+        </div>
+        <div class="card stack">
+          <div class="tabs" id="sampTabs"></div>
+          <details id="digestBox"><summary id="digestSummary">What the app has learned</summary>
+            <div class="notes" id="digestText" style="margin-top:8px"></div>
+            <p class="note" style="margin:8px 0 0">After deleting or moving samples, press "Study all samples again" so this stays in line with them.</p>
+            <div class="row" style="margin-top:8px"><button class="btn plain" id="digestRebuild">Study all samples again</button><span class="status" id="digestStatus"></span></div>
+            <div class="progbox" id="dProg" role="status" aria-live="polite" hidden style="margin-top:8px"></div>
+          </details>
+          <div class="list" id="sampList"></div>
         </div>
       </div>
     </section>
+
+    <!-- SETTINGS -->
+    <section id="settingsView" hidden>
+      <div class="head"><div><h1>Settings</h1><p>Used in the heading and signature of every draft.</p></div></div>
+      <div class="card stack" style="max-width:720px">
+        <div class="grid">
+          <label>Judge's name<input id="set_judge"></label>
+          <label>District<input id="set_district"></label>
+        </div>
+        <strong style="margin-top:6px">Court designations</strong>
+        <p class="note" style="margin:0">The app picks the court from the case type: criminal work goes to the Magistrate, family matters to the Family Court, rent to Rent, guardian matters to the Guardian Court, and everything else to the Civil Court.</p>
+        <div class="grid">
+          <label>Civil court<input id="set_c_civil"></label>
+          <label>Family court<input id="set_c_family"></label>
+          <label>Rent<input id="set_c_rent"></label>
+          <label>Guardian court<input id="set_c_guardian"></label>
+          <label>Magistrate (criminal)<input id="set_c_magistrate"></label>
+          <label>Learned ADA / DDA (civil side)<input id="set_ada" placeholder="Name only, e.g. Mr. ____"></label>
+          <label>Learned ADPP (criminal side)<input id="set_adpp" placeholder="Name only, e.g. Mr. ____"></label>
+        </div>
+        <label>Standing instructions (applied to every draft)<textarea id="set_rules" rows="5" placeholder="e.g. Always spell the Judge's name as 'Ahmad', never 'Ahmed'."></textarea></label>
+        <label>Quick words under the order box in every section. CPA, CPB, PA and PB are always there and follow the kind of case (party A / party B). Add your own words below, one per line, as SHORT = words.<textarea id="set_chips" rows="9" spellcheck="false" placeholder="EV = evidence"></textarea></label>
+        <div class="row"><button class="btn" id="setSave">Save</button><span class="status" id="setStatus"></span></div>
+      </div>
+    </section>
+    <!-- TEAM -->
+    <section id="teamView" hidden>
+      <div class="head"><div><h1>Team</h1><p>Everyone in the team shares the same cases, samples, rules and settings.</p></div></div>
+      <div class="cols">
+        <div class="stack">
+          <div class="card stack">
+            <div class="row" style="justify-content:space-between"><strong id="teamName"></strong><span class="chip" id="teamRole"></span></div>
+            <div class="list" id="memberList"></div>
+          </div>
+          <div class="card stack" id="inviteCard" hidden>
+            <strong>Invite a member</strong>
+            <p class="note" style="margin:0">Write the email the person will use to register or log in. The invitation appears on their first screen, and they join the team when they accept it.</p>
+            <div class="grid">
+              <label>Email<input id="invEmail" type="email" inputmode="email" placeholder="name@example.com"></label>
+              <label>Role<select id="invRole"><option value="member">Member</option><option value="admin">Admin</option></select></label>
+            </div>
+            <div class="row"><button class="btn" id="invSend">Send invitation</button><span class="status" id="invStatus"></span></div>
+            <div class="list" id="inviteList"></div>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card stack">
+            <strong>You</strong>
+            <label>Your name<input id="meName"></label>
+            <div class="row"><button class="btn plain" id="meSave">Save name</button><span class="status" id="meStatus"></span></div>
+          </div>
+          <div class="card stack" id="renameCard" hidden>
+            <strong>Team name</strong>
+            <label>Name<input id="teamRename"></label>
+            <div class="row"><button class="btn plain" id="teamRenameBtn">Rename</button><span class="status" id="teamRenameStatus"></span></div>
+          </div>
+          <div class="card stack">
+            <strong>AI usage this month</strong>
+            <p class="note" id="usageLine" style="margin:0">Loading...</p>
+          </div>
+          <div class="card stack">
+            <div class="row"><button class="btn danger" id="leaveTeamBtn">Leave team</button><button class="btn plain" id="teamSignOut">Sign out</button></div>
+            <span class="status" id="teamStatus"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="toast" id="toast" role="status" hidden></div>
   </main>
 </div>
 
-<!-- ===================== FULL SCREEN EDITORS ===================== -->
-<div id="fullscreenOverlay" class="hidden fullscreen-mode">
-  <div class="fs-header">
-    <h3 class="fs-title" id="fsTitle">Full Screen</h3>
-    <button id="fsCloseBtn" class="btn btn-primary btn-sm">✓ Done</button>
-  </div>
-  <textarea id="fsTextarea" class="fs-textarea"></textarea>
-</div>
-
-<div id="liveTypeOverlay" class="hidden fullscreen-mode">
-  <div class="fs-header">
-    <h3 class="fs-title">✍️ Live Editor</h3>
-    <button id="liveTypeWordBtn" class="btn btn-secondary btn-sm">📄 Word</button>
-    <button id="liveTypeCloseBtn" class="btn btn-primary btn-sm">Close</button>
-  </div>
-  <textarea id="liveTypeTextarea" class="fs-textarea" placeholder="Type here... (everyone in your court sees this live)"></textarea>
-</div>
-
-<!-- ===================== MODALS ===================== -->
-<div id="owInboxModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="owInboxTitle">
-  <div class="modal-panel wide">
-    <div class="modal-header">
-      <h3 class="modal-title" id="owInboxTitle">📥 Received Orders</h3>
-      <button id="closeOwInboxBtn" class="modal-close" aria-label="Close">✕</button>
-    </div>
-    <div id="owInboxList" class="modal-body"></div>
-    <div class="modal-footer">
-      <button id="owInboxClearAllBtn" class="btn btn-danger-soft">🗑️ Clear all</button>
-      <button id="owInboxCloseBtn" class="btn btn-secondary">Close</button>
-    </div>
-  </div>
-</div>
-
-<div id="adminPanelModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="adminPanelTitle">
-  <div class="modal-panel">
-    <div class="modal-header">
-      <div>
-        <h3 class="modal-title" id="adminPanelTitle">🛡️ Admin Panel</h3>
-        <p class="modal-subtitle">New users in your court waiting for approval.</p>
-      </div>
-      <button id="closeAdminPanelBtn" class="modal-close" aria-label="Close">✕</button>
-    </div>
-    <div id="pendingUsersList" class="modal-body"></div>
-  </div>
-</div>
-
-<div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-  <div class="modal-panel">
-    <div class="modal-header">
-      <div>
-        <h3 class="modal-title" id="settingsTitle">⚙️ AI Settings</h3>
-        <p id="currentSettingsLine" class="modal-subtitle"></p>
-      </div>
-      <button id="closeSettingsBtn" class="modal-close" aria-label="Close">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="field">
-        <label class="label" for="providerSelect">1. Provider (company)</label>
-        <select id="providerSelect">
-          <option value="claude">Claude (Anthropic)</option>
-          <option value="gemini">Gemini (Google)</option>
-          <option value="openai">OpenAI (ChatGPT)</option>
-        </select>
-        <p class="hint">The company whose API key you have.</p>
-      </div>
-      <div class="field">
-        <span class="label">2. API Keys</span>
-        <div class="grid gap-2">
-          <input type="password" id="apiKeyInput1" placeholder="1. Primary key (required)" autocomplete="off" />
-          <input type="password" id="apiKeyInput2" placeholder="2. Fallback key (optional)" autocomplete="off" />
-          <input type="password" id="apiKeyInput3" placeholder="3. Fallback key (optional)" autocomplete="off" />
-        </div>
-        <p class="hint">If the first key fails, the app automatically tries the next one.</p>
-      </div>
-      <div class="field">
-        <label class="label" for="modelInput">3. Model</label>
-        <select id="modelInput"></select>
-        <p class="hint">Stronger models write better but cost more.</p>
-      </div>
-      <div id="settingsStatus" class="settings-status hidden" aria-live="polite"></div>
-    </div>
-    <div class="modal-footer">
-      <button id="testKeysBtn" class="btn btn-secondary">🔌 Test</button>
-      <button id="saveSettingsBtn" class="btn btn-primary">💾 Save</button>
-    </div>
-  </div>
-</div>
-
-<div id="glossaryModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="glossaryTitle">
-  <div class="modal-panel wide">
-    <div class="modal-header">
-      <div>
-        <h3 class="modal-title" id="glossaryTitle">📖 Glossary &amp; Presets</h3>
-        <p class="modal-subtitle">Special terminology rules for the AI and Order Writer warnings.</p>
-      </div>
-      <button id="closeGlossaryBtn" class="modal-close" aria-label="Close">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="modal-section">
-        <h4 class="section-title">📋 AI Correction Rules</h4>
-        <div id="glossaryList" class="scroll-list"></div>
-        <div class="grid gap-2 mb-2">
-          <input id="glossaryTermInput" type="text" placeholder="Term (e.g. qom)" />
-          <input id="glossaryInstructionInput" type="text" placeholder="Rule (e.g. transliterate as Caste)" />
-        </div>
-        <button id="addGlossaryBtn" class="btn btn-dark btn-block">+ Add rule</button>
-      </div>
-      <div class="modal-section">
-        <h4 class="section-title">📢 Order Writer Warning Presets</h4>
-        <div id="presetList" class="scroll-list"></div>
-        <div class="grid gap-2 mb-2">
-          <input id="presetTitleInput" type="text" placeholder="Preset title (e.g. Last chance plaintiff)" />
-          <textarea id="presetTextInput" rows="3" placeholder="Warning text (you can use {proceeding} and {legal_reference})"></textarea>
-        </div>
-        <button id="addPresetBtn" class="btn btn-teal btn-block">+ Add preset</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="dictionaryModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="dictionaryTitle">
-  <div class="modal-panel">
-    <div class="modal-header">
-      <div>
-        <h3 class="modal-title" id="dictionaryTitle">📂 Shortcuts Dictionary</h3>
-        <p class="modal-subtitle">Type a short form and press Space / Enter — it expands to the full phrase.</p>
-      </div>
-      <button id="closeDictionaryBtn" class="modal-close" aria-label="Close">✕</button>
-    </div>
-    <div class="modal-body">
-      <div id="dictionaryList" class="scroll-list"></div>
-      <div class="grid gap-2 mb-2">
-        <input id="dictShortcutInput" type="text" placeholder="Short form (e.g. cp.)" />
-        <input id="dictExpansionInput" type="text" placeholder="Full phrase (e.g. learned counsel for the plaintiff)" />
-      </div>
-      <button id="addDictBtn" class="btn btn-dark btn-block">+ Add shortcut</button>
-    </div>
-  </div>
-</div>
-
-<div id="templateModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="templateTitleHeading">
-  <div class="modal-panel wide">
-    <div class="modal-header">
-      <div>
-        <h3 class="modal-title" id="templateTitleHeading">📄 New template</h3>
-        <p class="modal-subtitle">Paste an old judgement or upload a .txt file. It will be saved as a reusable template.</p>
-      </div>
-      <button id="closeTemplateBtn" class="modal-close" aria-label="Close">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="field">
-        <label class="label" for="templateTitle">Title</label>
-        <input type="text" id="templateTitle" placeholder="e.g. Khula decree template" />
-      </div>
-      <div class="grid gap-x-3 grid-cols-2">
-        <div class="field">
-          <label class="label" for="templateCategory">Category</label>
-          <select id="templateCategory">
-            <option value="Family">Family</option>
-            <option value="Civil">Civil</option>
-          </select>
-        </div>
-        <div class="field">
-          <label class="label" for="templateCaseType">Case type</label>
-          <select id="templateCaseType">
-            <option value="contested">Contested</option>
-            <option value="ex_parte">Ex-parte</option>
-          </select>
-        </div>
-      </div>
-      <div id="templateUploadArea" class="dropzone" role="button" tabindex="0">
-        <span class="text-2xl">📂</span>
-        <span class="text-sm font-semibold text-blue-700">Upload a .txt file</span>
-        <span class="hint mt-0">or paste the text below</span>
-      </div>
-      <input type="file" id="templateFileInput" class="hidden" accept=".txt" />
-      <label class="label" for="templateJudgementText">Judgement text</label>
-      <textarea id="templateJudgementText" rows="8" placeholder="Paste the judgement text here..."></textarea>
-    </div>
-    <div class="modal-footer">
-      <button id="saveTemplateBtn" class="btn btn-success">
-        <span class="spinner hidden" id="spin-saveTemplate"></span> Save template
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ===================== PHOTO EDITOR ===================== -->
-<div id="batchEditorModal" class="batch-modal hidden">
-  <div class="batch-topbar">
-    <button id="batchEditorBack" class="btn btn-ghost btn-sm">✕ Cancel</button>
-    <span id="batchEditorCounter" class="batch-counter">1/1</span>
-    <button id="batchUploadBtn" class="btn btn-primary btn-sm">Upload ↑</button>
-  </div>
-  <div class="batch-preview">
-    <img id="batchPreview" alt="Image preview" />
-    <div id="batchCropOverlay" class="batch-crop-overlay hidden">
-      <div id="batchCropWindow" class="crop-window">
-        <div class="grid-h" style="top:33.33%"></div>
-        <div class="grid-h" style="top:66.66%"></div>
-        <div class="grid-v" style="left:33.33%"></div>
-        <div class="grid-v" style="left:66.66%"></div>
-        <div class="crop-handle" data-dir="nw"></div>
-        <div class="crop-handle" data-dir="ne"></div>
-        <div class="crop-handle" data-dir="sw"></div>
-        <div class="crop-handle" data-dir="se"></div>
-      </div>
-    </div>
-  </div>
-  <div id="batchFilterPanel" class="batch-panel hidden">
-    <div id="batchFilterScroll" class="filter-scroll"></div>
-  </div>
-  <div class="batch-toolbar">
-    <button class="batch-tool-btn" data-tool="crop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>Crop</button>
-    <button class="batch-tool-btn" data-tool="filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>Filter</button>
-    <button class="batch-tool-btn" id="batchRotateLeft"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Rotate</button>
-    <button class="batch-tool-btn" id="batchResetImg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Reset</button>
-  </div>
-  <div class="filmstrip-wrap">
-    <div id="batchFilmstrip" class="filmstrip"></div>
-  </div>
-</div>
-
-<script src="app.js?v=2026100103" defer></script>
+<div class="auth" id="bootFail" hidden><div class="authcard"><div class="authbrand">Faisla Desk</div>
+  <p class="status err" style="margin:0">The app could not load. Check your internet connection and reload the page.</p>
+  <button class="btn" type="button" onclick="location.reload()">Reload</button></div></div>
 <script>
-  // Safety net: never leave a blank page. If the app failed to start (e.g. an old cached
-  // file after a deploy), reload once without cache; if it still fails, show the login screen.
-  (function () {
-    function blank() {
-      var login = document.getElementById('loginScreen'), main = document.getElementById('mainApp');
-      return login.classList.contains('hidden') && main.classList.contains('hidden');
-    }
-    window.addEventListener('error', function () {
-      if (!blank()) return;
-      if (!sessionStorage.getItem('reloadedAfterError')) {
-        sessionStorage.setItem('reloadedAfterError', '1');
-        location.reload();
-      } else {
-        document.getElementById('loginScreen').classList.remove('hidden');
-      }
-    });
-    window.addEventListener('load', function () {
-      setTimeout(function () {
-        if (blank()) document.getElementById('loginScreen').classList.remove('hidden');
-        else sessionStorage.removeItem('reloadedAfterError');
-      }, 6000);
-    });
-  })();
-
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(err => console.warn('ServiceWorker registration failed:', err));
-    });
-  }
+/* If the app's scripts could not load (no internet, CDN blocked), show a message instead of a blank page. */
+setTimeout(function () {
+  var shown = ["authScreen", "teamScreen", "app"].some(function (id) { var el = document.getElementById(id); return el && !el.hidden; });
+  if (!shown) document.getElementById("bootFail").hidden = false;
+}, 12000);
 </script>
+<script type="module" src="js/main.js?v=2026111101"></script>
 </body>
 </html>

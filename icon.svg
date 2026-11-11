@@ -1,4 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="100" fill="#3b82f6"/>
-  <text x="50%" y="50%" font-size="200" fill="white" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="middle">AI</text>
+  <rect width="512" height="512" rx="100" fill="#1f5f5b"/>
+  <g fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 120v272M176 392h160"/>
+    <path d="M136 168h240"/>
+    <path d="M136 168l-52 112h104z"/>
+    <path d="M376 168l-52 112h104z"/>
+  </g>
 </svg>

@@ -1,17 +1,22 @@
-const CACHE_NAME = 'ai-drafting-v7';
+const CACHE_NAME = 'faisla-desk-v1';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
   './icon.svg',
-  './tailwind.css',
   './styles.css',
-  './app.js'
+  './js/main.js',
+  './js/app.js',
+  './js/auth.js',
+  './js/ai.js',
+  './js/db.js',
+  './js/supa.js',
+  './js/config.js'
 ];
 
-// Static CDN assets that are safe to keep offline (Supabase client library)
-const CACHEABLE_CDN_HOSTS = ['cdn.jsdelivr.net'];
+// Static CDN assets that are safe to keep offline (Supabase client, Word reader, fonts)
+const CACHEABLE_CDN_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -36,7 +41,7 @@ function fetchFresh(request) {
 
 self.addEventListener('fetch', event => {
   const { request } = event;
-  // Only GET can be cached. Never touch API calls (Supabase, AI providers):
+  // Only GET can be cached. Never touch API calls (Supabase database, auth and the AI function):
   // their responses carry private data and must always come from the network.
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
