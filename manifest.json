@@ -1,14 +1,16 @@
 {
-  "name": "AI Drafting System",
-  "short_name": "AI Drafting",
+  "name": "Faisla Desk",
+  "short_name": "Faisla Desk",
+  "description": "Court drafting desk: daily orders, issues, orders on applications, judgments and criminal orders.",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#f1f5f9",
-  "theme_color": "#2563eb",
+  "background_color": "#15302f",
+  "theme_color": "#1f5f5b",
   "icons": [
     {
       "src": "icon.svg",
-      "sizes": "192x192 512x512",
+      "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
