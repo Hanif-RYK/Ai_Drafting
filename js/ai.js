@@ -5,7 +5,7 @@
 //   sample.json(prompt, { images, modelTier })              -> parsed object
 //   sample.limits()                                          -> { images: { maxCount } }
 //
-// Errors carry a short `code` (rate_limited, refused, image_rejected, prompt_too_large,
+// Errors carry a short `code` (rate_limited, refused, image_rejected, prompt_too_large, time_limit,
 // invalid_json, session_expired, not_granted, cancelled, network, no_key, server ...);
 // a cancelled or broken stream also carries the partial `text`.
 import { SUPABASE_ANON_KEY, AI_FUNCTION_URL } from "./config.js";
@@ -138,7 +138,8 @@ export function createSample(sb) {
       throw e;
     }
     if (!result) { const n = err("network", "The connection closed before the draft was finished."); n.text = text; throw n; }
-    return { text, truncated: !!result.truncated };
+    // stopReason "time_limit": the server ended the answer early; the app can ask Claude to continue it
+    return { text, truncated: !!result.truncated, stopReason: result.stop_reason || "" };
   }
 
   const sample = (prompt, opts) => request("text", prompt, opts);

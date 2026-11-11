@@ -47,12 +47,25 @@ Supabase Dashboard → **Edge Functions** → **Secrets** → Add:
 | Name | Value |
 |---|---|
 | `ANTHROPIC_API_KEY` | console.anthropic.com se li hui key (`sk-ant-...`) |
-| `AI_EFFORT` (optional) | `high` (default). Lambe judgments beech mein kat jayein to `medium` |
+| `AI_EFFORT` (optional) | `high` (default). Har judgment par "Continue" dabana pare to `medium` |
 | `AI_MODEL_COMPLEX` (optional) | default `claude-opus-5-5` |
+| `AI_TIME_LIMIT_SECONDS` (optional) | `140` (default, Free plan). Paid plan par `390` |
 
-> Supabase Free plan par ek function zyada se zyada 150 second chal sakta hai
-> (paid plan par 400 second). Bohat lamba judgment beech mein kat jaye to
-> `AI_EFFORT` ko `medium` karein ya paid plan lein.
+### Time limit (150 second)
+
+Supabase Free plan par ek function zyada se zyada 150 second chal sakta hai
+(paid plan par 400 second). Is se kaam zaye nahi hota:
+
+- **Draft / judgment:** function 140 second par khud ruk jata hai aur jitna likha
+  ja chuka hai woh page par reh jata hai. Message aata hai aur **Continue** button
+  dikhta hai; dabane par Claude wahin se aage likhta hai (aakhri adhoori line dobara
+  likhi jati hai taake koi lafz na toote). Internet toot jaye ya **Stop** dabayein,
+  tab bhi Continue milta hai.
+- **Read record:** agar bohat si tasveerein ek dafa mein na parhi ja sakein, jo
+  parhi ja chuki hain woh mehfooz rehti hain; dobara **Read record** dabane par
+  baqi tasveerein chhote groups mein parhi jati hain.
+- Draft khud save nahi hota: kaam mukammal ho jaye to **Save** dabayein. Continue
+  sirf usi waqt tak kaam karta hai jab tak page band ya refresh na ho.
 
 ### 4. Login settings
 

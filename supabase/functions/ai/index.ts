@@ -9,8 +9,10 @@
 //   AI_MODEL_COMPLEX    optional, default claude-opus-5-5 (reading the record, drafting)
 //   AI_MODEL_DEFAULT    optional, default = AI_MODEL_COMPLEX (sorting samples)
 //   AI_EFFORT           optional, default high: low | medium | high | xhigh | max
-//                       (on the Supabase Free plan a function may run 150 s at most; if long
-//                        judgments get cut off, set medium or move to a paid plan, which allows 400 s)
+//   AI_TIME_LIMIT_SECONDS optional, default 140. Supabase stops a function after 150 s on the Free
+//                       plan (400 s on paid plans). The function ends Claude's answer itself a little
+//                       before that, so the part already written reaches the app, which can then ask
+//                       Claude to continue from there. On a paid plan set it to 390.
 //   SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY are set by Supabase itself.
 //
 // Request (POST, JSON):
@@ -18,8 +20,9 @@
 //     stream?: boolean, max_tokens?: number }
 // Response:
 //   mode "text" (stream)  → text/event-stream, lines `data: {"text": "..."}`, then `data: {"done": true, ...}`
+//                           (stop_reason "time_limit" when the time limit ended it early)
 //                           or `data: {"error": {"code", "message"}}`
-//   mode "json" / no stream → { text, truncated, stop_reason, model }
+//   mode "json" / no stream → { text, truncated, stop_reason, model }; 504 { code: "time_limit" } when too slow
 //   errors → { code, message } with an HTTP error status
 
 import Anthropic from "npm:@anthropic-ai/sdk@1";
@@ -34,6 +37,8 @@ const MODEL_DEFAULT = Deno.env.get("AI_MODEL_DEFAULT") || MODEL_COMPLEX;
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 type Effort = typeof EFFORTS[number];
 const EFFORT_COMPLEX: Effort = (EFFORTS as readonly string[]).includes(Deno.env.get("AI_EFFORT") ?? "") ? Deno.env.get("AI_EFFORT") as Effort : "high";
+
+const TIME_LIMIT_MS = Math.max(30, Number(Deno.env.get("AI_TIME_LIMIT_SECONDS")) || 140) * 1000;
 
 const MAX_IMAGES = 10;
 const MAX_IMAGE_B64 = 7_000_000;      // ~5 MB per picture after base64
@@ -81,6 +86,9 @@ function mapError(e: unknown): { status: number; body: ErrBody } {
 }
 
 Deno.serve(async (req: Request) => {
+  const startedAt = Date.now();
+  // Time left before our own limit; at least 1 s so the timer always fires after the stream starts
+  const timeLeft = () => Math.max(1000, TIME_LIMIT_MS - (Date.now() - startedAt));
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { code: "bad_request", message: "POST only" });
   if (!ANTHROPIC_API_KEY) {
@@ -166,16 +174,26 @@ Deno.serve(async (req: Request) => {
     final.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text").map((b) => b.text).join("");
 
   // 4a. One answer (JSON mode). Streaming is used internally so long answers never hit HTTP timeouts.
+  //     A JSON answer is useless when cut short, so at the time limit it returns a clear error instead.
   if (!wantStream) {
+    let timedOut = false;
+    const stream = client.beta.messages.stream(params, { signal: req.signal });
+    const guard = setTimeout(() => { timedOut = true; stream.abort(); }, timeLeft());
     try {
-      const stream = client.beta.messages.stream(params, { signal: req.signal });
       const final = await stream.finalMessage();
       await logUsage(final);
       if (final.stop_reason === "refusal") return json(422, { code: "refused", message: "Claude declined this request." });
       return json(200, { text: textOf(final), truncated: final.stop_reason === "max_tokens", stop_reason: final.stop_reason, model: final.model });
     } catch (e) {
+      if (timedOut) {
+        const partial = stream.currentMessage;
+        if (partial) await logUsage(partial);
+        return json(504, { code: "time_limit", message: "This took longer than the server allows." });
+      }
       const m = mapError(e);
       return json(m.status, m.body);
+    } finally {
+      clearTimeout(guard);
     }
   }
 
@@ -187,8 +205,12 @@ Deno.serve(async (req: Request) => {
         try { controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`)); } catch { /* client gone */ }
       };
       const ping = setInterval(() => send({ ping: true }), 10_000);
+      // End the answer ourselves just before Supabase would kill the function, so the text
+      // written so far is delivered with a clear "time_limit" marker and the app can continue it.
+      let timedOut = false;
+      const stream = client.beta.messages.stream(params, { signal: req.signal });
+      const guard = setTimeout(() => { timedOut = true; stream.abort(); }, timeLeft());
       try {
-        const stream = client.beta.messages.stream(params, { signal: req.signal });
         for await (const event of stream) {
           if (event.type === "content_block_delta" && event.delta.type === "text_delta") send({ text: event.delta.text });
         }
@@ -197,9 +219,16 @@ Deno.serve(async (req: Request) => {
         if (final.stop_reason === "refusal") send({ error: { code: "refused", message: "Claude declined this request." } });
         else send({ done: true, truncated: final.stop_reason === "max_tokens", stop_reason: final.stop_reason, model: final.model });
       } catch (e) {
-        const m = mapError(e);
-        send({ error: m.body });
+        if (timedOut) {
+          const partial = stream.currentMessage;
+          if (partial) await logUsage(partial);
+          send({ done: true, truncated: true, stop_reason: "time_limit" });
+        } else {
+          const m = mapError(e);
+          send({ error: m.body });
+        }
       } finally {
+        clearTimeout(guard);
         clearInterval(ping);
         try { controller.close(); } catch { /* already closed */ }
       }

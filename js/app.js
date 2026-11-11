@@ -355,6 +355,7 @@ $("#railOpen").addEventListener("click", () => { setRail(true); $("#railClose").
 /* ---------- Navigation ---------- */
 const stash = {};
 let drafting = false, reading = false;
+let readBatch = 0;   // pictures per "Read record" request; halved after the server time limit is reached
 function show(v) {
   if (!SECTIONS[v] && !["history", "samples", "settings", "team"].includes(v)) v = "order";
   view = v;
@@ -469,7 +470,11 @@ $("#f_subtype").addEventListener("change", e => {
 $("#f_stage").addEventListener("change", e => { current.stage = e.target.value; refreshMissing(); renderThumbs(); });
 $("#f_decision").addEventListener("input", e => { current.f.decision = e.target.value; });
 
-function renderReady() { $("#readBtn").disabled = !sample || reading; $("#draftBtn").disabled = !sample || drafting; renderSamplesBusy(); }
+function renderReady() {
+  $("#readBtn").disabled = !sample || reading; $("#draftBtn").disabled = !sample || drafting;
+  $("#contBtn").hidden = drafting || !current?.cont; $("#contBtn").disabled = !sample;
+  renderSamplesBusy();
+}
 
 function renderSummary() {
   $("#flagsWrap").hidden = !current.flags.length;
@@ -723,7 +728,8 @@ function errText(e) {
   const m = { not_granted: "Permission to use Claude was not given.", rate_limited: "Too many requests, or the usage limit was reached. Please try again a little later.", image_rejected: "A picture could not be used. Please try a different picture.", prompt_too_large: "The record is too long. Try fewer pictures or shorter notes.", invalid_json: "Claude's reply could not be read. Please try again.", refused: "Claude declined this request.", session_expired: "Please sign in again.", cancelled: "Stopped.",
     not_granted: "You are not in a team, so Claude cannot be used.", no_key: "The AI key is not set up yet. The team admin must add ANTHROPIC_API_KEY to the Supabase Edge Function secrets.",
     network: "Could not reach the AI service. Check your internet connection and try again.", server: "The AI service had a problem. Please try again.",
-    ai_error: "The AI service returned an error. Please try again.", bad_request: "The request could not be processed. Please try again." };
+    ai_error: "The AI service returned an error. Please try again.", bad_request: "The request could not be processed. Please try again.",
+    time_limit: "This took longer than the server allows." };
   return m[e?.code] || (e?.message ? "Something went wrong: " + e.message : "Something went wrong. Please try again.");
 }
 
@@ -764,11 +770,14 @@ ${askRule}`, { modelTier: "complex", cache: false });
   const present = new Set(), needed = new Map();
   reading = true; let failed = null;
   const btn = $("#readBtn"); btn.disabled = true; btn.innerHTML = `<span class="spin" aria-hidden="true"></span>Reading`;
-  const batches = []; for (let i = 0; i < ordered.length; i += imgMax) batches.push(ordered.slice(i, i + imgMax));
+  const size = Math.min(readBatch || imgMax, imgMax);
+  const batches = []; for (let i = 0; i < ordered.length; i += size) batches.push(ordered.slice(i, i + size));
+  let lastBatch = 0;   // pictures in the request that was running when something failed
   const merged = { summary: [], fields: {}, notes: [], points: [], flags: [] };
   try {
     try {
     for (let b = 0; b < batches.length; b++) {
+      lastBatch = batches[b].length;
       if (current === c) status("#readStatus", `Reading the record${batches.length > 1 ? ` (part ${b + 1} of ${batches.length})` : ""}... this can take a minute or two.`);
       const prompt = `You are a court stenographer's assistant in Rahim Yar Khan, Punjab, Pakistan. The attached images are pages from a court file (plaint, written statement, applications, replies, issues, witness statements with cross-examination, exhibits, FIR, order sheets). Many are handwritten Urdu. Read them very carefully. Never invent names, dates or amounts; if a word is unreadable write "____".
 Task context: section "${S.label}", type "${current.subtype}"${current.stage ? `, stage "${current.stage}"` : ""}, court: ${courtName(current.courtKind)}.
@@ -809,7 +818,13 @@ ${askRule}
     if (failed) {
       // Keep what was read before the failure; the pages not yet read stay marked for the next try.
       c.found = [...new Set([...(c.found || []), ...[...present].filter(k => keys.includes(k))])];
-      if (current === c) { renderWork(); status("#readStatus", errText(failed) + (images.some(im => im.read) ? " The pages already read were kept; press Read record to read the rest." : ""), true); }
+      // Too many pages for one request within the server's time limit: read the rest in smaller groups.
+      const timeUp = failed?.code === "time_limit";
+      if (timeUp) readBatch = Math.max(1, Math.ceil(lastBatch / 2));
+      const kept = images.some(im => im.read) ? " The pages already read were kept." : "";
+      const next = timeUp ? (lastBatch > 1 ? " Press Read record again: the remaining pages will now be read in smaller groups." : " Try a clearer picture of that page, or remove it and write what it says in the instructions.")
+        : (kept ? " Press Read record to read the rest." : "");
+      if (current === c) { renderWork(); status("#readStatus", errText(failed) + kept + next, true); }
       return;
     }
     c.found = [...new Set([...(c.found || []), ...[...present].filter(k => keys.includes(k))])];
@@ -955,41 +970,90 @@ $("#draftBtn").addEventListener("click", async () => {
   const shortened = !isOrder && (current.notes || current.summary || "").length > notesCap;
   const ex = samplesBlock(pickSamples(), Math.min(100000, PROMPT_LIMIT - bytes(base) - 2000));
   const prompt = isOrder ? orderPrompt(ex) : draftPrompt(ex, notesCap);
+  const c = current;
+  c.cont = null;
+  runDraft(c, { prompt, isOrder, shortened, images: isOrder ? images.slice(-imgMax).map(x => x.file) : null });
+});
+$("#contBtn").addEventListener("click", () => {
+  const c = current;
+  if (!sample || drafting || !c?.cont) return;
+  runDraft(c, c.cont, c.raw || "");
+});
+
+/* An unfinished answer (time limit, dropped connection, Stop, or too long for one answer) is kept, and
+   "Continue" asks Claude to write the rest. Only complete lines are kept: the unfinished last line is
+   written again, so a word is never joined in the middle. */
+function keptLines(sofar) {
+  const t = String(sofar || ""), cut = t.lastIndexOf("\n");
+  return cut > 0 ? t.slice(0, cut + 1) : "";
+}
+function continuePrompt(prompt, base) {
+  return `${prompt}
+
+=====
+YOUR ANSWER SO FAR: the answer below was cut off before it was finished (a time limit, not a mistake). Every line of it is final and stays exactly as it is.
+<<<ANSWER SO FAR>>>
+${base}<<<END OF ANSWER SO FAR>>>
+
+Continue the answer with the line that comes next, as if there had been no interruption. Do not repeat anything already written, do not start again, and add no commentary. Output only the continuation, keeping the OUTPUT format above (including the ===NOTES=== or ===TITLE=== part at the end if it has not been written yet).`;
+}
+
+/* Runs one drafting request and shows the text as it arrives. `sofar` is the raw text of an earlier,
+   unfinished attempt; the new text is added after its complete lines. */
+async function runDraft(c, job, sofar = "") {
+  const isOrder = job.isOrder, base = sofar ? keptLines(sofar) : "";
+  drafting = true;
   ctl = new AbortController();
   // Show that work is going on: a spinner on the button, shimmering lines on the page and a running count of seconds.
-  const c = current, mine = () => current === c, t0 = Date.now();
-  let phase = isOrder ? "Reading the previous order" : "Reading the record", gotText = false;
+  const mine = () => current === c, t0 = Date.now();
+  let phase = base ? "Continuing" : isOrder ? "Reading the previous order" : "Reading the record", gotText = false;
   const tick = () => { if (mine()) status("#draftStatus", `${phase}... ${Math.round((Date.now() - t0) / 1000)}s`); };
-  setDraftBusy(true); tick();
+  setDraftBusy(true);
+  if (base) setSheet(parseOut(base).doc);
+  tick();
   const timer = setInterval(tick, 1000);
   const onText = ({ text }) => {
-    const doc = parseOut(text).doc;
+    const doc = parseOut(base + text).doc;
     if (!doc) return;
-    if (!gotText) { gotText = true; phase = isOrder ? "Writing the order" : "Writing the draft"; tick(); }
+    if (!gotText) { gotText = true; phase = base ? "Continuing the draft" : isOrder ? "Writing the order" : "Writing the draft"; tick(); }
     if (mine()) setSheet(doc);
   };
+  // Keep the text; an unfinished one can be continued.
+  const finish = (raw, unfinished) => {
+    const out = parseOut(raw);
+    c.raw = raw; c.draft = out.doc; c.draftNotes = isOrder ? "" : out.notes;
+    if (isOrder && out.title && !c.f.title) c.f.title = out.title;
+    c.cont = unfinished && raw.trim() ? job : null;
+  };
+  const KEPT = " The part written so far is kept: press Continue to write the rest.";
   try {
     const opts = { signal: ctl.signal, onText, modelTier: "complex", cache: false };
-    if (isOrder) opts.images = images.slice(-imgMax).map(x => x.file);
-    const { text, truncated } = await sample(prompt, opts);
+    if (job.images) opts.images = job.images;
+    const { text, truncated, stopReason } = await sample(base ? continuePrompt(job.prompt, base) : job.prompt, opts);
     clearInterval(timer);
-    const out = parseOut(text);
-    c.draft = out.doc; c.draftNotes = isOrder ? "" : out.notes;
-    if (isOrder && out.title && !c.f.title) c.f.title = out.title;
+    finish(base + text.replace(/^\n+/, ""), truncated);
     if (mine()) {
       setSheet(c.draft);
       $("#draftNotesWrap").hidden = !c.draftNotes; $("#draftNotes").textContent = c.draftNotes;
-      status("#draftStatus", truncated ? "The draft was cut short. Shorten the record notes and generate again." : (isOrder ? "Order ready. Check it and save." : shortened ? "Draft ready. The record notes were very long, so only their first part was used. Check it and save." : "Draft ready. Check it and save."), truncated, !truncated);
+      const msg = stopReason === "time_limit" ? "The server's time limit was reached before the draft was finished." + KEPT
+        : truncated ? "The draft is longer than one answer allows." + KEPT
+        : isOrder ? "Order ready. Check it and save."
+        : job.shortened ? "Draft ready. The record notes were very long, so only their first part was used. Check it and save."
+        : "Draft ready. Check it and save.";
+      status("#draftStatus", msg, truncated, !truncated);
     }
   } catch (e) {
     clearInterval(timer);
-    if (e?.text) c.draft = parseOut(e.text).doc;
-    if (mine()) { setSheet(c.draft); status("#draftStatus", errText(e), e?.code !== "cancelled"); }
+    const partial = base + String(e?.text || "").replace(/^\n+/, "");
+    if (e?.code === "refused") c.cont = null;          // asking again would be declined again
+    else if (partial.trim()) finish(partial, true);
+    if (mine()) { setSheet(c.draft); status("#draftStatus", errText(e) + (c.cont ? KEPT : ""), e?.code !== "cancelled"); }
   } finally { clearInterval(timer); drafting = false; setDraftBusy(false); }
-});
+}
 function setDraftBusy(on) {
   const btn = $("#draftBtn"), sheet = $("#sheet"), isOrder = current.section === "order";
   $("#stopBtn").hidden = !on;
+  if (on) $("#contBtn").hidden = true;
   sheet.contentEditable = on ? "false" : "true";
   if (on) {
     btn.disabled = true;
@@ -1054,7 +1118,7 @@ function sheetText() {
   try { return c.innerText.replace(/\u00a0/g, " ").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim(); }
   finally { c.remove(); }
 }
-$("#sheet").addEventListener("input", () => { current.draft = sheetText(); });
+$("#sheet").addEventListener("input", () => { current.draft = sheetText(); if (current.cont) current.raw = current.draft + "\n"; });
 
 $("#copyBtn").addEventListener("click", async () => {
   const txt = $("#sheet").innerText;
