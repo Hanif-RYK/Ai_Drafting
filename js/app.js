@@ -723,13 +723,16 @@ ${learnedFor("order", examples)}
 ${limits.length ? "Before answering, check the order against the STRICT LIMITS and remove anything they forbid.\n\n" : ""}OUTPUT: only today's order, ready to write in the order sheet, ending with "Announced:" and today's date (${day}) on the line below it, and then the Judge's name and designation lines as written under the previous order (if none is visible, end with "${settings.judge}"). The Judge signs the printout by hand, so never write "[Signature]", "Sd/-", "(signed)", "[Stamp]" or anything about a stamp, seal or handwritten signature you see in the picture. No commentary. Then a line with exactly ===TITLE=== and after it the case title as written on the order sheet (e.g. "Hina Ehsan VS. Muhammad Aslam etc."), or nothing if it is not visible.`;
 }
 
-/* ---------- Claude calls ---------- */
+/* ---------- AI calls ---------- */
 function errText(e) {
-  const m = { not_granted: "Permission to use Claude was not given.", rate_limited: "Too many requests, or the usage limit was reached. Please try again a little later.", image_rejected: "A picture could not be used. Please try a different picture.", prompt_too_large: "The record is too long. Try fewer pictures or shorter notes.", invalid_json: "Claude's reply could not be read. Please try again.", refused: "Claude declined this request.", session_expired: "Please sign in again.", cancelled: "Stopped.",
-    not_granted: "You are not in a team, so Claude cannot be used.", no_key: "The AI key is not set up yet. The team admin must add ANTHROPIC_API_KEY to the Supabase Edge Function secrets.",
+  const m = { rate_limited: "Too many requests, or the usage limit was reached. Please try again a little later.", image_rejected: "A picture could not be used. Please try a different picture.", prompt_too_large: "The record is too long. Try fewer pictures or shorter notes.", invalid_json: "The AI's reply could not be read. Please try again.", refused: "The AI declined this request.", session_expired: "Please sign in again.", cancelled: "Stopped.",
+    not_granted: "You are not in a team, so the AI cannot be used.", no_key: "The AI key is missing or wrong. The team admin must check it in the Supabase Edge Function secrets.",
+    no_model: "The AI model is not available. The team admin must check GEMINI_MODEL / AI_MODEL_COMPLEX in the Supabase Edge Function secrets.",
     network: "Could not reach the AI service. Check your internet connection and try again.", server: "The AI service had a problem. Please try again.",
     ai_error: "The AI service returned an error. Please try again.", bad_request: "The request could not be processed. Please try again.",
     time_limit: "This took longer than the server allows." };
+  // For setup problems the server's own words say exactly what is missing
+  if (m[e?.code] && ["no_key", "no_model"].includes(e.code) && e.message) return m[e.code] + " (" + e.message + ")";
   return m[e?.code] || (e?.message ? "Something went wrong: " + e.message : "Something went wrong. Please try again.");
 }
 
@@ -1312,7 +1315,7 @@ ${part.map((d, j) => `#${j + 1} (file: ${d.title})\n${d.text.slice(0, 1500)}`).j
 /* Studying: the app keeps short "court knowledge" notes per section, updated from every batch of samples */
 function studyPrompt(sec, notes, batch) {
   const S = SECTIONS[sec];
-  return `You keep the "court knowledge" notes of a drafting app used by a court stenographer in ${settings.district}, Punjab, Pakistan, for ${settings.judge}. The notes teach Claude how this court writes ${S.label} documents (${S.desc}), so that new drafts come out right the first time.
+  return `You keep the "court knowledge" notes of a drafting app used by a court stenographer in ${settings.district}, Punjab, Pakistan, for ${settings.judge}. The notes teach the AI how this court writes ${S.label} documents (${S.desc}), so that new drafts come out right the first time.
 Update the notes using the NEW SAMPLES below. They are final versions of the Judge's own documents, corrected and completed by the stenographer. Capture what they show:
 - the structure of each kind of document and situation (e.g. ex-parte, contested, accepted, dismissed), with the headings in order;
 - standard sentences and legal formulae, quoted word for word;
@@ -1405,7 +1408,7 @@ async function addSampleFiles(fileList) {
     if (pics.length) {
       if (!sample) skipped.push(...pics.map(p => p.name));
       else {
-        sProg.step("read", `Reading ${pics.length > 1 ? `the ${pics.length} pictures` : "the picture"} with Claude`);
+        sProg.step("read", `Reading ${pics.length > 1 ? `the ${pics.length} pictures` : "the picture"} with the AI`);
         (await picturesText(pics)).forEach(text => docs.push({ title: baseName(pics[0].name), text, source: "pictures" }));
       }
     }
@@ -1539,7 +1542,7 @@ async function renderUsage() {
   try {
     const u = await teamApi.usageThisMonth();
     $("#usageLine").textContent = u.count
-      ? `${u.count} AI request${u.count === 1 ? "" : "s"} · ${fmtK(u.input)} input + ${fmtK(u.output)} output tokens`
+      ? `${u.count} AI request${u.count === 1 ? "" : "s"} · ${fmtK(u.input)} input + ${fmtK(u.output)} output tokens${u.model ? " · model: " + u.model : ""}`
       : "No AI requests yet this month.";
   } catch (e) { $("#usageLine").textContent = "Usage is not available right now."; }
 }

@@ -1,5 +1,6 @@
 // AI adapter: the same `sample` interface the Faisla Desk artifact used inside
-// claude.ai, now served by the Supabase Edge Function (supabase/functions/ai).
+// claude.ai, now served by the Supabase Edge Function (supabase/functions/ai),
+// which calls Gemini or Claude depending on its AI_PROVIDER secret.
 //
 //   sample(prompt, { images, signal, onText, modelTier })  -> { text, truncated }
 //   sample.json(prompt, { images, modelTier })              -> parsed object
@@ -55,7 +56,7 @@ async function downscale(file) {
   return out;
 }
 
-/* Claude is asked for "only one JSON object"; this tolerates code fences and stray text around it. */
+/* The AI is asked for "only one JSON object"; this tolerates code fences and stray text around it. */
 export function parseJson(raw) {
   const text = String(raw || "").replace(/```[a-z]*\n?|```/gi, "").trim();
   const candidates = [text];
@@ -66,7 +67,7 @@ export function parseJson(raw) {
   for (const c of candidates) {
     try { return JSON.parse(c); } catch { /* try the next shape */ }
   }
-  throw err("invalid_json", "Claude's reply could not be read.");
+  throw err("invalid_json", "The AI's reply could not be read.");
 }
 
 export function createSample(sb) {

@@ -2,8 +2,8 @@
 
 Court drafting desk: daily order sheet, framing of issues, orders on applications,
 judgments (civil, family, rent, guardian, succession) aur Magistrate Section-30 ka
-criminal kaam. Record ki tasveerein upload karein, app Claude se record parhwati hai
-aur Judge ke apne style mein draft likhti hai.
+criminal kaam. Record ki tasveerein upload karein, app AI (Google Gemini ya Anthropic
+Claude) se record parhwati hai aur Judge ke apne style mein draft likhti hai.
 
 Ek team (court) ke sab log ek hi data share karte hain: History (saved cases),
 Samples, Rules aur Settings.
@@ -27,7 +27,7 @@ file paste karein → **Run**.
 
 ### 2. AI function: `supabase/functions/ai/index.ts`
 
-Claude ki API key sirf server par rehti hai; browser ko kabhi nahi milti.
+AI ki key (Gemini ya Claude) sirf server par rehti hai; browser ko kabhi nahi milti.
 
 **Dashboard se (aasan):**
 1. Supabase Dashboard → **Edge Functions** → **Deploy a new function** → **Via Editor**.
@@ -40,16 +40,46 @@ npx supabase login
 npx supabase functions deploy ai --project-ref atnjolykwqgzouqvorfe
 ```
 
-### 3. API key (secret)
+### 3. AI key (secret): Gemini ya Claude
 
-Supabase Dashboard → **Edge Functions** → **Secrets** → Add:
+Supabase Dashboard → **Edge Functions** → **Secrets** → Add. Do mein se ek option chunein.
+
+**Option A: Google Gemini**
 
 | Name | Value |
 |---|---|
+| `AI_PROVIDER` | `gemini` |
+| `GEMINI_API_KEY` | aistudio.google.com → **Get API key** se li hui key (`AIza...`) |
+| `GEMINI_MODEL` (optional) | Khali chhor dein: function aap ki key ke liye dastiyab sab se naya **Pro** model khud chunta hai (Google model ke naam aksar badalta hai). Koi khaas model chahiye to us ka naam likhein, masalan `gemini-2.5-pro` |
+
+> **Zaroori (court records):** Google ki terms ke mutabiq free tier (billing ke
+> baghair) par bheja gaya data Google apni services behtar banane ke liye istemal
+> kar sakta hai aur log usay parh bhi sakte hain. Court ke records ke liye Google
+> AI Studio / Cloud mein **billing on** karein (paid tier par ye data is tarah
+> istemal nahi hota). Lagu hone se pehle Google ki maujooda terms ek dafa dekh lein.
+
+**Option B: Anthropic Claude**
+
+| Name | Value |
+|---|---|
+| `AI_PROVIDER` | `anthropic` |
 | `ANTHROPIC_API_KEY` | console.anthropic.com se li hui key (`sk-ant-...`) |
 | `AI_EFFORT` (optional) | `high` (default). Har judgment par "Continue" dabana pare to `medium` |
 | `AI_MODEL_COMPLEX` (optional) | default `claude-opus-5-5` |
-| `AI_TIME_LIMIT_SECONDS` (optional) | `140` (default, Free plan). Paid plan par `390` |
+
+`AI_PROVIDER` na likhein to jis ki key maujood ho woh istemal hota hai (dono hon to
+Claude). Baad mein provider badalna ho to `AI_PROVIDER` ki value badal dein (aur
+zaroori key add karein); naya setting foran na lage to function ko ek dafa dobara
+**Deploy** kar dein.
+
+**Dono ke liye (optional):**
+
+| Name | Value |
+|---|---|
+| `AI_TIME_LIMIT_SECONDS` | `140` (default, Free plan). Paid plan par `390` |
+
+Kaun sa model istemal ho raha hai, ye **Team** page par "AI usage this month" mein
+dikhta hai.
 
 ### Time limit (150 second)
 
@@ -58,7 +88,7 @@ Supabase Free plan par ek function zyada se zyada 150 second chal sakta hai
 
 - **Draft / judgment:** function 140 second par khud ruk jata hai aur jitna likha
   ja chuka hai woh page par reh jata hai. Message aata hai aur **Continue** button
-  dikhta hai; dabane par Claude wahin se aage likhta hai (aakhri adhoori line dobara
+  dikhta hai; dabane par AI wahin se aage likhta hai (aakhri adhoori line dobara
   likhi jati hai taake koi lafz na toote). Internet toot jaye ya **Stop** dabayein,
   tab bhi Continue milta hai.
 - **Read record:** agar bohat si tasveerein ek dafa mein na parhi ja sakein, jo
@@ -110,7 +140,7 @@ Case ya sample **delete** sirf woh kar sakta hai jis ne save kiya, ya admin.
 | `js/db.js` | Team ka data (`docs` table) + realtime updates |
 | `js/config.js` | Supabase URL aur public anon key |
 | `supabase/schema.sql` | Tables, RLS policies, team functions |
-| `supabase/functions/ai/index.ts` | Claude se baat karne wala server function |
+| `supabase/functions/ai/index.ts` | Gemini ya Claude se baat karne wala server function |
 | `sw.js`, `manifest.json`, `icon.svg` | Phone par app ki tarah install (PWA) |
 
 ## Data
