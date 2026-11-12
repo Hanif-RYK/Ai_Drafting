@@ -50,7 +50,20 @@ Supabase Dashboard → **Edge Functions** → **Secrets** → Add. Do mein se ek
 |---|---|
 | `AI_PROVIDER` | `gemini` |
 | `GEMINI_API_KEY` | aistudio.google.com → **Get API key** se li hui key (`AIza...`) |
-| `GEMINI_MODEL` (optional) | Khali chhor dein: function aap ki key ke liye dastiyab sab se naya **Pro** model khud chunta hai (Google model ke naam aksar badalta hai). Koi khaas model chahiye to us ka naam likhein, masalan `gemini-2.5-pro` |
+| `GEMINI_MODEL` (optional) | Khali chhor dein to function aap ki key ke liye dastiyab sab se naya Pro-darje ka model khud chunta hai (Google model ke naam aksar badalta hai). Free tier par Pro models aksar 429 (quota) dete hain; tab Flash model ka naam likhein, masalan `gemini-flash-latest` |
+
+**Gemini kitna soche (thinking):** har kaam ke saath app batati hai ke model kitna
+soche, aur function Google ki documentation ke mutabiq setting bhejta hai:
+
+| Kaam | Effort | Gemini 3 / 4 (`thinkingLevel`) | Gemini 2.5 (`thinkingBudget`) |
+|---|---|---|---|
+| Daily order, sawal check karna, samples ki tarteeb, tasveer se sample | low | `low` | 1024 |
+| Issues, Misc application, Criminal, Read record, samples ka mutala | medium | `medium` (jo model na le us par `low`) | 4096 |
+| Judgment | high | `high` | -1 (model khud tay kare) |
+
+Model ka naam `gemini-2.` se shuru ho to `thinkingBudget`, warna `thinkingLevel`
+bheja jata hai. Agar Google 400 de ke ye setting is model ke liye nahi, to function
+khud agli setting aazmata hai (Logs mein `google_error` aur naya `request` nazar aata hai).
 
 > **Zaroori (court records):** Google ki terms ke mutabiq free tier (billing ke
 > baghair) par bheja gaya data Google apni services behtar banane ke liye istemal
@@ -80,6 +93,20 @@ zaroori key add karein); naya setting foran na lage to function ko ek dafa dobar
 
 Kaun sa model istemal ho raha hai, ye **Team** page par "AI usage this month" mein
 dikhta hai.
+
+### Logs (masla dhoondne ke liye)
+
+Supabase Dashboard → **Edge Functions** → `ai` → **Logs**. Har request ki lines
+`[ai <id>]` se shuru hoti hain:
+
+- `request`: kaun sa model, thinking ki setting, tasveerein, prompt ki lambai
+- `google_error`: Google ka asal error paigham (429 quota samet) aur kitna rukne ko kaha
+- `done`: nateeja (`end`, `time_limit`, `no_answer`, `error`), `firstChunkSec` (Google
+  se pehla jawab kitne second mein aaya), `firstTextSec` (pehla lafz kitne second mein),
+  `finishReason`, `promptTokens`, `outputTokens`, `thoughtsTokens`
+
+Agar model 140 second mein ek lafz bhi na likhe (`no_answer`) to app saaf batati hai
+ke jawab shuru hi nahi hua; us surat mein Continue nahi aata kyunke likha hua kuch nahi.
 
 ### Time limit (150 second)
 

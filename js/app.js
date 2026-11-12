@@ -730,9 +730,11 @@ function errText(e) {
     no_model: "The AI model is not available. The team admin must check GEMINI_MODEL / AI_MODEL_COMPLEX in the Supabase Edge Function secrets.",
     network: "Could not reach the AI service. Check your internet connection and try again.", server: "The AI service had a problem. Please try again.",
     ai_error: "The AI service returned an error. Please try again.", bad_request: "The request could not be processed. Please try again.",
-    time_limit: "This took longer than the server allows." };
+    time_limit: "This took longer than the server allows.",
+    no_answer: "The AI did not start answering within the server's time limit, so nothing was written. Press the button again; if it keeps happening, the team admin can choose a faster model.",
+    empty_answer: "The AI finished without writing anything. Please try again." };
   // For setup problems the server's own words say exactly what is missing
-  if (m[e?.code] && ["no_key", "no_model"].includes(e.code) && e.message) return m[e.code] + " (" + e.message + ")";
+  if (m[e?.code] && ["no_key", "no_model", "rate_limited", "no_answer"].includes(e.code) && e.message) return m[e.code] + " (" + String(e.message).slice(0, 300) + ")";
   return m[e?.code] || (e?.message ? "Something went wrong: " + e.message : "Something went wrong. Please try again.");
 }
 
@@ -762,7 +764,7 @@ RECORD NOTES (already read from the file)
 ${(c.notes || c.summary).slice(0, 120000)}
 
 Reply with only one JSON object: {"questions": ["..."]}
-${askRule}`, { modelTier: "complex", cache: false });
+${askRule}`, { modelTier: "complex", cache: false, effort: "low" });
       addQuestions(r?.questions); c.needCheck = unanswered();
       if (current === c) { renderQuestions(); if (c.needCheck) { status("#readStatus", "One more thing is needed. Answer the new question below, then press Read record again.", true); $("#qWrap").scrollIntoView({ block: "center", behavior: "smooth" }); } else status("#readStatus", "Everything is clear. You can generate the draft.", false, true); }
     } catch (e) { status("#readStatus", errText(e), true); }
@@ -799,7 +801,7 @@ Reply with only one JSON object:
  "questions": ["..."]}
 ${askRule}
 "needed" holds only documents from the list that are NOT among these images and without which this ${S.label.toLowerCase()} cannot be written correctly, judging from the record itself and the type and stage (for example, do not ask for the defendant's evidence or a written statement when the record shows the defendant is ex-parte, and do not ask for evidence when the suit was conceded or compromised). Leave it empty when nothing necessary is missing.`;
-      const r = await sample.json(prompt, { images: batches[b].map(x => x.file), modelTier: "complex" });
+      const r = await sample.json(prompt, { images: batches[b].map(x => x.file), modelTier: "complex", effort: "medium" });
       if (r?.summary) merged.summary.push(r.summary);
       if (r?.notes) merged.notes.push(r.notes);
       for (const [k, v] of Object.entries(r?.fields || {})) if (v && !merged.fields[k]) merged.fields[k] = v;
@@ -822,7 +824,7 @@ ${askRule}
       // Keep what was read before the failure; the pages not yet read stay marked for the next try.
       c.found = [...new Set([...(c.found || []), ...[...present].filter(k => keys.includes(k))])];
       // Too many pages for one request within the server's time limit: read the rest in smaller groups.
-      const timeUp = failed?.code === "time_limit";
+      const timeUp = failed?.code === "time_limit" || failed?.code === "no_answer";
       if (timeUp) readBatch = Math.max(1, Math.ceil(lastBatch / 2));
       const kept = images.some(im => im.read) ? " The pages already read were kept." : "";
       const next = timeUp ? (lastBatch > 1 ? " Press Read record again: the remaining pages will now be read in smaller groups." : " Try a clearer picture of that page, or remove it and write what it says in the instructions.")
@@ -975,13 +977,17 @@ $("#draftBtn").addEventListener("click", async () => {
   const prompt = isOrder ? orderPrompt(ex) : draftPrompt(ex, notesCap);
   const c = current;
   c.cont = null;
-  runDraft(c, { prompt, isOrder, shortened, images: isOrder ? images.slice(-imgMax).map(x => x.file) : null });
+  runDraft(c, { prompt, isOrder, shortened, effort: draftEffort(c.section), images: isOrder ? images.slice(-imgMax).map(x => x.file) : null });
 });
 $("#contBtn").addEventListener("click", () => {
   const c = current;
   if (!sample || drafting || !c?.cont) return;
   runDraft(c, c.cont, c.raw || "");
 });
+
+/* How much the AI may think before it writes: a daily order is short and quick, a judgment needs the most
+   reasoning, and everything else sits in between. (Gemini uses this as its thinking level.) */
+function draftEffort(section) { return section === "order" ? "low" : section === "judgment" ? "high" : "medium"; }
 
 /* An unfinished answer (time limit, dropped connection, Stop, or too long for one answer) is kept, and
    "Continue" asks Claude to write the rest. Only complete lines are kept: the unfinished last line is
@@ -1030,7 +1036,7 @@ async function runDraft(c, job, sofar = "") {
   };
   const KEPT = " The part written so far is kept: press Continue to write the rest.";
   try {
-    const opts = { signal: ctl.signal, onText, modelTier: "complex", cache: false };
+    const opts = { signal: ctl.signal, onText, modelTier: "complex", cache: false, effort: job.effort || draftEffort(c.section) };
     if (job.images) opts.images = job.images;
     const { text, truncated, stopReason } = await sample(base ? continuePrompt(job.prompt, base) : job.prompt, opts);
     clearInterval(timer);
@@ -1270,7 +1276,7 @@ async function picturesText(pics) {
   const out = [];
   for (let i = 0; i < pics.length; i += imgMax) {
     const { text } = await sample(`These images are pages, in order, of one or more final court orders or judgments. Transcribe the full text exactly: keep the headings, paragraph numbering and line breaks, mark bold or underlined headings and party names with **double asterisks**, and keep Urdu portions in Urdu script. Do not write "[Signature]", "[Stamp]" or anything about signatures, stamps or seals.
-If the images hold more than one separate document (different cases, or several dated order-sheet entries each ending with its own "Announced" and Judge's name), put a line with exactly ===NEXT DOCUMENT=== between them. Pages of the same document stay together. Output only the transcription.`, { images: pics.slice(i, i + imgMax), modelTier: "complex" });
+If the images hold more than one separate document (different cases, or several dated order-sheet entries each ending with its own "Announced" and Judge's name), put a line with exactly ===NEXT DOCUMENT=== between them. Pages of the same document stay together. Output only the transcription.`, { images: pics.slice(i, i + imgMax), modelTier: "complex", effort: "low" });
     out.push(String(text || "").trim());
   }
   return out.join("\n").split(/^\s*=+\s*NEXT DOCUMENT\s*=+\s*$/m).map(t => stripSignMarks(t).trim()).filter(Boolean);
@@ -1305,7 +1311,7 @@ Reply with only JSON: {"items":[{"n":1,"section":"...","type":"...","stage":"...
 DOCUMENTS:
 ${part.map((d, j) => `#${j + 1} (file: ${d.title})\n${d.text.slice(0, 1500)}`).join("\n\n")}`;
     let items = [];
-    try { const r = await sample.json(prompt, { modelTier: "default" }); items = Array.isArray(r?.items) ? r.items : []; }
+    try { const r = await sample.json(prompt, { modelTier: "default", effort: "low" }); items = Array.isArray(r?.items) ? r.items : []; }
     catch (e) { if (["not_granted", "rate_limited", "session_expired"].includes(e?.code)) throw e; }
     part.forEach((d, j) => { const it = items.find(x => +x.n === j + 1) || {}; out.push({ ...validClass(fixedSec || it.section, it.type, it.stage, d.text), title: typeof it.title === "string" ? it.title.trim().slice(0, 90) : "" }); });
   }
@@ -1343,7 +1349,7 @@ async function studySamples(sec, list, fresh, onStep) {
   if (cur.length) batches.push(cur);
   for (let i = 0; i < batches.length; i++) {
     onStep?.(`Studying the ${SECTIONS[sec].label} samples${batches.length > 1 ? ` (part ${i + 1} of ${batches.length})` : ""}`);
-    const { text } = await sample(studyPrompt(sec, notes, batches[i]), { modelTier: "complex" });
+    const { text } = await sample(studyPrompt(sec, notes, batches[i]), { modelTier: "complex", effort: "medium" });
     if (text && text.trim().length > 50) notes = text.trim().slice(0, 20000);
     count += batches[i].length;
   }

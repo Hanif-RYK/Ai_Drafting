@@ -22,13 +22,20 @@
 //
 // Request (POST, JSON):
 //   { mode: "text" | "json", prompt, images?: [{ media_type, data }], tier?: "complex" | "default",
-//     stream?: boolean, max_tokens?: number }
+//     effort?: "low" | "medium" | "high", stream?: boolean, max_tokens?: number }
+//   `effort` says how much the model may think: low for a daily order, high for a judgment.
 // Response:
 //   mode "text" (stream)  → text/event-stream, lines `data: {"text": "..."}`, then `data: {"done": true, ...}`
-//                           (stop_reason "time_limit" when the time limit ended it early)
-//                           or `data: {"error": {"code", "message"}}`
-//   mode "json" / no stream → { text, truncated, stop_reason, model }; 504 { code: "time_limit" } when too slow
+//                           (stop_reason "time_limit" when the time limit ended it after some text)
+//                           or `data: {"error": {"code", "message"}}` (code "no_answer" when the time
+//                           limit came before the model wrote anything)
+//   mode "json" / no stream → { text, truncated, stop_reason, model }; 504 { code: "time_limit" | "no_answer" }
 //   errors → { code, message } with an HTTP error status
+//
+// Every request writes lines starting with "[ai <id>]" to the function's Logs (Supabase Dashboard →
+// Edge Functions → ai → Logs): the model and thinking setting used, the AI provider's own error
+// message, and a final "done" line with the seconds to the first chunk and the first text,
+// finishReason, prompt / output / thinking tokens and how the request ended.
 
 import Anthropic from "npm:@anthropic-ai/sdk@1";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -71,8 +78,17 @@ const CORS: Record<string, string> = {
 
 type ErrBody = { code: string; message: string };
 type Stop = "end" | "max_tokens" | "refusal" | "incomplete";
-type Meter = { model: string; input: number; output: number; cache: number };
-type Job = { mode: "text" | "json"; prompt: string; images: { media_type: string; data: string }[]; tier: "complex" | "default"; maxTokens: number };
+type TaskEffort = "low" | "medium" | "high";
+type Job = {
+  mode: "text" | "json"; prompt: string; images: { media_type: string; data: string }[];
+  tier: "complex" | "default"; effort: TaskEffort; maxTokens: number;
+};
+/** What happened during one request; filled in as the answer arrives, written to the Logs at the end. */
+type Meter = {
+  model: string; input: number; output: number; cache: number; thoughts: number;
+  finish: string; thinking: string; chars: number; firstChunkMs: number | null; firstTextMs: number | null;
+};
+type Log = (event: string, data: Record<string, unknown>) => void;
 
 /** An error with the short code the app shows to the user. */
 class AiError extends Error {
@@ -82,6 +98,7 @@ class AiError extends Error {
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 }
+const secs = (ms: number | null) => (ms == null ? null : Math.round(ms / 100) / 10);
 
 // Turns provider / runtime errors into the short codes the app shows to the user.
 function mapError(e: unknown): { status: number; body: ErrBody } {
@@ -115,7 +132,8 @@ function mapError(e: unknown): { status: number; body: ErrBody } {
 
 let claude: Anthropic | null = null;
 
-async function runClaude(job: Job, onText: (t: string) => void, signal: AbortSignal, meter: Meter): Promise<Stop> {
+async function runClaude(job: Job, onText: (t: string) => void, signal: AbortSignal, meter: Meter, log: Log,
+                         sinceStart: () => number): Promise<Stop> {
   claude ??= new Anthropic({ apiKey: ANTHROPIC_API_KEY, maxRetries: 2 });
   const content: Anthropic.Beta.BetaContentBlockParam[] = [
     ...job.images.map((im) => ({
@@ -126,18 +144,22 @@ async function runClaude(job: Job, onText: (t: string) => void, signal: AbortSig
   ];
   // Thinking is adaptive (always on for Opus 5.5); effort steers depth.
   // Server-side refusal fallback ("default") re-runs a declined request on another model.
+  const effort = job.tier === "complex" ? EFFORT_COMPLEX : "medium";
   const params: Anthropic.Beta.MessageCreateParamsNonStreaming = {
     model: job.tier === "complex" ? MODEL_COMPLEX : MODEL_DEFAULT,
     max_tokens: job.maxTokens,
     messages: [{ role: "user", content }],
     thinking: { type: "adaptive" },
-    output_config: { effort: job.tier === "complex" ? EFFORT_COMPLEX : "medium" },
+    output_config: { effort },
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
   };
   meter.model = params.model;
+  meter.thinking = "adaptive, effort " + effort;
+  log("request", { provider: "anthropic", model: params.model, mode: job.mode, effort, images: job.images.length, promptChars: job.prompt.length });
   const stream = claude.beta.messages.stream(params, { signal });
   for await (const event of stream) {
+    if (meter.firstChunkMs == null) meter.firstChunkMs = sinceStart();
     if (event.type === "message_start") {
       meter.model = event.message.model;
       meter.input = event.message.usage?.input_tokens ?? meter.input;
@@ -153,16 +175,18 @@ async function runClaude(job: Job, onText: (t: string) => void, signal: AbortSig
   meter.input = final.usage?.input_tokens ?? meter.input;
   meter.output = final.usage?.output_tokens ?? meter.output;
   meter.cache = final.usage?.cache_read_input_tokens ?? meter.cache;
+  meter.finish = String(final.stop_reason ?? "");
   return final.stop_reason === "refusal" ? "refusal" : final.stop_reason === "max_tokens" ? "max_tokens" : "end";
 }
 
 /* ======================= Google Gemini ======================= */
 
-let geminiModelCache = "";
+let geminiPicked = "";
+const geminiOutputLimit = new Map<string, number>();   // model name -> outputTokenLimit from Google
 
-/** Picks the best text model from the key's model list: the newest Pro (a stable one before a
- *  preview of the same version), else the newest Flash. If a picked preview is withdrawn later,
- *  the 404 makes the function pick again. Exported for tests. */
+/** Picks the best text model from the key's model list: the newest Pro-class model (a stable one
+ *  before a preview of the same version), else the newest Flash. If a picked preview is withdrawn
+ *  later, the 404 makes the function pick again. Exported for tests. */
 export function pickGeminiModel(names: string[]): string {
   const skip = /(tts|image|embed|live|audio|aqa|robotics|computer-use|nano|veo|imagen|learnlm|gemma|native|dialog|exp)/i;
   const usable = names.filter((n) => /^gemini-/i.test(n) && !skip.test(n));
@@ -170,7 +194,8 @@ export function pickGeminiModel(names: string[]): string {
   const info = (n: string) => {
     const m = n.match(/^gemini-(\d+)(?:\.(\d+))?/i);
     const version = m ? Number(m[1]) * 100 + Number(m[2] ?? 0) : 0;
-    const tier = /-pro\b/i.test(n) ? 3 : /flash-lite/i.test(n) ? 1 : /flash/i.test(n) ? 2 : 0;
+    // Gemini 4 names have no "pro" / "flash": Carbon is the deeper thinker, Argon the lighter one.
+    const tier = /-(pro|carbon)\b/i.test(n) ? 3 : /flash-lite/i.test(n) ? 1 : /-(flash|argon)\b/i.test(n) ? 2 : 0;
     const stable = /preview|latest/i.test(n) ? 0 : 1;
     const dated = /-\d{2}-\d{2}$|-\d{3,}$/.test(n) ? 0 : 1;   // "gemini-x-pro" before "gemini-x-pro-06-05"
     return { tier, stable, version, dated };
@@ -183,49 +208,107 @@ export function pickGeminiModel(names: string[]): string {
   return usable.includes("gemini-flash-latest") ? "gemini-flash-latest" : "";
 }
 
-async function geminiError(res: Response): Promise<AiError> {
-  let msg = "", details = "";
-  try {
-    const j = await res.json();
-    msg = String(j?.error?.message ?? "");
-    details = JSON.stringify(j?.error?.details ?? "") + String(j?.error?.status ?? "");
-  } catch { /* no JSON body */ }
-  const all = msg + " " + details;
-  if (/API_KEY_INVALID|API key not valid|API_KEY_/i.test(all) || res.status === 401) {
-    return new AiError(500, "no_key", "The Gemini key saved in the Edge Function secrets is wrong. " + msg);
-  }
-  if (res.status === 403) return new AiError(500, "no_key", "The Gemini key is not allowed to use this API. " + msg);
-  if (res.status === 429) return new AiError(429, "rate_limited", msg || "Too many requests to Gemini.");
-  if (res.status === 404) return new AiError(502, "no_model", "This Gemini model is not available: " + msg);
-  if (res.status === 400 && /image|inline|mime/i.test(msg)) return new AiError(400, "image_rejected", msg);
-  if (res.status === 400 && /token|too long|exceed|size/i.test(msg)) return new AiError(413, "prompt_too_large", msg);
-  if (res.status === 400) return new AiError(400, "bad_request", msg);
-  return new AiError(502, "ai_error", msg || `Gemini error ${res.status}`);
+/* Thinking settings, from Google's Gemini documentation (google-gemini/cookbook, "Get started
+   thinking", November 2026):
+   - Gemini 3 and Gemini 4 models take generationConfig.thinkingConfig.thinkingLevel:
+     "low", "medium" or "high" ("high" is the default on Gemini 3, "medium" on Gemini 4).
+     Gemini 4 rejects thinkingBudget with a 400.
+   - Gemini 2.5 models take thinkingBudget (tokens): about 1024 is "low", 4096–8192 "medium",
+     -1 lets the model decide ("dynamic", like "high"). Pro models cannot turn thinking off.
+   An unknown or alias name ("gemini-flash-latest") starts with thinkingLevel; if Google answers
+   400 about thinking, the next setting in nextThinking() is tried. */
+type Thinking = { thinkingLevel: TaskEffort } | { thinkingBudget: number } | null;
+const THINKING_BUDGET: Record<TaskEffort, number> = { low: 1024, medium: 4096, high: -1 };
+export function firstThinking(model: string, effort: TaskEffort): Thinking {
+  if (/^gemini-(1|2)\./i.test(model)) return { thinkingBudget: THINKING_BUDGET[effort] };
+  return { thinkingLevel: effort };
+}
+/** The setting to try after Google rejected `t` (400 about thinking); undefined = nothing left. */
+export function nextThinking(t: Thinking, effort: TaskEffort): Thinking | undefined {
+  if (t && "thinkingLevel" in t) return t.thinkingLevel === "medium" ? { thinkingLevel: "low" } : { thinkingBudget: THINKING_BUDGET[effort] };
+  if (t && "thinkingBudget" in t) return null;   // no thinking setting at all: the model's default
+  return undefined;
 }
 
-async function geminiModel(signal: AbortSignal): Promise<string> {
-  if (GEMINI_MODEL) return GEMINI_MODEL;
-  if (geminiModelCache) return geminiModelCache;
-  const names: string[] = [];
-  let pageToken = "";
-  for (let page = 0; page < 5; page++) {
-    const url = `${GEMINI_BASE}/v1beta/models?pageSize=1000${pageToken ? "&pageToken=" + encodeURIComponent(pageToken) : ""}`;
-    const res = await fetch(url, { headers: { "x-goog-api-key": GEMINI_API_KEY }, signal });
-    if (!res.ok) throw await geminiError(res);
-    const j = await res.json();
-    for (const m of j?.models ?? []) {
-      const methods: string[] = m?.supportedGenerationMethods ?? [];
-      if (methods.includes("generateContent")) names.push(String(m.name ?? "").replace(/^models\//, ""));
+type GoogleError = { httpStatus: number; status: string; message: string; details: string; retrySec: number | null };
+
+async function readGeminiError(res: Response): Promise<GoogleError> {
+  const raw = await res.text().catch(() => "");
+  let status = "", message = raw.slice(0, 500), details = "", retrySec: number | null = null;
+  try {
+    const j = JSON.parse(raw);
+    status = String(j?.error?.status ?? "");
+    message = String(j?.error?.message ?? message);
+    const d = Array.isArray(j?.error?.details) ? j.error.details : [];
+    details = JSON.stringify(d).slice(0, 1500);
+    // RetryInfo: how long Google asks us to wait, e.g. "37s"
+    const r = d.find((x: Record<string, unknown>) => String(x?.["@type"] ?? "").endsWith("RetryInfo"));
+    if (r?.retryDelay) retrySec = parseFloat(String(r.retryDelay));
+  } catch { /* not JSON */ }
+  return { httpStatus: res.status, status, message, details, retrySec };
+}
+
+function geminiAiError(g: GoogleError): AiError {
+  const all = g.message + " " + g.details + " " + g.status;
+  if (/API_KEY_INVALID|API key not valid|API_KEY_/i.test(all) || g.httpStatus === 401) {
+    return new AiError(500, "no_key", "The Gemini key saved in the Edge Function secrets is wrong. " + g.message);
+  }
+  if (g.httpStatus === 403) return new AiError(500, "no_key", "The Gemini key is not allowed to use this API. " + g.message);
+  if (g.httpStatus === 429) return new AiError(429, "rate_limited", g.message || "Too many requests to Gemini.");
+  if (g.httpStatus === 404) return new AiError(502, "no_model", "This Gemini model is not available: " + g.message);
+  if (g.httpStatus === 400 && /image|inline|mime/i.test(g.message)) return new AiError(400, "image_rejected", g.message);
+  if (g.httpStatus === 400 && /token|too long|exceed|size/i.test(g.message)) return new AiError(413, "prompt_too_large", g.message);
+  if (g.httpStatus === 400) return new AiError(400, "bad_request", g.message);
+  return new AiError(502, "ai_error", g.message || `Gemini error ${g.httpStatus}`);
+}
+
+/** The model to use and its output limit. GEMINI_MODEL wins; otherwise one is picked from the key's list. */
+async function geminiModel(signal: AbortSignal, log: Log): Promise<{ name: string; outputLimit: number }> {
+  const headers = { "x-goog-api-key": GEMINI_API_KEY };
+  if (GEMINI_MODEL) {
+    if (!geminiOutputLimit.has(GEMINI_MODEL)) {
+      // Only to learn the output limit; if this fails, the generate call reports the real error.
+      const res = await fetch(`${GEMINI_BASE}/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}`, { headers, signal });
+      if (res.ok) {
+        const j = await res.json();
+        geminiOutputLimit.set(GEMINI_MODEL, Number(j?.outputTokenLimit) || 0);
+      } else {
+        const g = await readGeminiError(res);
+        log("google_error", { during: "model info", model: GEMINI_MODEL, httpStatus: g.httpStatus, status: g.status, message: g.message });
+        geminiOutputLimit.set(GEMINI_MODEL, 0);
+      }
     }
-    pageToken = j?.nextPageToken ?? "";
-    if (!pageToken) break;
+    return { name: GEMINI_MODEL, outputLimit: geminiOutputLimit.get(GEMINI_MODEL) ?? 0 };
   }
-  geminiModelCache = pickGeminiModel(names);
-  if (!geminiModelCache) {
-    throw new AiError(500, "no_model", "No Gemini text model is available for this key. Set GEMINI_MODEL in the Edge Function secrets.");
+  if (!geminiPicked) {
+    const names: string[] = [];
+    let pageToken = "";
+    for (let page = 0; page < 5; page++) {
+      const url = `${GEMINI_BASE}/v1beta/models?pageSize=1000${pageToken ? "&pageToken=" + encodeURIComponent(pageToken) : ""}`;
+      const res = await fetch(url, { headers, signal });
+      if (!res.ok) {
+        const g = await readGeminiError(res);
+        log("google_error", { during: "model list", httpStatus: g.httpStatus, status: g.status, message: g.message, details: g.details });
+        throw geminiAiError(g);
+      }
+      const j = await res.json();
+      for (const m of j?.models ?? []) {
+        const methods: string[] = m?.supportedGenerationMethods ?? [];
+        if (!methods.includes("generateContent")) continue;
+        const name = String(m.name ?? "").replace(/^models\//, "");
+        names.push(name);
+        geminiOutputLimit.set(name, Number(m?.outputTokenLimit) || 0);
+      }
+      pageToken = j?.nextPageToken ?? "";
+      if (!pageToken) break;
+    }
+    geminiPicked = pickGeminiModel(names);
+    if (!geminiPicked) {
+      throw new AiError(500, "no_model", "No Gemini text model is available for this key. Set GEMINI_MODEL in the Edge Function secrets.");
+    }
+    log("model_picked", { model: geminiPicked, from: names.length + " models" });
   }
-  console.log("Gemini model picked:", geminiModelCache);
-  return geminiModelCache;
+  return { name: geminiPicked, outputLimit: geminiOutputLimit.get(geminiPicked) ?? 0 };
 }
 
 const GEMINI_REFUSALS = new Set(["SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY", "IMAGE_PROHIBITED_CONTENT"]);
@@ -234,78 +317,104 @@ const sleep = (ms: number, signal: AbortSignal) => new Promise<void>((resolve, r
   signal.addEventListener("abort", () => { clearTimeout(t); reject(new DOMException("Aborted", "AbortError")); }, { once: true });
 });
 
-async function runGemini(job: Job, onText: (t: string) => void, signal: AbortSignal, meter: Meter, timeLeft: () => number): Promise<Stop> {
+async function runGemini(job: Job, onText: (t: string) => void, signal: AbortSignal, meter: Meter, log: Log,
+                         timeLeft: () => number, sinceStart: () => number): Promise<Stop> {
   // Court records quote FIRs, injuries and allegations; Google's default filters can block them.
   const safetySettings = ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"]
     .map((category) => ({ category, threshold: "BLOCK_NONE" }));
-  const body = JSON.stringify({
-    contents: [{
-      role: "user",
-      parts: [
-        ...job.images.map((im) => ({ inline_data: { mime_type: im.media_type, data: im.data } })),
-        { text: job.prompt },
-      ],
-    }],
-    // No maxOutputTokens: each model then allows its own full output length.
-    generationConfig: job.mode === "json" ? { responseMimeType: "application/json" } : {},
+  const parts = [
+    ...job.images.map((im) => ({ inline_data: { mime_type: im.media_type, data: im.data } })),
+    { text: job.prompt },
+  ];
+  const makeBody = (thinking: Thinking, outputLimit: number) => JSON.stringify({
+    contents: [{ role: "user", parts }],
+    generationConfig: {
+      // The output limit covers thinking + answer; use the model's full limit so thinking cannot use it all up.
+      ...(outputLimit > 0 ? { maxOutputTokens: Math.min(outputLimit, 65536) } : {}),
+      ...(job.mode === "json" ? { responseMimeType: "application/json" } : {}),
+      ...(thinking ? { thinkingConfig: thinking } : {}),
+    },
     safetySettings,
   });
 
-  let res: Response | null = null;
-  for (let attempt = 0; ; attempt++) {
-    const model = await geminiModel(signal);
+  let thinking: Thinking | undefined;
+  let repicked = false, busyRetries = 0, thinkingRetries = 0;
+  let res: Response;
+  for (;;) {
+    const { name: model, outputLimit } = await geminiModel(signal, log);
     meter.model = model;
+    if (thinking === undefined) thinking = firstThinking(model, job.effort);
+    meter.thinking = thinking ? JSON.stringify(thinking) : "model default";
+    log("request", {
+      provider: "gemini", model, mode: job.mode, effort: job.effort, thinking: meter.thinking,
+      maxOutputTokens: outputLimit > 0 ? Math.min(outputLimit, 65536) : "model default",
+      images: job.images.length, promptChars: job.prompt.length,
+    });
     res = await fetch(`${GEMINI_BASE}/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
-      body,
+      body: makeBody(thinking, outputLimit),
       signal,
     });
     if (res.ok) break;
+    const g = await readGeminiError(res);
+    log("google_error", { during: "generate", model, httpStatus: g.httpStatus, status: g.status, message: g.message, retryAfterSec: g.retrySec, details: g.details });
     // The picked model was withdrawn: pick again once.
-    if (res.status === 404 && !GEMINI_MODEL && attempt === 0) { geminiModelCache = ""; await res.body?.cancel(); continue; }
-    // Busy / overloaded: try again a couple of times while there is time.
-    const retryable = res.status === 429 || res.status === 500 || res.status === 503;
-    if (retryable && attempt < 2 && timeLeft() > 30_000) { await res.body?.cancel(); await sleep(attempt === 0 ? 2000 : 6000, signal); continue; }
-    throw await geminiError(res);
+    if (g.httpStatus === 404 && !GEMINI_MODEL && !repicked) { repicked = true; geminiPicked = ""; thinking = undefined; continue; }
+    // This model does not accept that thinking setting: try the next one.
+    if (g.httpStatus === 400 && /thinking/i.test(g.message) && thinkingRetries < 3) {
+      const next = nextThinking(thinking, job.effort);
+      if (next !== undefined) { thinkingRetries++; thinking = next; continue; }
+    }
+    // Busy / overloaded: try again a couple of times while there is time, unless Google asks for a long wait.
+    const busy = g.httpStatus === 429 || g.httpStatus === 500 || g.httpStatus === 503;
+    if (busy && busyRetries < 2 && timeLeft() > 30_000 && (g.retrySec == null || g.retrySec <= 10)) {
+      busyRetries++;
+      await sleep(g.retrySec != null ? g.retrySec * 1000 : busyRetries === 1 ? 2000 : 6000, signal);
+      continue;
+    }
+    throw geminiAiError(g);
   }
 
-  // Server-sent events: each `data:` line is one GenerateContentResponse chunk.
+  // Server-sent events: each `data:` line is one GenerateContentResponse chunk (a JSON object on one line).
   const reader = res.body!.getReader(), dec = new TextDecoder();
-  let buf = "", finish = "", blocked = false;
+  let buf = "", blocked = "";
   // deno-lint-ignore no-explicit-any
   const handle = (chunk: Record<string, any>) => {
-    if (chunk?.promptFeedback?.blockReason) blocked = true;
+    if (chunk?.promptFeedback?.blockReason) blocked = String(chunk.promptFeedback.blockReason);
     const cand = chunk?.candidates?.[0];
     for (const p of cand?.content?.parts ?? []) {
       if (typeof p?.text === "string" && !p.thought) onText(p.text);
     }
-    if (cand?.finishReason) finish = String(cand.finishReason);
+    if (cand?.finishReason) meter.finish = String(cand.finishReason);
     const u = chunk?.usageMetadata;
     if (u) {
       meter.input = u.promptTokenCount ?? meter.input;
+      meter.thoughts = u.thoughtsTokenCount ?? meter.thoughts;
       meter.output = (u.candidatesTokenCount ?? 0) + (u.thoughtsTokenCount ?? 0);
       meter.cache = u.cachedContentTokenCount ?? meter.cache;
     }
     if (chunk?.modelVersion) meter.model = String(chunk.modelVersion);
   };
-  const handleEvent = (ev: string) => {
-    for (const line of ev.split("\n")) {
-      if (!line.startsWith("data:")) continue;
-      try { handle(JSON.parse(line.slice(5))); } catch { /* ignore a malformed chunk */ }
-    }
+  const handleLine = (line: string) => {
+    line = line.trim();
+    if (!line.startsWith("data:")) return;
+    if (meter.firstChunkMs == null) meter.firstChunkMs = sinceStart();
+    try { handle(JSON.parse(line.slice(5))); }
+    catch { log("bad_chunk", { sample: line.slice(0, 200) }); }
   };
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
-    buf += dec.decode(value, { stream: true }).replace(/\r\n/g, "\n");
-    let i;
-    while ((i = buf.indexOf("\n\n")) >= 0) { handleEvent(buf.slice(0, i)); buf = buf.slice(i + 2); }
+    buf += dec.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) { handleLine(buf.slice(0, nl)); buf = buf.slice(nl + 1); }
   }
-  handleEvent(buf);
-  if (blocked || GEMINI_REFUSALS.has(finish)) return "refusal";
-  if (finish === "MAX_TOKENS") return "max_tokens";
-  if (!finish) return "incomplete";   // the stream ended without saying it was finished
+  handleLine(buf);
+  if (blocked) { meter.finish = "PROMPT_BLOCKED:" + blocked; return "refusal"; }
+  if (GEMINI_REFUSALS.has(meter.finish)) return "refusal";
+  if (meter.finish === "MAX_TOKENS") return "max_tokens";
+  if (!meter.finish) return "incomplete";   // the stream ended without saying it was finished
   return "end";
 }
 
@@ -313,8 +422,11 @@ async function runGemini(job: Job, onText: (t: string) => void, signal: AbortSig
 
 Deno.serve(async (req: Request) => {
   const startedAt = Date.now();
+  const sinceStart = () => Date.now() - startedAt;
   // Time left before our own limit; at least 1 s so the timer always fires after the stream starts
-  const timeLeft = () => Math.max(1000, TIME_LIMIT_MS - (Date.now() - startedAt));
+  const timeLeft = () => Math.max(1000, TIME_LIMIT_MS - sinceStart());
+  const rid = crypto.randomUUID().slice(0, 8);
+  const log: Log = (event, data) => console.log(`[ai ${rid}] ${event} ${JSON.stringify(data)}`);
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { code: "bad_request", message: "POST only" });
   if (PROVIDER === "anthropic" && !ANTHROPIC_API_KEY) {
@@ -362,6 +474,7 @@ Deno.serve(async (req: Request) => {
     prompt,
     images,
     tier: body.tier === "default" ? "default" : "complex",
+    effort: (["low", "medium", "high"] as const).find((e) => e === body.effort) ?? "medium",
     maxTokens: Math.min(MAX_OUTPUT_TOKENS, Math.max(1000, Number.isFinite(requested) && requested > 0 ? requested : mode === "json" ? 24_000 : 32_000)),
   };
   const wantStream = mode === "text" && body.stream !== false;
@@ -372,7 +485,7 @@ Deno.serve(async (req: Request) => {
   req.signal.addEventListener("abort", () => ac.abort(), { once: true });
   const guard = setTimeout(() => { timedOut = true; ac.abort(); }, timeLeft());
 
-  const meter: Meter = { model: "", input: 0, output: 0, cache: 0 };
+  const meter: Meter = { model: "", input: 0, output: 0, cache: 0, thoughts: 0, finish: "", thinking: "", chars: 0, firstChunkMs: null, firstTextMs: null };
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const logUsage = async () => {
     if (!meter.input && !meter.output) return;
@@ -385,9 +498,31 @@ Deno.serve(async (req: Request) => {
       console.error("ai_usage insert failed", e);
     }
   };
-  const run = (onText: (t: string) => void) =>
-    PROVIDER === "gemini" ? runGemini(job, onText, ac.signal, meter, timeLeft) : runClaude(job, onText, ac.signal, meter);
+  // One line in the Logs per request, whatever the outcome
+  const done = (outcome: string, extra: Record<string, unknown> = {}) => log("done", {
+    outcome, provider: PROVIDER, model: meter.model, mode, effort: job.effort, thinking: meter.thinking,
+    seconds: secs(sinceStart()), firstChunkSec: secs(meter.firstChunkMs), firstTextSec: secs(meter.firstTextMs),
+    finishReason: meter.finish || null, promptTokens: meter.input, outputTokens: meter.output,
+    thoughtsTokens: meter.thoughts, textChars: meter.chars, ...extra,
+  });
+  const run = (sink: (t: string) => void) => {
+    const onText = (t: string) => {
+      if (!t) return;
+      if (meter.firstTextMs == null) meter.firstTextMs = sinceStart();
+      meter.chars += t.length;
+      sink(t);
+    };
+    return PROVIDER === "gemini"
+      ? runGemini(job, onText, ac.signal, meter, log, timeLeft, sinceStart)
+      : runClaude(job, onText, ac.signal, meter, log, sinceStart);
+  };
   const REFUSED = { code: "refused", message: "The AI declined this request." };
+  const EMPTY = () => ({ code: "empty_answer", message: `The AI finished without writing anything (finishReason ${meter.finish || "none"}).` });
+  // The time limit came before the model wrote a single word (it was still thinking)
+  const NO_ANSWER = () => ({
+    code: "no_answer",
+    message: `Model ${meter.model || "?"} was still thinking after ${Math.round(sinceStart() / 1000)} seconds.`,
+  });
 
   // 4a. One answer (JSON mode). A JSON answer is useless when cut short, so at the time limit
   //     it returns a clear error instead.
@@ -396,12 +531,18 @@ Deno.serve(async (req: Request) => {
     try {
       const stop = await run((t) => { text += t; });
       await logUsage();
+      done(stop);
       if (stop === "refusal") return json(422, REFUSED);
+      if (stop === "end" && !text.trim()) return json(502, EMPTY());
       return json(200, { text, truncated: stop === "max_tokens" || stop === "incomplete", stop_reason: stop, model: meter.model });
     } catch (e) {
       await logUsage();
-      if (timedOut) return json(504, { code: "time_limit", message: "This took longer than the server allows." });
+      if (timedOut) {
+        done(meter.chars ? "time_limit" : "no_answer");
+        return json(504, meter.chars ? { code: "time_limit", message: "This took longer than the server allows." } : NO_ANSWER());
+      }
       const m = mapError(e);
+      done("error", { code: m.body.code, error: m.body.message });
       return json(m.status, m.body);
     } finally {
       clearTimeout(guard);
@@ -420,12 +561,15 @@ Deno.serve(async (req: Request) => {
       try {
         const stop = await run((t) => send({ text: t }));
         await logUsage();
+        done(stop);
         if (stop === "refusal") send({ error: REFUSED });
+        else if (stop === "end" && !meter.chars) send({ error: EMPTY() });
         else send({ done: true, truncated: stop === "max_tokens" || stop === "incomplete", stop_reason: stop, model: meter.model });
       } catch (e) {
         await logUsage();
-        if (timedOut) send({ done: true, truncated: true, stop_reason: "time_limit", model: meter.model });
-        else send({ error: mapError(e).body });
+        if (timedOut && meter.chars) { done("time_limit"); send({ done: true, truncated: true, stop_reason: "time_limit", model: meter.model }); }
+        else if (timedOut) { done("no_answer"); send({ error: NO_ANSWER() }); }
+        else { const m = mapError(e); done("error", { code: m.body.code, error: m.body.message }); send({ error: m.body }); }
       } finally {
         clearTimeout(guard);
         clearInterval(ping);

@@ -85,6 +85,7 @@ export function createSample(sb) {
       prompt: String(prompt),
       images,
       tier: opts.modelTier === "default" ? "default" : "complex",
+      effort: opts.effort,   // how much the model may think: "low" | "medium" | "high"
       stream: mode === "text",
       max_tokens: opts.maxTokens,
     };
