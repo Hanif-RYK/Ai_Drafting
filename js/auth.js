@@ -218,9 +218,10 @@ export function initAuth(sb, onReady) {
       },
       async usageThisMonth() {
         const from = new Date(); from.setDate(1); from.setHours(0, 0, 0, 0);
-        const { data, error } = await sb.from("ai_usage").select("input_tokens, output_tokens").gte("created_at", from.toISOString());
+        const { data, error } = await sb.from("ai_usage").select("input_tokens, output_tokens, model, created_at").gte("created_at", from.toISOString()).order("created_at", { ascending: false });
         if (error) throw error;
-        return (data || []).reduce((a, r) => ({ count: a.count + 1, input: a.input + (r.input_tokens || 0), output: a.output + (r.output_tokens || 0) }), { count: 0, input: 0, output: 0 });
+        const total = (data || []).reduce((a, r) => ({ count: a.count + 1, input: a.input + (r.input_tokens || 0), output: a.output + (r.output_tokens || 0) }), { count: 0, input: 0, output: 0 });
+        return { ...total, model: data?.[0]?.model || "" };   // the model used most recently
       },
       signOut,
     };
