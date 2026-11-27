@@ -572,15 +572,27 @@ $("#railOpen").addEventListener("click", () => { setRail(true); $("#railClose").
 const stash = {};
 let drafting = false, reading = false;
 let readBatch = 0;   // pictures per "Read record" request; halved after the server time limit is reached
+/* Settings (court, drafting, samples, team) are one page with tabs, opened from the Settings button; they are not
+   among the sections in the side panel, which are used all day. */
+const SET_TABS = ["settings", "drafting", "samples", "team"];
+let lastWork = "order", lastSetTab = "settings";
+try { if (SET_TABS.includes(localStorage.getItem("fd_settab"))) lastSetTab = localStorage.getItem("fd_settab"); } catch (e) {}
 function show(v) {
-  if (!SECTIONS[v] && !["history", "samples", "settings", "team"].includes(v)) v = "order";
+  if (!SECTIONS[v] && v !== "history" && !SET_TABS.includes(v)) v = "order";
+  const inSet = SET_TABS.includes(v), leaving = SET_TABS.includes(view) && !inSet;
+  if (leaving && setDirty) toast("Your changes in Settings were not saved. Open Settings and press Save to keep them.", 7000);
   view = v;
+  if (inSet) lastSetTab = v; else lastWork = v;
   $$(".nav").forEach(n => n.classList.toggle("active", n.dataset.view === v));
+  $$("[data-set]").forEach(b => { const on = b.dataset.set === v; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
+  $$(".setopen").forEach(b => b.classList.toggle("on", inSet));
   const isWork = !!SECTIONS[v];
   $("#workView").hidden = !isWork;
   $("#historyView").hidden = v !== "history";
-  $("#samplesView").hidden = v !== "samples";
+  $("#setShell").hidden = !inSet;
   $("#settingsView").hidden = v !== "settings";
+  $("#draftingView").hidden = v !== "drafting";
+  $("#samplesView").hidden = v !== "samples";
   $("#teamView").hidden = v !== "team";
   if (isWork) {
     // Each section keeps its own unfinished work, so moving to another section and back loses nothing.
@@ -590,9 +602,9 @@ function show(v) {
   }
   if (v === "history") renderHistory();
   if (v === "samples") renderSamples();
-  if (v === "settings") renderSettings();
+  if ((v === "settings" || v === "drafting") && !setDirty) renderSettings();
   if (v === "team") renderTeam();
-  try { localStorage.setItem("fd_view", v); } catch (e) {}
+  try { localStorage.setItem(inSet ? "fd_settab" : "fd_view", v); } catch (e) {}
   scrollToTop();
 }
 /* Back to the top of the content; on phones also slide the menu so the chosen item is in view. */
@@ -601,6 +613,9 @@ function scrollToTop() {
   if (matchMedia("(max-width:820px)").matches) $(".nav.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 $$(".nav").forEach(n => n.addEventListener("click", () => show(n.dataset.view)));
+$$(".setopen").forEach(b => b.addEventListener("click", () => show(SET_TABS.includes(view) ? view : lastSetTab)));
+$$("[data-set]").forEach(b => b.addEventListener("click", () => show(b.dataset.set)));
+$("#setBack").addEventListener("click", () => show(lastWork));
 
 /* ---------- Work view ---------- */
 function blankCase(section) {
@@ -1646,7 +1661,7 @@ function renderHistory() {
     current.found = Array.isArray(c.found) ? [...c.found] : []; current.missing = Array.isArray(c.missing) ? c.missing.map(m => ({ ...m })) : []; current.questions = Array.isArray(c.questions) ? c.questions.map(q => ({ ...q })) : [];
     images = []; current.dateAuto = false; if (!current.readDone && current.notes) current.readDone = true;
     view = c.section; $$(".nav").forEach(n => n.classList.toggle("active", n.dataset.view === view));
-    ["historyView", "samplesView", "settingsView", "teamView"].forEach(id => { $("#" + id).hidden = true; }); $("#workView").hidden = false;
+    ["historyView", "setShell"].forEach(id => { $("#" + id).hidden = true; }); $("#workView").hidden = false; lastWork = view;
     renderWork(); scrollToTop();
   }));
   $$("#histList [data-del]").forEach(b => b.addEventListener("click", () => confirmInline(b, () => col?.doc(b.dataset.del).delete().catch(delFail))));}
@@ -1930,21 +1945,28 @@ function renderSettings() {
   $("#set_caselaw").value = settings.caseLaw || ""; $("#set_asj").value = settings.asJail || ""; $("#set_debug").checked = !!settings.debug;
   COURT_KINDS.forEach(([k]) => { $("#set_c_" + k).value = courtName(k); });
 }
-$("#setSave").addEventListener("click", async () => {
+let setDirty = false;   // settings typed but not saved yet: kept as they are when the team's data refreshes
+["#settingsView", "#draftingView"].forEach(sel => $(sel).addEventListener("input", () => { setDirty = true; }));
+async function saveSettings(btn, statusSel) {
   const courts = {}; COURT_KINDS.forEach(([k]) => { courts[k] = $("#set_c_" + k).value.trim() || DEFAULT_COURTS[k]; });
   settings = { judge: $("#set_judge").value.trim() || settings.judge, district: $("#set_district").value.trim() || settings.district, courts, rules: $("#set_rules").value, chips: $("#set_chips").value.trim(), ada: $("#set_ada").value.trim(), adpp: $("#set_adpp").value.trim(),
     caseLaw: $("#set_caselaw").value.trim(), asJail: $("#set_asj").value.trim(), debug: $("#set_debug").checked };
   renderChips();
-  if (!col) { status("#setStatus", "Not connected to the database, so the settings were not saved.", true); toast("Settings were not saved: not connected to the database.", 5000); return; }
-  const btn = $("#setSave"); btn.disabled = true; btn.innerHTML = `<span class="spin" aria-hidden="true"></span>Saving`;
+  if (!col) { status(statusSel, "Not connected to the database, so the settings were not saved.", true); toast("Settings were not saved: not connected to the database.", 5000); return; }
+  btn.disabled = true; btn.innerHTML = `<span class="spin" aria-hidden="true"></span>Saving`;
   try {
     await col.doc("settings").set({ kind: "settings", ...settings, updatedAt: Date.now() });
-    status("#setStatus", "Settings saved at " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) + ".", false, true);
+    setDirty = false;
+    ["#setStatus", "#setStatusD"].forEach(sel => status(sel, ""));
+    status(statusSel, "Settings saved at " + new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) + ".", false, true);
     toast("Settings saved.", 3000);
     btn.textContent = "Saved ✓"; setTimeout(() => { btn.textContent = "Save"; }, 2500);
-  } catch (e) { status("#setStatus", "Could not save. Please try again.", true); toast("Settings could not be saved. Please try again.", 5000); btn.textContent = "Save"; }
+  } catch (e) { status(statusSel, "Could not save. Please try again.", true); toast("Settings could not be saved. Please try again.", 5000); btn.textContent = "Save"; }
   finally { btn.disabled = false; }
-});
+}
+$("#setSave").addEventListener("click", e => saveSettings(e.currentTarget, "#setStatus"));
+$("#setSaveD").addEventListener("click", e => saveSettings(e.currentTarget, "#setStatusD"));
+
 
 function renderCounts() { $("#histCount").textContent = cases.length; $("#sampCount").textContent = samples.length; }
 
@@ -2039,7 +2061,9 @@ $("#leaveTeamBtn").addEventListener("click", () => confirmInline($("#leaveTeamBt
 let railOpen = true; try { railOpen = localStorage.getItem("fd_rail") !== "closed"; } catch (e) {}
 setRail(railOpen);
 renderUserBox();
+// The app always opens on the daily work, never on Settings.
 let startView = "order"; try { startView = localStorage.getItem("fd_view") || "order"; } catch (e) {}
+if (SET_TABS.includes(startView)) startView = "order";
 show(startView);
 renderCounts();
 renderReady();
@@ -2070,7 +2094,7 @@ col.onSnapshot(snap => {
   if (view === "history") renderHistory();
   if (view === "samples") renderSamples();
   renderChips();
-  if (view === "settings" && !$("#settingsView").contains(document.activeElement)) renderSettings();
+  if ((view === "settings" || view === "drafting") && !setDirty && !$("#setShell").contains(document.activeElement)) renderSettings();
   if (current && SECTIONS[view] && view !== "order") { renderCourt(); if (isIdParade() && !$("#idpBox").contains(document.activeElement)) renderIdp(); }
   if (current) renderAfterDraft();
   $("#conn").hidden = true;
