@@ -1,4 +1,4 @@
-const CACHE_NAME = 'faisla-desk-v4';
+const CACHE_NAME = 'faisla-desk-v5';
 
 const APP_SHELL = [
   './',

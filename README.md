@@ -154,6 +154,42 @@ Case ya sample **delete** sirf woh kar sakta hai jis ne save kiya, ya admin.
 
 ---
 
+## Drafting kaise hoti hai (prompt ke 4 layers)
+
+AI ki saari hidayat `js/app.js` mein hain (Edge Function sirf AI tak pahunchata hai, us
+mein koi drafting hidayat nahi). Har draft ka prompt in 4 layers se banta hai:
+
+| Layer | Kya hai | Kahan se aata hai |
+|---|---|---|
+| 1. Base | Pakistani court practice aur default style (Mian Ijaz Ahmad ka style), global rules, case-law list, har type ka template | `GLOBAL RULES` (`globalRules`), `STYLE`, `SECTIONS`, `TYPE_INFO`, `CASE_LAW` |
+| 2. Judge style | Judge ke apne Samples (sab se qareeb samples hoo-ba-hoo) aur un se seekhe notes | Samples page (`docs`: sample / digest) |
+| 3. Rules | Settings ki "Standing instructions" aur Samples page ke "Rules" | Settings / Samples page (`docs`: settings / lesson) |
+| 4. Case data | Is case ki details, faisla, conditional decree, parade details, record notes | Work page |
+
+Jahan farq ho: Rules > Judge style > Base. Samples na hon to Base ka style chalta hai.
+Settings mein **"Show the prompt layers"** tick karein to har draft ke neeche dikhta hai
+ke kaun si hidayat kis layer se aayi.
+
+**Global rules (har draft):** English court language, Urdu bayanat / huliya / objections
+Urdu mein; faisla diya ho to foran draft (sawal ke liye nahi rukta); tareekh na ho to aaj
+ki; na parha jane wala lafz `____` aur Notes mein; har draft ke baad **Roman Urdu Notes**
+(blanks, shak wali reading, plaint vs jamabandi / FRC ke farq, minors, assumptions);
+**Corrections** box: AI usi draft ko badalta hai, naya nahi likhta (Undo bhi hai); "More
+documents are still coming" tick ho to sirf parhta / summary deta hai; Judge ka naam
+"Ahmad" (kabhi "Ahmed" nahi, app khud bhi theek kar deti hai); `[Signature]`, `Sd/-`,
+seal ki koi line nahi; daily order mein "ORDER" heading aur paragraph numbers nahi.
+
+**Case law:** sirf app ki list (`CASE_LAW`) aur Settings → "Your case law" mein likhe
+cases cite hote hain. Draft mein koi bhi citation ho to upar **"Verify citation from
+official report"** dikhta hai, aur jo citation list mein nahi woh laal likha aata hai.
+
+**Naye types:** Judgment → Civil Judgment: permanent injunction (owner in possession),
+heirship (vehicle), heirship (housing scheme plot / shop), seller's suit (cancellation +
+possession, conditional decree); Rent: ejectment PRPA 2009 ex-parte order. Misc → withdrawal
+of sale proceeds (partition after auction), amendment to add partition (O.VI R.17).
+Criminal → identification parade card (rows, har witness ka nateeja, dummy No., A.S. Jail
+ke naam Settings se, 18 saal ya kam umar ka flag).
+
 ## Files
 
 | File | Kaam |
