@@ -1558,14 +1558,24 @@ $("#stopBtn").addEventListener("click", () => ctl?.abort());
 function mdToHtml(t) { return esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/_{4,}/g, m => `<span class="blank">${m}</span>`); }
 /* Layout of the printed page: the Present block hangs in a column, and the Judge's name and designation sit on the right, as on the court's own order sheets. */
 const plain = l => l.replace(/\*\*/g, "").trim();
+/* A line of the Present block says who appeared or did not ("Mr. X Advocate, learned counsel for the plaintiff.",
+   "Defendant already ex-parte.", "Nemo for the defendant.", "Learned ADPP for the State.", "I.O with record."); a line
+   that says what happened ("Counsel for the plaintiff seeks adjournment.", "Now, to come up for ...") is the order itself. */
+const ATTEND = /\b(advocates?|counsel|learned|ADPP|DDPP|DPP|ADA|DDA|ex-?parte|nemo|in person|present|absent|attendance|on bail|from (the )?(district )?jail|judicial lock-?up|on behalf of|alongwith|along with|with record|I\.?\s?O\b|SHO|S\.?\s?I\b|A\.?\s?S\.?\s?I\b|moharrir|naib court|reader|ahlmad|process server|guardian|attorney|plaintiffs?|defendants?|petitioners?|respondents?|applicants?|appellants?|accused|complainants?|witness(es)?|decree[- ]holders?|judgment[- ]debtors?|already)\b/i;
+const NARRATE = /\b(seeks?|sought|seeking|filed|submitted|argued|arguments|heard|come up|adjourn\w*|granted|perused|stated|states|recorded|closed|struck|proceeded|directed|issued|fixed|requested|application|written statement|reply|summon\w*|warrant|charge|framed|evidence of|produce|evidence|deposit\w*|cost|order|judgment|announced)\b/i;
+function isAttendance(l) {
+  const s = String(l || "").trim();
+  return !!s && s.length <= 160 && ATTEND.test(s) && !NARRATE.test(s);
+}
 function layoutParts(t) {
   const lines = String(t || "").split("\n"), parts = [], judge = norm(settings.judge).toLowerCase();
   const push = (kind, l) => { const last = parts[parts.length - 1]; if (last && last.kind === kind && kind === "text") last.lines.push(l); else parts.push({ kind, lines: [l] }); };
   for (let i = 0; i < lines.length; i++) {
     const p = plain(lines[i]);
     if (/^Present\s*[:.]/i.test(p)) {
+      // The Present block holds only the attendance lines; the order itself starts at the first line that is not one.
       const blk = { kind: "present", lines: [lines[i].trim()] };
-      while (i + 1 < lines.length && lines[i + 1].trim() && blk.lines.length < 14 && !/^(ORDER|JUDGMENT)\b/i.test(plain(lines[i + 1]))) blk.lines.push(lines[++i].trim());
+      while (i + 1 < lines.length && lines[i + 1].trim() && blk.lines.length < 14 && isAttendance(plain(lines[i + 1]))) blk.lines.push(lines[++i].trim());
       parts.push(blk);
     } else if (judge && p.replace(/[,.]$/, "").toLowerCase() === judge) {
       const blk = { kind: "sign", lines: [lines[i].trim()] };
