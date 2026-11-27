@@ -5,22 +5,39 @@ judgments (civil, family, rent, guardian, succession) aur Magistrate Section-30 
 criminal kaam. Record ki tasveerein upload karein, app AI (Google Gemini ya Anthropic
 Claude) se record parhwati hai aur Judge ke apne style mein draft likhti hai.
 
-Ek team (court) ke sab log ek hi data share karte hain: History (saved cases),
-Samples, Rules aur Settings.
+Ek team (court) ke sab log ek hi History (saved cases) dekhte hain. Settings, Samples aur
+Rules admin banata hai aur sab ke drafts unhi ke mutabiq bante hain. Har user ka apna
+**Inbox** aur apne **quick words** hain.
 
 **Menu:** side panel (phone par upar wali patti) mein sirf roz ke kaam hain: Order, Issues,
-Misc, Judgment, Criminal aur History. Ek dafa set hone wali cheezein **⚙ Settings** mein
-hain (computer par side panel ke neeche, phone par patti ke aakhir mein gear ka nishan, jo
-scroll nahi hota). Settings ke 4 tab:
+Misc, Judgment, Criminal, History aur Inbox. Ek dafa set hone wali cheezein **⚙ Settings**
+mein hain (computer par side panel ke neeche, phone par patti ke aakhir mein gear ka nishan,
+jo scroll nahi hota). Settings ke tab:
 
-| Tab | Kya hai |
-|---|---|
-| Court | Judge ka naam, district, court designations, ADA / ADPP, A.S. Jail ke naam |
-| Drafting | Standing instructions, Rules, apna case law, quick words, prompt layers (debug) |
-| Samples | Judge ke samples |
-| Team | Members, invite, apna naam, team ka naam, AI usage, sign out |
+| Tab | Kis ko dikhta hai | Kya hai |
+|---|---|---|
+| Court | Sirf admin | Judge ka naam, district, court designations, ADA / ADPP, A.S. Jail ke naam |
+| Drafting | Sirf admin | Standing instructions, Rules, apna case law, prompt layers (debug) |
+| Samples | Sirf admin | Judge ke samples |
+| Team | Sirf admin | Members, invite, team ka naam, AI usage |
+| Quick words | Sab | Built-in quick words (sirf app update se badalte hain) + apne quick words |
+| Account | Sab | Apna naam, Leave team, Sign out |
 
-Har setting ke saath Urdu mein likha hai ke woh kis liye hai.
+Har setting ke saath Urdu mein likha hai ke woh kis liye hai. Settings sirf screen par
+chhupi nahi: database (RLS) bhi member ko settings, samples aur rules badalne nahi deta.
+
+**Send / Inbox:** draft ke neeche **Send** dabayein → team ke logon ke naam aate hain
+(note likhna optional) → naam dabayein. Draft pehle History mein save hota hai, phir us
+shakhs ke **Inbox** mein aa jata hai (menu mein laal ginti, aur browser tab ke title mein
+bhi). Woh **Open** dabaye to case apne section mein khulta hai; badal kar Save kare to wahi
+case History mein update hota hai, aur Send se wapas bhej sakta hai. Har user ka Inbox sirf
+usi ko dikhta hai (database bhi yahi rokta hai). History poori team ki saanjhi hai, is liye
+bheja hua case History mein sab ko nazar aata hai.
+
+**Quick words:** order box ke neeche ke chhote buttons. Built-in (CPA, CPB, PA, PB, EV, AR,
+SEEK, PRES, ABS, PW, WS) sab ke liye ek jaise hain aur sirf app update (code mein
+`PARTY_CHIPS` / `DEFAULT_CHIPS`) se badalte hain. Har user Settings → Quick words mein apne
+words banata hai; woh sirf usi ko dikhte hain.
 
 **Rules** kisi sample par nahi, naye drafts par lagte hain: "Applies to" mein All sections ho
 to har draft par, warna sirf chune gaye section ke drafts par.
@@ -34,6 +51,11 @@ khulti hai, Settings par nahi.
 ## Setup (ek dafa)
 
 ### 1. Database: `supabase/schema.sql`
+
+> **Pehle se chalti app (Inbox / quick words update):** agar `schema.sql` pehle chala
+> chuke hain to sirf `supabase/update_inbox_quickwords.sql` ek dafa SQL Editor mein Run
+> karein. Is ke baghair Send / Inbox aur apne quick words save nahi honge (app saaf batati
+> hai), baqi sab chalta rehta hai.
 
 Supabase Dashboard → **SQL Editor** → New query → `supabase/schema.sql` ki poori
 file paste karein → **Run**.
@@ -171,7 +193,8 @@ static hosting par repo ki files upload karein. `index.html` kholein.
 4. Admin kisi ko **Make admin** / **Remove** kar sakta hai. Aakhri admin team nahi
    chhor sakta jab tak koi aur admin na ho.
 
-Case ya sample **delete** sirf woh kar sakta hai jis ne save kiya, ya admin.
+Case **delete** sirf woh kar sakta hai jis ne save kiya, ya admin. Settings, samples,
+rules aur "seekhe hue notes" sirf admin likh / badal / hata sakta hai.
 
 ---
 
@@ -222,7 +245,8 @@ ke naam Settings → Court se, 18 saal ya kam umar ka flag).
 | `js/ai.js` | AI function ko request (tasveerein chhoti karke, streaming) |
 | `js/db.js` | Team ka data (`docs` table) + realtime updates |
 | `js/config.js` | Supabase URL aur public anon key |
-| `supabase/schema.sql` | Tables, RLS policies, team functions |
+| `supabase/schema.sql` | Tables, RLS policies, team functions (naye install ke liye poori file) |
+| `supabase/update_inbox_quickwords.sql` | Pehle se chalti app ke liye: Inbox, apne quick words, settings sirf admin |
 | `supabase/functions/ai/index.ts` | Gemini ya Claude se baat karne wala server function |
 | `sw.js`, `manifest.json`, `icon.svg` | Phone par app ki tarah install (PWA) |
 
@@ -231,6 +255,8 @@ ke naam Settings → Court se, 18 saal ya kam umar ka flag).
 - `teams`, `profiles` (har user ki team aur role: admin / member), `team_invites`
 - `docs`: har saved cheez ek row: `kind` = case / sample / lesson (rule) / digest / settings
 - `ai_usage`: har AI request ke tokens (Team page par is mahine ka total)
+- `inbox`: bheje hue drafts (sirf bhejne wala aur receiver dekh sakte hain; case History mein)
+- `profiles.quick_words`: har user ke apne quick words
 
 Row Level Security har query par check karti hai ke user sirf apni team ka data
 dekh / badal sake.

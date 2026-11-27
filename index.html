@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap">
 <!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever the CSS / JS change. -->
-<link rel="stylesheet" href="styles.css?v=2026112704">
+<link rel="stylesheet" href="styles.css?v=2026112801">
 <script defer src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 </head>
 <body>
@@ -89,6 +89,7 @@
     <button class="nav" data-view="criminal"><span>Criminal<span class="long"> (Sec-30)</span><span class="sub">Charge, 342, challan ...</span></span></button>
     <h6>Record</h6>
     <button class="nav" data-view="history"><span>History<span class="sub">Saved cases</span></span><span class="badge" id="histCount">0</span></button>
+    <button class="nav" data-view="inbox"><span>Inbox<span class="sub">Sent to you</span></span><span class="badge inboxbadge" id="inboxCount" hidden>0</span></button>
     </div>
     <!-- Settings are set once, so they sit apart from the sections used all day: at the bottom of the side panel,
          and on phones as one fixed button at the end of the menu row (it never scrolls with the sections). -->
@@ -201,7 +202,14 @@
               <button class="btn" id="saveBtn">Save</button>
               <button class="btn plain" id="wordBtn">Word file</button>
               <button class="btn plain" id="copyBtn">Copy</button>
+              <button class="btn plain" id="sendBtn" aria-expanded="false" aria-controls="sendBox">Send</button>
               <span class="status" id="saveStatus"></span>
+            </div>
+            <div id="sendBox" class="sendbox stack" hidden>
+              <div class="row" style="justify-content:space-between"><strong>Send to</strong><button class="btn plain" id="sendClose" type="button">Close</button></div>
+              <label>Note (optional)<input id="sendNote" maxlength="500" placeholder="e.g. Please check the relief"></label>
+              <div class="sendlist" id="sendList"></div>
+              <span class="status" id="sendStatus" role="status"></span>
             </div>
             <div id="draftNotesWrap" hidden><strong>Notes (check before saving)</strong><div class="notes" id="draftNotes"></div></div>
             <div id="fixWrap" class="stack" hidden>
@@ -223,6 +231,15 @@
       </div>
     </section>
 
+    <!-- INBOX: drafts sent to this user (each user sees only their own) -->
+    <section id="inboxView" hidden>
+      <div class="head">
+        <div><h1>Inbox</h1><p>Drafts your team members sent to you. Only you can see your inbox.</p></div>
+        <div class="row"><button class="btn plain" id="inboxReadAll" type="button" hidden>Mark all as read</button></div>
+      </div>
+      <div class="card stack"><div class="list" id="inboxList"></div></div>
+    </section>
+
     <!-- SETTINGS: court, drafting, samples and team, each in its own tab. Every setting has a short note in Urdu. -->
     <section id="setShell" hidden>
       <div class="head">
@@ -231,10 +248,12 @@
         <div class="row"><button class="btn plain" id="setBack" type="button">← Back to work</button></div>
       </div>
       <div class="tabs settabs" role="tablist" aria-label="Settings">
-        <button class="tab" role="tab" data-set="settings" type="button">Court</button>
-        <button class="tab" role="tab" data-set="drafting" type="button">Drafting</button>
-        <button class="tab" role="tab" data-set="samples" type="button">Samples <span class="tabcount" id="sampCount">0</span></button>
-        <button class="tab" role="tab" data-set="team" type="button">Team</button>
+        <button class="tab" role="tab" data-set="settings" data-admin type="button">Court</button>
+        <button class="tab" role="tab" data-set="drafting" data-admin type="button">Drafting</button>
+        <button class="tab" role="tab" data-set="samples" data-admin type="button">Samples <span class="tabcount" id="sampCount">0</span></button>
+        <button class="tab" role="tab" data-set="team" data-admin type="button">Team</button>
+        <button class="tab" role="tab" data-set="quickwords" type="button">Quick words</button>
+        <button class="tab" role="tab" data-set="account" type="button">Account</button>
       </div>
 
     <!-- COURT -->
@@ -277,8 +296,6 @@
           <p class="ur" lang="ur" dir="rtl">مستقل ہدایات جو ہر سیکشن کے ہر ڈرافٹ پر لاگو ہوتی ہیں، مثلاً نام کے ہجے۔ ایک ہی خانے میں جتنی چاہیں لکھیں۔</p>
           <label>Your case law<textarea id="set_caselaw" rows="4" spellcheck="false" placeholder="Muhammad Akram Vs. Mst. Zainab | 2020 SCMR 123 | gift must be proved by its three ingredients"></textarea></label>
           <p class="ur" lang="ur" dir="rtl">ایپ کی اپنی فہرست کے علاوہ جن فیصلوں کا حوالہ AI دے سکتا ہے، وہ یہاں لکھیں؛ ہر سطر پر ایک: کیس کا نام | سائٹیشن | کیا طے ہوا۔ ان کے سوا AI کوئی حوالہ نہیں دیتا۔ سائٹیشن سرکاری رپورٹ سے دیکھ کر لکھیں۔</p>
-          <label>Quick words<textarea id="set_chips" rows="9" spellcheck="false" placeholder="EV = evidence"></textarea></label>
-          <p class="ur" lang="ur" dir="rtl">آرڈر والے خانے کے نیچے چھوٹے بٹن؛ بٹن دبانے سے پورے الفاظ خانے میں لکھ دیے جاتے ہیں۔ ہر سطر پر ایک: چھوٹا نام = پورے الفاظ (مثلاً EV = evidence)۔ CPA, CPB, PA, PB ہمیشہ موجود رہتے ہیں اور کیس کی قسم کے مطابق خود فریقین کے نام لکھتے ہیں (مثلاً مدعی / مدعا علیہ، درخواست گزار / مسئول علیہ)۔</p>
           <label class="chk"><input type="checkbox" id="set_debug"> Show prompt layers</label>
           <p class="ur" lang="ur" dir="rtl">ٹک کریں تو ہر ڈرافٹ کے نیچے دکھایا جاتا ہے کہ کون سی ہدایت کہاں سے آئی (ایپ کا انداز، Samples، Rules یا کیس)۔ روز کے کام میں اس کی ضرورت نہیں۔</p>
           <div class="row"><button class="btn" id="setSaveD" type="button">Save</button><span class="status" id="setStatusD"></span></div>
@@ -339,7 +356,7 @@
 
     <!-- TEAM -->
     <section id="teamView" hidden>
-      <p class="ur lead" lang="ur" dir="rtl">ٹیم کے تمام لوگ ایک ہی کیس، نمونے، اصول اور ترتیبات دیکھتے اور استعمال کرتے ہیں۔</p>
+      <p class="ur lead" lang="ur" dir="rtl">ٹیم کے تمام لوگ ایک ہی کیس (History) دیکھتے ہیں اور ایپ ایڈمن کی ترتیبات، نمونوں اور اصولوں کے مطابق ڈرافٹ بناتی ہے۔ یہ ترتیبات صرف ایڈمن کو نظر آتی ہیں؛ ممبر کو صرف Quick words اور Account۔</p>
       <div class="cols">
         <div class="stack">
           <div class="card stack">
@@ -359,12 +376,6 @@
           </div>
         </div>
         <div class="stack">
-          <div class="card stack">
-            <strong>You</strong>
-            <label>Your name<input id="meName"></label>
-            <p class="ur" lang="ur" dir="rtl">آپ کا نام، جو History میں ہر محفوظ کیس کے ساتھ (saved by) نظر آتا ہے۔</p>
-            <div class="row"><button class="btn plain" id="meSave">Save name</button><span class="status" id="meStatus"></span></div>
-          </div>
           <div class="card stack" id="renameCard" hidden>
             <strong>Team name</strong>
             <label>Name<input id="teamRename"></label>
@@ -376,12 +387,38 @@
             <p class="note" id="usageLine" style="margin:0">Loading...</p>
             <p class="ur" lang="ur" dir="rtl">اس مہینے AI کتنی دفعہ استعمال ہوا اور کون سا ماڈل چل رہا ہے۔</p>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUICK WORDS: built-in ones (changed only by an app update) + the user's own -->
+    <section id="quickView" hidden>
+      <p class="ur lead" lang="ur" dir="rtl">آرڈر والے خانے کے نیچے چھوٹے بٹن؛ بٹن دبانے سے پورے الفاظ خانے میں لکھ دیے جاتے ہیں۔ ہر شخص اپنے الفاظ خود بناتا ہے۔</p>
+      <div class="card stack" style="max-width:760px">
+        <strong>Built-in quick words</strong>
+        <div class="chips" id="defChips"></div>
+        <p class="ur" lang="ur" dir="rtl">یہ الفاظ سب کے لیے ایک جیسے ہیں اور صرف ایپ کی اپڈیٹ سے بدلتے ہیں۔ CPA, CPB, PA, PB کیس کی قسم کے مطابق خود فریقین کے نام لکھتے ہیں (مثلاً مدعی / مدعا علیہ، درخواست گزار / مسئول علیہ)۔</p>
+        <label>Your quick words<textarea id="my_chips" rows="8" spellcheck="false" placeholder="ADJ = adjourned"></textarea></label>
+        <p class="ur" lang="ur" dir="rtl">ہر سطر پر ایک: چھوٹا نام = پورے الفاظ (مثلاً ADJ = adjourned)۔ چھوٹا نام زیادہ سے زیادہ 12 حروف کا ہو۔ جو چھوٹا نام ایپ میں پہلے سے ہے (مثلاً EV) وہ دوبارہ نہیں بنتا۔ یہ الفاظ صرف آپ کے آرڈر والے خانے کے نیچے آتے ہیں۔</p>
+        <div class="row"><button class="btn" id="myChipsSave" type="button">Save</button><span class="status" id="myChipsStatus"></span></div>
+      </div>
+    </section>
+
+    <!-- ACCOUNT: name, leave team, sign out (everyone) -->
+    <section id="accountView" hidden>
+      <p class="ur lead" lang="ur" dir="rtl">آپ کا اکاؤنٹ: نام، ٹیم چھوڑنا اور لاگ آؤٹ۔</p>
+      <div class="stack" style="max-width:760px">
+          <div class="card stack">
+            <strong>You</strong>
+            <label>Your name<input id="meName"></label>
+            <p class="ur" lang="ur" dir="rtl">آپ کا نام، جو History میں ہر محفوظ کیس کے ساتھ (saved by) نظر آتا ہے۔</p>
+            <div class="row"><button class="btn plain" id="meSave">Save name</button><span class="status" id="meStatus"></span></div>
+          </div>
           <div class="card stack">
             <div class="row"><button class="btn danger" id="leaveTeamBtn">Leave team</button><button class="btn plain" id="teamSignOut">Sign out</button></div>
             <p class="ur" lang="ur" dir="rtl">Leave team سے آپ اس ٹیم سے نکل جائیں گے؛ Sign out سے صرف اس ڈیوائس سے لاگ آؤٹ ہوگا، ٹیم میں آپ رہیں گے۔</p>
             <span class="status" id="teamStatus"></span>
           </div>
-        </div>
       </div>
     </section>
     </section>
@@ -399,6 +436,6 @@ setTimeout(function () {
   if (!shown) document.getElementById("bootFail").hidden = false;
 }, 12000);
 </script>
-<script type="module" src="js/main.js?v=2026112704"></script>
+<script type="module" src="js/main.js?v=2026112801"></script>
 </body>
 </html>

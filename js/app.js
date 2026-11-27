@@ -573,11 +573,16 @@ let drafting = false, reading = false;
 let readBatch = 0;   // pictures per "Read record" request; halved after the server time limit is reached
 /* Settings (court, drafting, samples, team) are one page with tabs, opened from the Settings button; they are not
    among the sections in the side panel, which are used all day. */
-const SET_TABS = ["settings", "drafting", "samples", "team"];
-let lastWork = "order", lastSetTab = "settings";
-try { if (SET_TABS.includes(localStorage.getItem("fd_settab"))) lastSetTab = localStorage.getItem("fd_settab"); } catch (e) {}
+const SET_TABS = ["settings", "drafting", "samples", "team", "quickwords", "account"];
+const ADMIN_TABS = ["settings", "drafting", "samples", "team"];   // court, drafting, samples and team: the admin only
+const isAdmin = ctx.profile.role === "admin";
+const setTabOk = v => SET_TABS.includes(v) && (isAdmin || !ADMIN_TABS.includes(v));
+$$("[data-set]").forEach(b => { b.hidden = !setTabOk(b.dataset.set); });
+let lastWork = "order", lastSetTab = isAdmin ? "settings" : "quickwords";
+try { if (setTabOk(localStorage.getItem("fd_settab"))) lastSetTab = localStorage.getItem("fd_settab"); } catch (e) {}
 function show(v) {
-  if (!SECTIONS[v] && v !== "history" && !SET_TABS.includes(v)) v = "order";
+  if (SET_TABS.includes(v) && !setTabOk(v)) v = "quickwords";
+  if (!SECTIONS[v] && v !== "history" && v !== "inbox" && !SET_TABS.includes(v)) v = "order";
   const inSet = SET_TABS.includes(v), leaving = SET_TABS.includes(view) && !inSet;
   if (leaving && setDirty) toast("Your changes in Settings were not saved. Open Settings and press Save to keep them.", 7000);
   view = v;
@@ -588,11 +593,15 @@ function show(v) {
   const isWork = !!SECTIONS[v];
   $("#workView").hidden = !isWork;
   $("#historyView").hidden = v !== "history";
+  $("#inboxView").hidden = v !== "inbox";
   $("#setShell").hidden = !inSet;
   $("#settingsView").hidden = v !== "settings";
   $("#draftingView").hidden = v !== "drafting";
   $("#samplesView").hidden = v !== "samples";
   $("#teamView").hidden = v !== "team";
+  $("#quickView").hidden = v !== "quickwords";
+  $("#accountView").hidden = v !== "account";
+  if (!isWork) $("#sendBox").hidden = true;
   if (isWork) {
     // Each section keeps its own unfinished work, so moving to another section and back loses nothing.
     if (current) stash[current.section] = { current, images };
@@ -604,6 +613,9 @@ function show(v) {
   if ((v === "settings" || v === "drafting") && !setDirty) renderSettings();
   if (v === "drafting") renderRules();
   if (v === "team") renderTeam();
+  if (v === "quickwords") renderQuickWords();
+  if (v === "account") $("#meName").value = ctx.profile.full_name || "";
+  if (v === "inbox") { renderInbox(); loadInbox(); }
   try { localStorage.setItem(inSet ? "fd_settab" : "fd_view", v); } catch (e) {}
   scrollToTop();
 }
@@ -698,6 +710,7 @@ function renderWork() {
   setSheet(current.draft);
   $("#draftNotesWrap").hidden = !current.draftNotes; $("#draftNotes").textContent = current.draftNotes;
   renderAfterDraft();
+  setSendOpen(false);
   status("#saveStatus", current.id ? "Saved case." : ""); status("#draftStatus", ""); status("#readStatus", "");
   renderReady();
 }
@@ -947,10 +960,16 @@ function partyNames() {
   return ["plaintiff", "defendant"];
 }
 const PARTY_CHIPS = "CPA = counsel for the {A}\nCPB = counsel for the {B}\nPA = {A}\nPB = {B}";
+/* Quick words: the built-in ones (PARTY_CHIPS and DEFAULT_CHIPS, changed only by an app update) for everyone, then the
+   user's own from Settings → Quick words. A short name that is already built in cannot be used again. */
+const builtInChips = () => [...parseChips(PARTY_CHIPS), ...parseChips(DEFAULT_CHIPS)];
+function myChips(text = ctx.profile.quick_words) {
+  const taken = new Set(builtInChips().map(ch => ch.label.toUpperCase()));
+  return parseChips(text).filter(ch => { const k = ch.label.toUpperCase(); if (taken.has(k)) return false; taken.add(k); return true; });
+}
 function renderChips() {
   const [A, B] = partyNames(), fill = t => t.replace(/\{A\}/gi, A).replace(/\{B\}/gi, B).replace(/\bthe (party [AB])\b/g, "$1");
-  const mine = parseChips(settings.chips).filter(ch => !/^(CPA|CPB|PA|PB)$/i.test(ch.label));
-  const html = [...parseChips(PARTY_CHIPS), ...mine].map(ch => `<button type="button" class="chipbtn" data-text="${esc(fill(ch.text))}" title="${esc(fill(ch.text))}">${esc(ch.label)}</button>`).join("");
+  const html = [...builtInChips(), ...myChips()].map(ch => `<button type="button" class="chipbtn" data-text="${esc(fill(ch.text))}" title="${esc(fill(ch.text))}">${esc(ch.label)}</button>`).join("");
   $("#o_chips").innerHTML = html; $("#f_chips").innerHTML = html;
 }
 function insertPhrase(ta, phrase) {
@@ -1620,17 +1639,112 @@ function fitDoc(doc, keys) {
   return doc;
 }
 async function saveCase() {
-  if (!col) { status("#saveStatus", "Not connected to the database, so this could not be saved.", true); return; }
+  if (!col) { status("#saveStatus", "Not connected to the database, so this could not be saved.", true); return null; }
   const c = current;
   c.draft = sheetText();
-  if (!c.draft) { status("#saveStatus", "There is nothing to save yet.", true); return; }
+  if (!c.draft) { status("#saveStatus", "There is nothing to save yet.", true); return null; }
   if (!c.id) c.id = rid("c_");
   c.courtKind = autoKind(c.section, c.subtype); c.court = courtName(c.courtKind);
   const doc = fitDoc({ kind: "case", section: c.section, subtype: c.subtype, stage: c.stage, court: c.court, courtKind: c.courtKind, found: c.found || [], missing: c.missing || [], questions: c.questions || [], needCheck: !!c.needCheck, readDone: !!c.readDone, f: c.f, o: c.o, cond: c.cond, idp: c.idp, notes: c.notes, summary: c.summary, flags: c.flags, points: c.points, draft: c.draft, draftNotes: c.draftNotes, updatedAt: Date.now() }, ["notes", "summary", "draftNotes", "draft"]);
-  try { await col.doc(c.id).set(doc); if (current === c) status("#saveStatus", "Saved to History.", false, true); }
-  catch (e) { status("#saveStatus", "Could not save. Please try again.", true); }
+  try { await col.doc(c.id).set(doc); if (current === c) status("#saveStatus", "Saved to History.", false, true); return c.id; }
+  catch (e) { status("#saveStatus", "Could not save. Please try again.", true); return null; }
 }
 $("#saveBtn").addEventListener("click", () => saveCase());
+
+/* ---------- Send: the draft is saved to History and a message goes to the chosen member's Inbox ---------- */
+const INBOX_SQL = "The Inbox needs a one-time database update: the team admin must run supabase/update_inbox_quickwords.sql in Supabase (SQL Editor).";
+function inboxErr(e) {
+  const m = String(e?.message || e?.code || "");
+  if (/inbox|schema cache|does not exist|42P01|PGRST20/i.test(m)) return INBOX_SQL;
+  if (/team mein nahi|History mein nahi/i.test(m)) return m;
+  if (/fetch|network/i.test(m)) return "Could not reach the server. Check your internet connection.";
+  return "Something went wrong: " + m;
+}
+function setSendOpen(open) { $("#sendBox").hidden = !open; $("#sendBtn").setAttribute("aria-expanded", String(open)); }
+$("#sendClose").addEventListener("click", () => setSendOpen(false));
+$("#sendBtn").addEventListener("click", async () => {
+  if (!$("#sendBox").hidden) { setSendOpen(false); return; }
+  if (!sheetText()) { status("#saveStatus", "There is nothing to send yet.", true); return; }
+  setSendOpen(true); status("#sendStatus", "");
+  $("#sendList").innerHTML = `<p class="note">Loading your team...</p>`;
+  try {
+    const list = await teamApi.members();
+    members = Object.fromEntries(list.map(m => [m.id, m.full_name || m.email]));
+    const others = list.filter(m => m.id !== uid);
+    $("#sendList").innerHTML = others.length
+      ? others.map(m => `<button type="button" class="btn plain sendto" data-to="${m.id}">${esc(m.full_name || m.email)}<small>${esc(ROLE_LABEL[m.role] || m.role)}</small></button>`).join("")
+      : `<p class="note">Nobody else is in your team yet. The admin can invite members in Settings → Team.</p>`;
+  } catch (e) { $("#sendList").innerHTML = ""; status("#sendStatus", "Could not load your team. Check your internet connection.", true); }
+});
+$("#sendList").addEventListener("click", async e => {
+  const b = e.target.closest("[data-to]");
+  if (!b || b.disabled) return;
+  const c = current, name = members[b.dataset.to] || "the member";
+  b.disabled = true; status("#sendStatus", `Sending to ${name}...`);
+  const id = await saveCase();   // the receiver opens the latest text from History
+  if (!id) { b.disabled = false; status("#sendStatus", "The draft could not be saved, so it was not sent.", true); return; }
+  try {
+    const title = c.f.title || (c.section === "order" ? "Order " + (c.o?.date || today()) : c.subtype) || "Draft";
+    await teamApi.inbox.send({ to_user: b.dataset.to, case_id: id, title: title.slice(0, 300), section: c.section, subtype: (c.section === "order" ? "Daily order" : c.subtype).slice(0, 200), note: $("#sendNote").value.trim().slice(0, 1000) });
+    b.classList.add("sent");
+    status("#sendStatus", `Sent to ${name}. It is now in their Inbox.`, false, true);
+  } catch (err) { status("#sendStatus", inboxErr(err), true); }
+  finally { b.disabled = false; }
+});
+
+/* ---------- Inbox: each user's own; new messages arrive live, with a count in the menu ---------- */
+let inbox = [], inboxError = "";
+const BASE_TITLE = document.title;
+async function loadInbox() {
+  try { inbox = await teamApi.inbox.list(); inboxError = ""; }
+  catch (e) { inboxError = inboxErr(e); }
+  renderInboxCount();
+  if (view === "inbox") renderInbox();
+}
+function renderInboxCount() {
+  const n = inbox.filter(m => !m.read_at).length;
+  $("#inboxCount").hidden = !n; $("#inboxCount").textContent = n > 99 ? "99+" : String(n);
+  document.title = (n ? `(${n}) ` : "") + BASE_TITLE;
+}
+function renderInbox() {
+  const unread = inbox.filter(m => !m.read_at);
+  $("#inboxReadAll").hidden = !unread.length;
+  if (inboxError && !inbox.length) { $("#inboxList").innerHTML = `<p class="status err">${esc(inboxError)}</p>`; return; }
+  $("#inboxList").innerHTML = inbox.length ? inbox.map(m => `<div class="item${m.read_at ? "" : " unread"}"><div>
+      <h4>${m.read_at ? "" : '<span class="dot" aria-label="Not read yet"></span>'}${esc(m.title || "Untitled case")}</h4>
+      <div class="meta"><span class="chip">${esc(SECTIONS[m.section]?.label || m.section || "Draft")}</span>${esc(m.subtype || "")} · from ${esc(members[m.from_user] || "a team member")} · ${new Date(m.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+      ${m.note ? `<p class="inote">${esc(m.note)}</p>` : ""}</div>
+      <div class="row"><button class="btn plain" data-iopen="${m.id}">Open</button><button class="btn danger" data-idel="${m.id}">Remove</button></div></div>`).join("")
+    : `<p class="note">Nothing here yet. When a team member presses Send under a draft and chooses you, it appears here.</p>`;
+  $$("#inboxList [data-iopen]").forEach(b => b.addEventListener("click", () => openInbox(b.dataset.iopen)));
+  $$("#inboxList [data-idel]").forEach(b => b.addEventListener("click", () => confirmInline(b, async () => {
+    try { await teamApi.inbox.remove(b.dataset.idel); inbox = inbox.filter(m => m.id !== b.dataset.idel); renderInboxCount(); renderInbox(); }
+    catch (e) { toast(inboxErr(e), 6000); }
+  })));
+}
+async function markRead(list) {
+  const ids = list.filter(m => !m.read_at).map(m => m.id);
+  if (!ids.length) return;
+  try { await teamApi.inbox.markRead(ids); const t = new Date().toISOString(); list.forEach(m => { m.read_at = m.read_at || t; }); renderInboxCount(); if (view === "inbox") renderInbox(); }
+  catch (e) { /* stays unread; the next refresh tries again */ }
+}
+async function openInbox(id) {
+  const m = inbox.find(x => x.id === id); if (!m) return;
+  let c = cases.find(x => x.id === m.case_id);
+  if (!c) { try { await col.refresh(); } catch (e) {} c = cases.find(x => x.id === m.case_id); }   // the case may arrive just after the message
+  markRead([m]);
+  if (!c) { toast("This case is no longer in History: it was deleted.", 6000); return; }
+  openCase(c);
+}
+$("#inboxReadAll").addEventListener("click", () => markRead(inbox));
+// New messages arrive live; a slow refresh and a refresh on returning to the app cover a dropped connection.
+teamApi.inbox.watch(payload => {
+  const m = payload?.new;
+  if (payload?.eventType === "INSERT" && m?.id && !inbox.some(x => x.id === m.id)) toast(`New in your Inbox: ${m.title || "a draft"} from ${members[m.from_user] || "a team member"}.`, 6000);
+  loadInbox();
+});
+setInterval(() => { if (document.visibilityState === "visible") loadInbox(); }, 90000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadInbox(); });
 
 function status(sel, msg, err, ok) { const el = $(sel); el.textContent = msg; el.className = "status" + (err ? " err" : ok ? " okk" : ""); }
 
@@ -1649,20 +1763,22 @@ function renderHistory() {
       <div class="row"><button class="btn plain" data-open="${c.id}">Open</button><button class="btn danger" data-del="${c.id}">Delete</button></div></div>`;
   }).join("")
     : `<p class="note">${cases.length ? "No saved cases match this filter." : "Nothing saved yet. Generate a draft in any section and press Save; it will appear here."}</p>`;
-  $$("#histList [data-open]").forEach(b => b.addEventListener("click", () => {
-    const c = cases.find(x => x.id === b.dataset.open); if (!c || !SECTIONS[c.section]) return;
-    const base = blankCase(c.section);
-    if (current) stash[current.section] = { current, images };
-    current = { ...base, ...c, f: { ...base.f, ...c.f }, o: { ...base.o, ...(c.o || {}) }, cond: { ...base.cond, ...(c.cond || {}), asked: false },
-      idp: c.idp && Array.isArray(c.idp.rows) ? structuredClone(c.idp) : base.idp, prevDraft: "", layers: null };
-    current.found = Array.isArray(c.found) ? [...c.found] : []; current.missing = Array.isArray(c.missing) ? c.missing.map(m => ({ ...m })) : []; current.questions = Array.isArray(c.questions) ? c.questions.map(q => ({ ...q })) : [];
-    images = []; current.dateAuto = false; if (!current.readDone && current.notes) current.readDone = true;
-    view = c.section; $$(".nav").forEach(n => n.classList.toggle("active", n.dataset.view === view));
-    ["historyView", "setShell"].forEach(id => { $("#" + id).hidden = true; }); $("#workView").hidden = false; lastWork = view;
-    renderWork(); scrollToTop();
-  }));
+  $$("#histList [data-open]").forEach(b => b.addEventListener("click", () => { const c = cases.find(x => x.id === b.dataset.open); if (c) openCase(c); }));
   $$("#histList [data-del]").forEach(b => b.addEventListener("click", () => confirmInline(b, () => col?.doc(b.dataset.del).delete().catch(delFail))));}
 $("#histSearch").addEventListener("input", renderHistory);
+/* Opens a saved case in its section (from History or the Inbox), keeping the unfinished work of that section aside. */
+function openCase(c) {
+  if (!c || !SECTIONS[c.section]) return;
+  const base = blankCase(c.section);
+  if (current) stash[current.section] = { current, images };
+  current = { ...base, ...c, f: { ...base.f, ...c.f }, o: { ...base.o, ...(c.o || {}) }, cond: { ...base.cond, ...(c.cond || {}), asked: false },
+    idp: c.idp && Array.isArray(c.idp.rows) ? structuredClone(c.idp) : base.idp, prevDraft: "", layers: null };
+  current.found = Array.isArray(c.found) ? [...c.found] : []; current.missing = Array.isArray(c.missing) ? c.missing.map(m => ({ ...m })) : []; current.questions = Array.isArray(c.questions) ? c.questions.map(q => ({ ...q })) : [];
+  images = []; current.dateAuto = false; if (!current.readDone && current.notes) current.readDone = true;
+  view = c.section; $$(".nav").forEach(n => n.classList.toggle("active", n.dataset.view === view));
+  ["historyView", "inboxView", "setShell"].forEach(id => { $("#" + id).hidden = true; }); $("#workView").hidden = false; lastWork = view;
+  renderWork(); scrollToTop();
+}
 function confirmInline(btn, fn) {
   if (btn.dataset.armed) { fn(); return; }
   btn.dataset.armed = "1"; const old = btn.textContent; btn.textContent = "Sure?";
@@ -1939,7 +2055,7 @@ $("#l_add").addEventListener("click", async () => {
 
 /* ---------- Settings ---------- */
 function renderSettings() {
-  $("#set_judge").value = settings.judge; $("#set_district").value = settings.district; $("#set_rules").value = settings.rules; $("#set_chips").value = settings.chips; $("#set_ada").value = settings.ada || ""; $("#set_adpp").value = settings.adpp || "";
+  $("#set_judge").value = settings.judge; $("#set_district").value = settings.district; $("#set_rules").value = settings.rules; $("#set_ada").value = settings.ada || ""; $("#set_adpp").value = settings.adpp || "";
   $("#set_caselaw").value = settings.caseLaw || ""; $("#set_asj").value = settings.asJail || ""; $("#set_debug").checked = !!settings.debug;
   COURT_KINDS.forEach(([k]) => { $("#set_c_" + k).value = courtName(k); });
 }
@@ -1947,7 +2063,7 @@ let setDirty = false;   // settings typed but not saved yet: kept as they are wh
 ["#settingsView", "#draftingView"].forEach(sel => $(sel).addEventListener("input", () => { setDirty = true; }));
 async function saveSettings(btn, statusSel) {
   const courts = {}; COURT_KINDS.forEach(([k]) => { courts[k] = $("#set_c_" + k).value.trim() || DEFAULT_COURTS[k]; });
-  settings = { judge: $("#set_judge").value.trim() || settings.judge, district: $("#set_district").value.trim() || settings.district, courts, rules: $("#set_rules").value, chips: $("#set_chips").value.trim(), ada: $("#set_ada").value.trim(), adpp: $("#set_adpp").value.trim(),
+  settings = { judge: $("#set_judge").value.trim() || settings.judge, district: $("#set_district").value.trim() || settings.district, courts, rules: $("#set_rules").value, chips: settings.chips, ada: $("#set_ada").value.trim(), adpp: $("#set_adpp").value.trim(),
     caseLaw: $("#set_caselaw").value.trim(), asJail: $("#set_asj").value.trim(), debug: $("#set_debug").checked };
   renderChips();
   if (!col) { status(statusSel, "Not connected to the database, so the settings were not saved.", true); toast("Settings were not saved: not connected to the database.", 5000); return; }
@@ -1984,7 +2100,7 @@ async function renderTeam() {
   $("#teamName").textContent = ctx.team.name;
   $("#teamRole").textContent = isAdmin ? "You are the admin" : "You are a member";
   $("#inviteCard").hidden = !isAdmin; $("#renameCard").hidden = !isAdmin;
-  $("#meName").value = ctx.profile.full_name || ""; $("#teamRename").value = ctx.team.name;
+  $("#teamRename").value = ctx.team.name;
   $("#memberList").innerHTML = `<p class="ur" lang="ur" dir="rtl">ممبر لوڈ ہو رہے ہیں...</p>`;
   try {
     const list = await teamApi.members();
@@ -2051,6 +2167,35 @@ $("#teamRenameBtn").addEventListener("click", async () => {
   try { await teamApi.rename(name); ctx.team.name = name; renderUserBox(); $("#teamName").textContent = name; status("#teamRenameStatus", "Team renamed.", false, true); }
   catch (e) { status("#teamRenameStatus", e.message, true); }
 });
+/* ---------- Quick words (Settings → Quick words): everyone keeps their own ---------- */
+function renderQuickWords() {
+  $("#defChips").innerHTML = builtInChips().map(ch => `<span class="chipbtn static" title="${esc(ch.text.replace(/\{A\}/gi, "party A").replace(/\{B\}/gi, "party B"))}">${esc(ch.label)}</span>`).join("");
+  if (document.activeElement === $("#my_chips")) return;
+  let mine = ctx.profile.quick_words || "";
+  // The admin's earlier team-wide quick words (before each user had their own) are offered once, to keep them.
+  const extra = parseChips(settings.chips).filter(ch => !builtInChips().some(d => d.label.toUpperCase() === ch.label.toUpperCase()));
+  if (isAdmin && !mine.trim() && extra.length) {
+    mine = extra.map(ch => `${ch.label} = ${ch.text}`).join("\n");
+    status("#myChipsStatus", "Your team's earlier quick words were copied here. Press Save to keep them as yours.");
+  }
+  $("#my_chips").value = mine;
+}
+$("#myChipsSave").addEventListener("click", async () => {
+  const text = $("#my_chips").value.replace(/\r/g, "").trim();
+  if (text.length > 4000) { status("#myChipsStatus", "That is too long. Keep the quick words under 4000 letters.", true); return; }
+  const lines = text ? text.split("\n").filter(l => l.trim()) : [];
+  const bad = lines.filter(l => !/^[^=]{1,12}=\s*\S/.test(l.trim()));
+  const taken = parseChips(text).filter(ch => builtInChips().some(d => d.label.toUpperCase() === ch.label.toUpperCase())).map(ch => ch.label);
+  const btn = $("#myChipsSave"); btn.disabled = true;
+  try {
+    await teamApi.saveQuickWords(text);
+    renderChips();
+    const warn = [bad.length ? `${bad.length} line${bad.length === 1 ? " is" : "s are"} not in the form SHORT = words` : "", taken.length ? `already built in: ${taken.join(", ")}` : ""].filter(Boolean).join("; ");
+    status("#myChipsStatus", warn ? `Saved. Not used: ${warn}.` : "Saved. Your quick words now appear under the order box.", !!warn, !warn);
+  } catch (e) {
+    status("#myChipsStatus", /quick_words|schema cache|column/i.test(String(e?.message)) ? "Could not save: the database needs a one-time update (supabase/update_inbox_quickwords.sql). Ask the team admin." : "Could not save. Please try again.", true);
+  } finally { btn.disabled = false; }
+});
 $("#leaveTeamBtn").addEventListener("click", () => confirmInline($("#leaveTeamBtn"), async () => {
   try { await teamApi.leave(); location.reload(); } catch (e) { status("#teamStatus", e.message, true); }
 }));
@@ -2065,10 +2210,12 @@ if (SET_TABS.includes(startView)) startView = "order";
 show(startView);
 renderCounts();
 renderReady();
+loadInbox();
 imgMax = Math.min(ctx.imgMax || imgMax, 20);
 teamApi.members().then(list => {
   members = Object.fromEntries(list.map(m => [m.id, m.full_name || m.email]));
   if (view === "history") renderHistory();
+  if (view === "inbox") renderInbox();
 }).catch(() => {});
 
 const connTimer = setTimeout(() => { $("#conn").hidden = false; $("#conn").textContent = "The database is not responding yet. Check your internet connection; your data will appear as soon as it arrives."; }, 10000);
@@ -2080,7 +2227,7 @@ col.onSnapshot(snap => {
   lessons = all.filter(x => x.kind === "lesson" && x.text);
   samples = all.filter(x => x.kind === "sample" && x.text);
   digests = Object.fromEntries(all.filter(x => x.kind === "digest" && x.section).map(x => [x.section, x]));
-  const st = all.find(x => x.id === "settings");
+  const st = all.find(x => x.id === "settings" && x.kind === "settings");
   if (st) {
     const str = (v, d) => typeof v === "string" ? v : d;
     settings = { judge: st.judge || settings.judge, district: st.district || settings.district, courts: (st.courts && typeof st.courts === "object") ? { ...DEFAULT_COURTS, ...st.courts } : settings.courts, rules: st.rules ?? settings.rules, chips: str(st.chips, settings.chips), ada: str(st.ada, settings.ada), adpp: str(st.adpp, settings.adpp),
