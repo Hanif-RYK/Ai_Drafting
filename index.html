@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap">
 <!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever the CSS / JS change. -->
-<link rel="stylesheet" href="styles.css?v=2026112701">
+<link rel="stylesheet" href="styles.css?v=2026112702">
 <script defer src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 </head>
 <body>
@@ -80,6 +80,7 @@
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
       </button>
     </div>
+    <div class="navlist">
     <h6>Work</h6>
     <button class="nav" data-view="order"><span>Order<span class="sub">Daily order sheet</span></span></button>
     <button class="nav" data-view="issues"><span>Issues<span class="sub">Framing of issues</span></span></button>
@@ -88,11 +89,13 @@
     <button class="nav" data-view="criminal"><span>Criminal<span class="long"> (Sec-30)</span><span class="sub">Charge, 342, challan ...</span></span></button>
     <h6>Record</h6>
     <button class="nav" data-view="history"><span>History<span class="sub">Saved cases</span></span><span class="badge" id="histCount">0</span></button>
-    <button class="nav" data-view="samples"><span>Samples<span class="sub">Train the app</span></span><span class="badge" id="sampCount">0</span></button>
-    <button class="nav" data-view="settings"><span>Settings<span class="sub">Judge and courts</span></span></button>
-    <h6>Team</h6>
-    <button class="nav" data-view="team"><span>Team<span class="sub">Members and invites</span></span></button>
-    <div class="userbox"><span id="ubName"></span><small id="ubTeam"></small><button class="btn plain" id="signOutBtn" type="button">Sign out</button></div>
+    </div>
+    <!-- Settings are set once, so they sit apart from the sections used all day: at the bottom of the side panel,
+         and on phones as one fixed button at the end of the menu row (it never scrolls with the sections). -->
+    <div class="userbox"><span id="ubName"></span><small id="ubTeam"></small>
+      <div class="row"><button class="btn plain setopen" id="setOpen" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button><button class="btn plain" id="signOutBtn" type="button">Sign out</button></div>
+    </div>
+    <button class="gearbtn setopen" id="gearBtn" type="button" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
   </nav>
 
   <main class="main" id="main">
@@ -221,9 +224,61 @@
       </div>
     </section>
 
+    <!-- SETTINGS: court, drafting, samples and team, each in its own tab -->
+    <section id="setShell" hidden>
+      <div class="head">
+        <div><h1>Settings</h1><p>Set these once; every draft uses them. Your daily work stays in the menu.</p></div>
+        <div class="row"><button class="btn plain" id="setBack" type="button">← Back to work</button></div>
+      </div>
+      <div class="tabs settabs" role="tablist" aria-label="Settings">
+        <button class="tab" role="tab" data-set="settings" type="button">Court</button>
+        <button class="tab" role="tab" data-set="drafting" type="button">Drafting</button>
+        <button class="tab" role="tab" data-set="samples" type="button">Samples <span class="tabcount" id="sampCount">0</span></button>
+        <button class="tab" role="tab" data-set="team" type="button">Team</button>
+      </div>
+
+    <!-- COURT -->
+    <section id="settingsView" hidden>
+      <p class="panehint">Used in the heading, the Present block and the signature of every draft.</p>
+      <div class="card stack" style="max-width:760px">
+        <div class="grid">
+          <label>Judge's name<input id="set_judge"></label>
+          <label>District<input id="set_district"></label>
+        </div>
+        <strong style="margin-top:6px">Court designations</strong>
+        <p class="note" style="margin:0">The app picks the court from the case type: criminal work goes to the Magistrate, family matters to the Family Court, rent to Rent, guardian matters to the Guardian Court, and everything else to the Civil Court.</p>
+        <div class="grid">
+          <label>Civil court<input id="set_c_civil"></label>
+          <label>Family court<input id="set_c_family"></label>
+          <label>Rent<input id="set_c_rent"></label>
+          <label>Guardian court<input id="set_c_guardian"></label>
+          <label>Magistrate (criminal)<input id="set_c_magistrate"></label>
+        </div>
+        <strong style="margin-top:6px">Law officers and jail</strong>
+        <div class="grid">
+          <label>Learned ADA / DDA (civil side)<input id="set_ada" placeholder="Name only, e.g. Mr. ____"></label>
+          <label>Learned ADPP (criminal side)<input id="set_adpp" placeholder="Name only, e.g. Mr. ____"></label>
+        </div>
+        <label>Assistant Superintendents of District Jail (for identification parades), one per line<textarea id="set_asj" rows="3" spellcheck="false" placeholder="Muhammad Shafi"></textarea></label>
+        <div class="row"><button class="btn" id="setSave" type="button">Save</button><span class="status" id="setStatus"></span></div>
+      </div>
+    </section>
+
+    <!-- DRAFTING -->
+    <section id="draftingView" hidden>
+      <p class="panehint">How every draft is written: your standing instructions, the case law the AI may cite, and the quick words under the order box.</p>
+      <div class="card stack" style="max-width:760px">
+        <label>Standing instructions (Layer 3 "Rules": applied to every draft and override the samples and the built-in style)<textarea id="set_rules" rows="5" placeholder="e.g. Always spell the Judge's name as 'Ahmad', never 'Ahmed'."></textarea></label>
+        <label>Your case law (added to the app's list; the AI cites nothing else). One per line: Case title | Citation | What it decides<textarea id="set_caselaw" rows="4" spellcheck="false" placeholder="e.g. Muhammad Akram Vs. Mst. Zainab | 2020 SCMR 123 | gift must be proved by its three ingredients"></textarea></label>
+        <label>Quick words under the order box in every section. CPA, CPB, PA and PB are always there and follow the kind of case (party A / party B). Add your own words below, one per line, as SHORT = words.<textarea id="set_chips" rows="9" spellcheck="false" placeholder="EV = evidence"></textarea></label>
+        <label class="chk"><input type="checkbox" id="set_debug"> Show the prompt layers under each draft (for checking which layer gave which instruction)</label>
+        <div class="row"><button class="btn" id="setSaveD" type="button">Save</button><span class="status" id="setStatusD"></span></div>
+      </div>
+    </section>
+
     <!-- SAMPLES -->
     <section id="samplesView" hidden>
-      <div class="head"><div><h1>Samples</h1><p>Upload the final versions of the Judge's orders and judgments, the ones corrected and completed in Word. The app studies them and drafts the same way. The more samples you add, the better the drafts.</p></div></div>
+      <p class="panehint">Upload the final versions of the Judge's orders and judgments, the ones corrected and completed in Word. The app studies them and drafts the same way. The more samples you add, the better the drafts.</p>
       <div class="cols">
         <div class="stack">
           <div class="card stack">
@@ -269,36 +324,9 @@
       </div>
     </section>
 
-    <!-- SETTINGS -->
-    <section id="settingsView" hidden>
-      <div class="head"><div><h1>Settings</h1><p>Used in the heading and signature of every draft.</p></div></div>
-      <div class="card stack" style="max-width:720px">
-        <div class="grid">
-          <label>Judge's name<input id="set_judge"></label>
-          <label>District<input id="set_district"></label>
-        </div>
-        <strong style="margin-top:6px">Court designations</strong>
-        <p class="note" style="margin:0">The app picks the court from the case type: criminal work goes to the Magistrate, family matters to the Family Court, rent to Rent, guardian matters to the Guardian Court, and everything else to the Civil Court.</p>
-        <div class="grid">
-          <label>Civil court<input id="set_c_civil"></label>
-          <label>Family court<input id="set_c_family"></label>
-          <label>Rent<input id="set_c_rent"></label>
-          <label>Guardian court<input id="set_c_guardian"></label>
-          <label>Magistrate (criminal)<input id="set_c_magistrate"></label>
-          <label>Learned ADA / DDA (civil side)<input id="set_ada" placeholder="Name only, e.g. Mr. ____"></label>
-          <label>Learned ADPP (criminal side)<input id="set_adpp" placeholder="Name only, e.g. Mr. ____"></label>
-        </div>
-        <label>Standing instructions (Layer 3 "Rules": applied to every draft and override the samples and the built-in style)<textarea id="set_rules" rows="5" placeholder="e.g. Always spell the Judge's name as 'Ahmad', never 'Ahmed'."></textarea></label>
-        <label>Your case law (added to the app's list; the AI cites nothing else). One per line: Case title | Citation | What it decides<textarea id="set_caselaw" rows="4" spellcheck="false" placeholder="e.g. Muhammad Akram Vs. Mst. Zainab | 2020 SCMR 123 | gift must be proved by its three ingredients"></textarea></label>
-        <label>Assistant Superintendents of District Jail (for identification parades), one per line<textarea id="set_asj" rows="3" spellcheck="false" placeholder="Muhammad Shafi"></textarea></label>
-        <label class="chk"><input type="checkbox" id="set_debug"> Show the prompt layers under each draft (for checking which layer gave which instruction)</label>
-        <label>Quick words under the order box in every section. CPA, CPB, PA and PB are always there and follow the kind of case (party A / party B). Add your own words below, one per line, as SHORT = words.<textarea id="set_chips" rows="9" spellcheck="false" placeholder="EV = evidence"></textarea></label>
-        <div class="row"><button class="btn" id="setSave">Save</button><span class="status" id="setStatus"></span></div>
-      </div>
-    </section>
     <!-- TEAM -->
     <section id="teamView" hidden>
-      <div class="head"><div><h1>Team</h1><p>Everyone in the team shares the same cases, samples, rules and settings.</p></div></div>
+      <p class="panehint">Everyone in the team shares the same cases, samples, rules and settings.</p>
       <div class="cols">
         <div class="stack">
           <div class="card stack">
@@ -338,6 +366,7 @@
         </div>
       </div>
     </section>
+    </section>
     <div class="toast" id="toast" role="status" hidden></div>
   </main>
 </div>
@@ -352,6 +381,6 @@ setTimeout(function () {
   if (!shown) document.getElementById("bootFail").hidden = false;
 }, 12000);
 </script>
-<script type="module" src="js/main.js?v=2026112701"></script>
+<script type="module" src="js/main.js?v=2026112702"></script>
 </body>
 </html>

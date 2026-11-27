@@ -8,6 +8,22 @@ Claude) se record parhwati hai aur Judge ke apne style mein draft likhti hai.
 Ek team (court) ke sab log ek hi data share karte hain: History (saved cases),
 Samples, Rules aur Settings.
 
+**Menu:** side panel (phone par upar wali patti) mein sirf roz ke kaam hain: Order, Issues,
+Misc, Judgment, Criminal aur History. Ek dafa set hone wali cheezein **⚙ Settings** mein
+hain (computer par side panel ke neeche, phone par patti ke aakhir mein gear ka nishan, jo
+scroll nahi hota). Settings ke 4 tab:
+
+| Tab | Kya hai |
+|---|---|
+| Court | Judge ka naam, district, court designations, ADA / ADPP, A.S. Jail ke naam |
+| Drafting | Standing instructions, apna case law, quick words, prompt layers (debug) |
+| Samples | Judge ke samples aur Rules |
+| Team | Members, invite, apna naam, team ka naam, AI usage, sign out |
+
+"← Back to work" (ya menu ka koi section) wapas usi kaam par le jata hai. Kuch likh kar Save
+na kiya ho to Settings chhorte waqt yaad dilaya jata hai. App hamesha kaam wale section par
+khulti hai, Settings par nahi.
+
 ---
 
 ## Setup (ek dafa)
@@ -91,7 +107,7 @@ zaroori key add karein); naya setting foran na lage to function ko ek dafa dobar
 |---|---|
 | `AI_TIME_LIMIT_SECONDS` | `140` (default, Free plan). Paid plan par `390` |
 
-Kaun sa model istemal ho raha hai, ye **Team** page par "AI usage this month" mein
+Kaun sa model istemal ho raha hai, ye **Settings → Team** par "AI usage this month" mein
 dikhta hai.
 
 ### Logs (masla dhoondne ke liye)
@@ -144,7 +160,7 @@ static hosting par repo ki files upload karein. `index.html` kholein.
 
 1. **Pehla user** (masalan Judge ya steno): Create an account → login → **Create team**.
    Ye user team ka **admin** hai.
-2. Admin: side panel → **Team** → **Invite a member** → doosre user ki email likhein.
+2. Admin: **⚙ Settings** → **Team** → **Invite a member** → doosre user ki email likhein.
 3. **Doosra user**: usi email se Create an account / login → pehli screen par
    invitation dikhegi → **Accept**. Ab woh team ka hissa hai aur team ka saara data dekhta hai.
 4. Admin kisi ko **Make admin** / **Remove** kar sakta hai. Aakhri admin team nahi
@@ -162,12 +178,12 @@ mein koi drafting hidayat nahi). Har draft ka prompt in 4 layers se banta hai:
 | Layer | Kya hai | Kahan se aata hai |
 |---|---|---|
 | 1. Base | Pakistani court practice aur default style (Mian Ijaz Ahmad ka style), global rules, case-law list, har type ka template | `GLOBAL RULES` (`globalRules`), `STYLE`, `SECTIONS`, `TYPE_INFO`, `CASE_LAW` |
-| 2. Judge style | Judge ke apne Samples (sab se qareeb samples hoo-ba-hoo) aur un se seekhe notes | Samples page (`docs`: sample / digest) |
-| 3. Rules | Settings ki "Standing instructions" aur Samples page ke "Rules" | Settings / Samples page (`docs`: settings / lesson) |
+| 2. Judge style | Judge ke apne Samples (sab se qareeb samples hoo-ba-hoo) aur un se seekhe notes | Settings → Samples (`docs`: sample / digest) |
+| 3. Rules | Settings → Drafting ki "Standing instructions" aur Settings → Samples ke "Rules" | `docs`: settings / lesson |
 | 4. Case data | Is case ki details, faisla, conditional decree, parade details, record notes | Work page |
 
 Jahan farq ho: Rules > Judge style > Base. Samples na hon to Base ka style chalta hai.
-Settings mein **"Show the prompt layers"** tick karein to har draft ke neeche dikhta hai
+Settings → Drafting mein **"Show the prompt layers"** tick karein to har draft ke neeche dikhta hai
 ke kaun si hidayat kis layer se aayi.
 
 **Global rules (har draft):** English court language, Urdu bayanat / huliya / objections
@@ -179,7 +195,7 @@ documents are still coming" tick ho to sirf parhta / summary deta hai; Judge ka 
 "Ahmad" (kabhi "Ahmed" nahi, app khud bhi theek kar deti hai); `[Signature]`, `Sd/-`,
 seal ki koi line nahi; daily order mein "ORDER" heading aur paragraph numbers nahi.
 
-**Case law:** sirf app ki list (`CASE_LAW`) aur Settings → "Your case law" mein likhe
+**Case law:** sirf app ki list (`CASE_LAW`) aur Settings → Drafting → "Your case law" mein likhe
 cases cite hote hain. Draft mein koi bhi citation ho to upar **"Verify citation from
 official report"** dikhta hai, aur jo citation list mein nahi woh laal likha aata hai.
 
@@ -188,7 +204,7 @@ heirship (vehicle), heirship (housing scheme plot / shop), seller's suit (cancel
 possession, conditional decree); Rent: ejectment PRPA 2009 ex-parte order. Misc → withdrawal
 of sale proceeds (partition after auction), amendment to add partition (O.VI R.17).
 Criminal → identification parade card (rows, har witness ka nateeja, dummy No., A.S. Jail
-ke naam Settings se, 18 saal ya kam umar ka flag).
+ke naam Settings → Court se, 18 saal ya kam umar ka flag).
 
 ## Files
 

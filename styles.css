@@ -205,8 +205,7 @@ select.mini-select{width:auto;max-width:230px;font-size:12.5px;padding:5px 8px}
   html,body{height:100%;overflow:hidden;scrollbar-width:none}
   html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
   .app{flex-direction:column;height:100%;min-height:0}
-  .rail,.app.rail-closed .rail{position:static;flex:none;width:auto;height:auto;display:flex;flex-direction:row;align-items:center;gap:4px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;padding:8px max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px))}
-  .rail::-webkit-scrollbar{display:none}
+  .rail,.app.rail-closed .rail{position:static;flex:none;width:auto;height:auto;display:flex;flex-direction:row;align-items:center;gap:6px;overflow:hidden;padding:8px max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px))}
   .rail h6,.brandrow,.nav .sub,.nav .badge,.nav .long,.menubtn{display:none!important}
   .nav{flex:none;white-space:nowrap;padding:9px 14px;font-size:14px;border-radius:8px}
   .main{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:none;padding-top:16px;padding-left:max(16px,env(safe-area-inset-left,0px))}
@@ -263,3 +262,29 @@ select.mini-select{width:auto;max-width:230px;font-size:12.5px;padding:5px 8px}
 .layer{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg)}
 .layer summary{cursor:pointer;font-size:13px}
 .layer pre{white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:320px;overflow:auto;margin:8px 0 0}
+
+/* Side panel: the daily sections, and Settings kept apart from them */
+.navlist{display:flex;flex-direction:column;gap:4px}
+.gearbtn{all:unset;box-sizing:border-box;flex:none;display:none;align-items:center;justify-content:center;width:40px;height:40px;border-radius:8px;cursor:pointer;color:var(--rail-ink);border-left:1px solid rgba(255,255,255,.14)}
+.gearbtn:hover{background:rgba(255,255,255,.08)}
+.gearbtn:focus-visible{outline:2px solid var(--accent)}
+.gearbtn.on{background:var(--rail-active);color:#fff}
+.userbox .row{gap:6px}
+.userbox .setopen svg{margin-right:5px;vertical-align:-2px}
+.userbox .setopen.on{background:var(--rail-active);border-color:var(--rail-active);color:#fff}
+/* Settings page: one row of tabs, each pane under it */
+.settabs{margin:0 0 14px}
+.settabs .tab{padding:7px 16px;font-size:13.5px}
+.tabcount{font-size:11px;font-variant-numeric:tabular-nums;padding:0 6px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin-left:4px}
+.tab.on .tabcount{background:rgba(255,255,255,.22);color:inherit}
+.panehint{margin:0 0 12px;color:var(--muted);max-width:75ch}
+@media (max-width:820px){
+  /* Phones: only the sections swipe sideways; the Settings button stays put at the end of the row. */
+  .navlist{flex-direction:row;align-items:center;flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none}
+  .navlist::-webkit-scrollbar{display:none}
+  .gearbtn{display:inline-flex}
+  .settabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .settabs::-webkit-scrollbar{display:none}
+  .settabs .tab{flex:none}
+  #setShell .head .row{display:none}
+}
