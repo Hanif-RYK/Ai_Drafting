@@ -1,4 +1,4 @@
-/* Faisla Desk — main app.
+/* AI Drafting — main app.
    Ported from the claude.ai artifact: window.claude (sample / db / user / downloads) is replaced by the
    Supabase adapters in ai.js (Edge Function) and db.js (team-shared `docs` table). The drafting logic,
    prompts and style guide are unchanged. */
@@ -932,7 +932,7 @@ document.addEventListener("click", e => {
   inp.addEventListener("change", mark, { once: true });
   setTimeout(() => {
     window.removeEventListener("blur", mark); document.removeEventListener("visibilitychange", mark); inp.removeEventListener("change", mark);
-    if (!opened) toast("The picture chooser did not open in this view. If this keeps happening, open Faisla Desk in Chrome on this phone and add the pictures there.");
+    if (!opened) toast("The picture chooser did not open in this view. If this keeps happening, open AI Drafting in Chrome on this phone and add the pictures there.");
   }, 2500);
 }, true);
 

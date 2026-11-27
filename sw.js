@@ -1,4 +1,4 @@
-const CACHE_NAME = 'faisla-desk-v11';
+const CACHE_NAME = 'ai-drafting-v12';
 
 const APP_SHELL = [
   './',

@@ -1,4 +1,4 @@
-// AI adapter: the same `sample` interface the Faisla Desk artifact used inside
+// AI adapter: the same `sample` interface the drafting artifact used inside
 // claude.ai, now served by the Supabase Edge Function (supabase/functions/ai),
 // which calls Gemini or Claude depending on its AI_PROVIDER secret.
 //

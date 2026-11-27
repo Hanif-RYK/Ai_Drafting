@@ -1,4 +1,4 @@
-/* Faisla Desk — styles (from the claude.ai artifact, plus the login / team screens) */
+/* AI Drafting — styles (from the claude.ai artifact, plus the login / team screens) */
 img{max-width:100%}
 /* Layout: a collapsible left rail of court sections, the working area on the right; drafts sit on a yellow order-sheet page. */
 :root{
@@ -314,3 +314,12 @@ select.mini-select{width:auto;max-width:230px;font-size:12.5px;padding:5px 8px}
   .nav .badge.inboxbadge:not([hidden]){display:inline-block!important;margin-left:6px}
 }
 .causetag{display:inline-block;font-size:12px;font-weight:600;color:var(--accent-ink);background:var(--accent);border-radius:6px;padding:1px 7px;margin-right:8px;vertical-align:1px}
+
+/* Password box with a show / hide button */
+.pwwrap{position:relative;display:block}
+.pwwrap input{padding-right:46px}
+.pweye{all:unset;box-sizing:border-box;position:absolute;right:4px;top:50%;transform:translateY(-50%);width:38px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;color:var(--muted);cursor:pointer}
+.pweye:hover{color:var(--ink)}
+.pweye:focus-visible{outline:2px solid var(--accent)}
+.pweye.on{color:var(--accent)}
+.pweye.on::after{content:"";position:absolute;width:22px;height:2px;background:currentColor;transform:rotate(-40deg);border-radius:2px}

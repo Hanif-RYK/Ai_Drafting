@@ -1,4 +1,4 @@
-# Faisla Desk
+# AI Drafting
 
 Court drafting desk: daily order sheet, framing of issues, orders on applications,
 judgments (civil, family, rent, guardian, succession) aur Magistrate Section-30 ka
@@ -245,7 +245,7 @@ ke naam Settings → Court se, 18 saal ya kam umar ka flag).
 | `styles.css` | Saara design (light / dark) |
 | `js/main.js` | Shuruaat: login ke baad app chalata hai |
 | `js/auth.js` | Login, register, password reset, team banana, invite accept |
-| `js/app.js` | Faisla Desk: sections, record parhna, drafts, History, Samples, Settings, Team |
+| `js/app.js` | AI Drafting: sections, record parhna, drafts, History, Samples, Settings, Team |
 | `js/ai.js` | AI function ko request (tasveerein chhoti karke, streaming) |
 | `js/db.js` | Team ka data (`docs` table) + realtime updates |
 | `js/config.js` | Supabase URL aur public anon key |

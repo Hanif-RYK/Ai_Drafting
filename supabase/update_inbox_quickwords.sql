@@ -1,5 +1,5 @@
 -- =====================================================================
--- Faisla Desk: Inbox, apne quick words, aur settings sirf admin ke liye
+-- AI Drafting: Inbox, apne quick words, aur settings sirf admin ke liye
 -- =====================================================================
 -- Supabase Dashboard → SQL Editor → New query → ye poori file paste → Run.
 -- Ek dafa chalana kaafi hai; dobara chalana bhi safe hai. Koi purana data nahi hatta.

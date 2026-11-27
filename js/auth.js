@@ -15,6 +15,8 @@ export function initAuth(sb, onReady) {
   }
   function showForm(which) {
     ["login", "register", "reset", "newPass"].forEach((f) => { $(f + "Form").hidden = f !== which; });
+    document.querySelectorAll(".pwwrap input").forEach((i) => { i.type = "password"; });
+    document.querySelectorAll("[data-pw]").forEach((b) => { b.setAttribute("aria-pressed", "false"); b.setAttribute("aria-label", "Show password"); b.title = "Show password"; b.classList.remove("on"); });
     msg("");
     const first = $(which + "Form").querySelector("input");
     if (first && !matchMedia("(pointer:coarse)").matches) first.focus();
@@ -36,6 +38,14 @@ export function initAuth(sb, onReady) {
     finally { btn.disabled = false; btn.textContent = old; }
   }
   document.querySelectorAll("[data-auth]").forEach((b) => b.addEventListener("click", () => showForm(b.dataset.auth)));
+  // Show / hide password: the eye button inside each password box
+  document.querySelectorAll("[data-pw]").forEach((b) => b.addEventListener("click", () => {
+    const input = b.parentElement.querySelector("input"), show = input.type === "password";
+    input.type = show ? "text" : "password";
+    b.setAttribute("aria-pressed", String(show));
+    b.setAttribute("aria-label", show ? "Hide password" : "Show password"); b.title = b.getAttribute("aria-label");
+    b.classList.toggle("on", show);
+  }));
 
   /* ---------- login / register / reset ---------- */
   $("loginForm").addEventListener("submit", async (e) => {

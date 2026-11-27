@@ -1,5 +1,5 @@
 -- =====================================================================
--- Faisla Desk — Supabase schema
+-- AI Drafting — Supabase schema
 -- Supabase Dashboard → SQL Editor → New query → poori file paste karein → Run
 -- Dobara chalana safe hai (idempotent).
 --
