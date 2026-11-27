@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap">
 <!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever the CSS / JS change. -->
-<link rel="stylesheet" href="styles.css?v=2026111201">
+<link rel="stylesheet" href="styles.css?v=2026112701">
 <script defer src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 </head>
 <body>
@@ -156,12 +156,24 @@
             <details id="optBox"><summary>Case details (optional)</summary>
               <div class="grid" id="optFields" style="margin-top:10px"></div>
             </details>
+            <div id="condBox" class="subbox stack" hidden>
+              <label class="chk"><input type="checkbox" id="c_on"> Conditional decree (deposit)</label>
+              <div class="grid" id="condFields">
+                <label>Amount to deposit (Rs.)<input id="c_amount" inputmode="numeric" placeholder="Blank: taken from the record"></label>
+                <label>Period<input id="c_period" placeholder="e.g. one month"></label>
+                <label>Who deposits<input id="c_who" placeholder="e.g. the plaintiff"></label>
+                <label>If not deposited<input id="c_consequence" placeholder="e.g. the suit shall stand dismissed"></label>
+              </div>
+            </div>
+            <div id="idpBox" class="subbox stack" hidden></div>
+            <label class="chk" id="moreWrap"><input type="checkbox" id="f_more"> More documents are still coming: only read and summarise for now</label>
             <div class="row"><button class="btn ghost" id="readBtn">Read record</button><span class="status" id="readStatus"></span></div>
             <div id="missBox" class="stack" hidden></div>
             <div id="qWrap" hidden class="stack">
-              <strong style="color:var(--warn)">Please answer (required)</strong>
+              <strong style="color:var(--warn)" id="qHead">Please answer (required)</strong>
               <div class="stack" id="questions"></div>
             </div>
+            <details id="sumWrap" hidden><summary>What the record shows (summary)</summary><div class="summary" id="sumText"></div></details>
             <div id="flagsWrap" hidden><strong style="color:var(--warn)">Please check</strong><ul class="flags" id="flags"></ul></div>
             <div id="pointsWrap" hidden class="stack">
               <strong>Decision on each claim / issue</strong>
@@ -181,6 +193,7 @@
               </div>
             </div>
             <div class="status" id="draftStatus"></div>
+            <div id="citeWrap" class="citewarn" role="note" hidden><strong>⚠ Verify citation from official report</strong><ul id="citeList"></ul></div>
             <div class="sheetwrap"><div class="sheet" id="sheet" contenteditable="true" spellcheck="false" data-empty="The draft will appear here. You can edit it right on this page."></div></div>
             <div class="row">
               <button class="btn" id="saveBtn">Save</button>
@@ -188,7 +201,12 @@
               <button class="btn plain" id="copyBtn">Copy</button>
               <span class="status" id="saveStatus"></span>
             </div>
-            <div id="draftNotesWrap" hidden><strong>AI notes</strong><div class="notes" id="draftNotes"></div></div>
+            <div id="draftNotesWrap" hidden><strong>Notes (check before saving)</strong><div class="notes" id="draftNotes"></div></div>
+            <div id="fixWrap" class="stack" hidden>
+              <label>Corrections: the AI changes only these in the draft above (Roman Urdu is fine)<textarea id="fixText" rows="2" placeholder="e.g. PW-2 ka naam Muhammad Aslam hai; 30 din ki jagah 60 din likhein"></textarea></label>
+              <div class="row"><button class="btn plain" id="fixBtn">Apply corrections</button><button class="btn plain" id="undoFixBtn" hidden>Undo last correction</button></div>
+            </div>
+            <details id="layersWrap" hidden><summary>Prompt layers (debug): which layer gave which instruction</summary><div id="layers" class="stack"></div></details>
           </div>
         </div>
       </div>
@@ -270,7 +288,10 @@
           <label>Learned ADA / DDA (civil side)<input id="set_ada" placeholder="Name only, e.g. Mr. ____"></label>
           <label>Learned ADPP (criminal side)<input id="set_adpp" placeholder="Name only, e.g. Mr. ____"></label>
         </div>
-        <label>Standing instructions (applied to every draft)<textarea id="set_rules" rows="5" placeholder="e.g. Always spell the Judge's name as 'Ahmad', never 'Ahmed'."></textarea></label>
+        <label>Standing instructions (Layer 3 "Rules": applied to every draft and override the samples and the built-in style)<textarea id="set_rules" rows="5" placeholder="e.g. Always spell the Judge's name as 'Ahmad', never 'Ahmed'."></textarea></label>
+        <label>Your case law (added to the app's list; the AI cites nothing else). One per line: Case title | Citation | What it decides<textarea id="set_caselaw" rows="4" spellcheck="false" placeholder="e.g. Muhammad Akram Vs. Mst. Zainab | 2020 SCMR 123 | gift must be proved by its three ingredients"></textarea></label>
+        <label>Assistant Superintendents of District Jail (for identification parades), one per line<textarea id="set_asj" rows="3" spellcheck="false" placeholder="Muhammad Shafi"></textarea></label>
+        <label class="chk"><input type="checkbox" id="set_debug"> Show the prompt layers under each draft (for checking which layer gave which instruction)</label>
         <label>Quick words under the order box in every section. CPA, CPB, PA and PB are always there and follow the kind of case (party A / party B). Add your own words below, one per line, as SHORT = words.<textarea id="set_chips" rows="9" spellcheck="false" placeholder="EV = evidence"></textarea></label>
         <div class="row"><button class="btn" id="setSave">Save</button><span class="status" id="setStatus"></span></div>
       </div>
@@ -331,6 +352,6 @@ setTimeout(function () {
   if (!shown) document.getElementById("bootFail").hidden = false;
 }, 12000);
 </script>
-<script type="module" src="js/main.js?v=2026111201"></script>
+<script type="module" src="js/main.js?v=2026112701"></script>
 </body>
 </html>

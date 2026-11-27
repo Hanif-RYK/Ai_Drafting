@@ -244,3 +244,22 @@ select.mini-select{width:auto;max-width:230px;font-size:12.5px;padding:5px 8px}
   .userbox{display:none!important}
   .auth{align-items:flex-start;height:100%}
 }
+
+/* Conditional decree / identification parade boxes, citation warning, prompt layers */
+.subbox{border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--bg)}
+.idrow{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.idrow:first-of-type{border-top:0;padding-top:0}
+.idrow .rowhead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.idres{display:grid;grid-template-columns:minmax(0,1fr) 190px 110px;gap:8px;align-items:center;font-size:13px}
+@media (max-width:700px){.idres{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.idw{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:center}
+@media (max-width:560px){.idw{grid-template-columns:minmax(0,1fr) auto}.idw input+input{grid-column:1}}
+.agewarn{color:var(--warn);background:var(--warn-bg);border-radius:6px;padding:4px 8px;font-size:12.5px}
+.urdu{font-family:"Noto Nastaliq Urdu",var(--doc);line-height:2}
+.citewarn{border:1px solid var(--warn);background:var(--warn-bg);color:var(--ink);border-radius:8px;padding:8px 12px;font-size:13px}
+.citewarn strong{color:var(--warn)}
+.citewarn ul{margin:4px 0 0;padding-left:18px}
+.citewarn .unk{color:var(--danger);font-weight:600}
+.layer{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg)}
+.layer summary{cursor:pointer;font-size:13px}
+.layer pre{white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:320px;overflow:auto;margin:8px 0 0}

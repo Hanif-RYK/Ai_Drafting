@@ -46,12 +46,12 @@ const STYLE = {
 civil: `CIVIL SUIT JUDGMENT (the Judge's own style; use it for ex-parte, contested and conceded suits)
 HEADING (always this layout; the three court lines are bold and centred):
 THE COURT OF <JUDGE NAME IN CAPITALS>,
-<DESIGNATION IN CAPITALS>,
+<DESIGNATION IN CAPITALS, keeping "1st" as written, e.g. CIVIL JUDGE 1st CLASS>,
 <DISTRICT IN CAPITALS>.
 CMS No.<..>
-Civil Suit No.            <no>/<yyyy>
-Date of Institution:      <dd.mm.yyyy>
-Date of Decision:         <dd.mm.yyyy>
+Civil Suit No.<no>/<yyyy>
+Date of Institution: <dd.mm.yyyy>
+Date of Decision: <dd.mm.yyyy>
 **<Plaintiff name>** S/O <..>, caste <..>, R/O <..>, Tehsil & District Rahim Yar Khan.
 **Plaintiff** (on its own line, to the right)
 **VERSUS** (centred)
@@ -66,10 +66,12 @@ Contested / conceded cases put the hearing block before the heading word:
 Present.  Mr. <name> Advocate, learned counsel for the plaintiff.
           Mr. <name> Advocate, learned counsel for defendants.
 JUDGMENT:
-Ex-parte cases: just "JUDGMENT" (no Present block).
+Ex-parte cases: no Present block and no date line; the heading word is just "JUDGMENT" and the case is decided on a POINT OF DETERMINATION ending "? OPP".
+Admin Judge: when the record shows that the issues were framed by the Admin Judge and the file then came to this court, say so after the issues: "Out of the divergent pleadings of the parties, issues were framed vide order dated <dd.mm.yyyy> by the learned Civil Judge (Admin Court) and the file was entrusted to this Court for further proceedings."
 
 PARAGRAPHS
-1. Facts open with "Succinctly, the facts of the case are that ..." or "Synoptically, the facts of case are that ...". Flowing narrative sentences, not a semicolon chain: property / transaction details, payments with dates and receipts, death of a party and legal heirs, refusal, "The grievance of the plaintiff is that ...", "The plaintiff asserts that he has always been ready and willing ...", ending "... hence, this case." / "Hence this suit."
+ORDER OF THE BODY (default): facts ("Succinctly, the facts of the case are that ...") -> the defendants' side ("Conversely, defendants ...", or the ex-parte paragraph) -> ISSUES exactly as framed with (OPP) / (OPD), or the POINT OF DETERMINATION -> PLAINTIFF'S ORAL EVIDENCE / PLAINTIFF'S DOCUMENTARY EVIDENCE -> DEFENDANTS' EVIDENCE -> "I have heard final arguments as delivered by learned counsel for the parties and perused the record deeply. My issue wise findings are as under: -" -> ISSUE NO.1, ISSUE NO.2 ... -> RELIEF:- -> closing lines -> Announced -> certificate.
+1. Facts open with "Succinctly, the facts of the case are that ..." (or "Synoptically, the facts of case are that ..." only when the samples use it). Flowing narrative sentences, not a semicolon chain: property / transaction details, payments with dates and receipts, death of a party and legal heirs, refusal, "The grievance of the plaintiff is that ...", "The plaintiff asserts that he has always been ready and willing ...", ending "... hence, this case." / "Hence this suit."
 2. Defendant's side.
    Ex-parte: "On the other hand, defendant was summoned through all possible mode of summoning but he did not turn up before the court, hence, defendant was proceeded against ex-parte vide order dated <date> and plaintiff was directed to produce his ex-parte evidence."
    Contested: "Conversely, defendants No.<..> contested the suit by filing controverted written statement [along with a counter-claim] that ..." summarise their version and admissions, ending "On these premises, the defendants have prayed for dismissal of the suit of plaintiff." If the defendants' right of evidence was closed, add DEFENDANTS' EVIDENCE: "Defendants did not produce any oral or documentary evidence and their right to produce evidence was closed vide order dated <..>."
@@ -78,7 +80,7 @@ PARAGRAPHS
 5. Evidence, in either style.
    List style: **PLAINTIFF'S ORAL EVIDENCE** "Plaintiff has produced following witnesses in support of his stance:-" "PW-1: <name> (Plaintiff himself)."; **PLAINTIFF'S DOCUMENTARY EVIDENCE** "Plaintiff has produced following documents in his documentary evidence:-" "Exh.P-1: <description>." "Mark-A: Copy of <..> dated <..>." Contested: also DEFENDANTS' ORAL / DOCUMENTARY EVIDENCE (DW, Exh.D).
    Narrative style (short / conceded cases): "Plaintiff, <name> himself appeared in the witness box as PW-1 and reiterated the same facts as mentioned in the suit. He has produced <names> in his support in the witnesses box as PW-2 & PW-3 and they have supported the version of the plaintiff. In documentary evidence plaintiff have produced ... as Exh.P-1 ..., which further strengthen his version. After recording of evidence counsel for the plaintiff has recorded his statement regarding closure of plaintiff's evidence."
-6. "Arguments heard. Record perused." or "I have heard final arguments as delivered by learned counsel for plaintiff and perused the record deeply. My issue wise findings are as under: -"
+6. "I have heard final arguments as delivered by learned counsel for plaintiff and perused the record deeply. My issue wise findings are as under: -" (short orders and conceded cases may use "Arguments heard. Record perused.").
 7. Discussion under **POINT OF DETERMINATION** / **ISSUE NO.x** / **ISSUES NO.x & y** (when interlinked), or straight paragraphs in conceded cases:
    - Opens with "Ratiocination set by plaintiff in his plaint is that ..." (recap).
    - "In order to substantiate his version, plaintiff appeared as PW-1 ... and reiterated the contents of the plaint. However/Moreover ..."
@@ -91,19 +93,20 @@ PARAGRAPHS
    - OPD issues where the defendants produced no evidence: "Mere assertions made in the written statement, without any evidence in support thereof, are not sufficient ..." decided in negative against the defendants. Failure of a suit alone does not make it false / vexatious under Section 35-A CPC.
    - Standard: "on the touchstone of preponderance of probabilities".
    - Finding line: "... could not succeed to discharge the onus of this issue in his favour which is accordingly decided in negative against the plaintiff." / "... has succeeded to discharge the onus ... decided in affirmative in favour of the plaintiff."
-8. RELIEF:- "In the light of my findings on above issue(s), suit of the plaintiff is hereby dismissed / decreed (ex-parte) as prayed for / decreed to the extent of ..." with the operative terms spelled out (declaration, injunction, direction to execute the sale deed failing which through process of Court). Short conceded judgments may instead end the last discussion paragraph with "Hence, suit of the plaintiff is decreed in his favour as prayed." Then: "No order as to costs. Decree sheet be prepared. Ahlmad is directed to consign the file to the record room after its due completion and compilation."
+8. RELIEF:- "In the light of my findings on above issue(s), suit of the plaintiff is hereby dismissed / decreed (ex-parte) as prayed for / decreed to the extent of ..." with the operative terms spelled out (declaration, injunction, direction to execute the sale deed failing which through process of Court). Short conceded judgments may instead end the last discussion paragraph with "Hence, suit of the plaintiff is decreed in his favour as prayed." Then exactly: "No order as to costs. Decree-sheet be drawn up accordingly. Ahlmad is hereby directed to consign the file to the record room after its due completion and compilation."
 
 SIGNATURE AND CERTIFICATE
 Announced:
 <dd.mm.yyyy>        <Judge name>
                     <Designation>
                     <District>
-It is certified that this judgment consists of ____-Pages, each of which has been dictated, read over, corrected and signed by me, and is announced in the open court.
+It is certified that this judgment consists of ____-Pages, each of which has been dictated, read over, corrected and signed by me.
+                    <Judge name>
                     <Designation>
                     <District>
 
-PRECEDENTS AND PRINCIPLES THE JUDGE USES
-- Rendition of accounts: maintainable only where a fiduciary relationship exists (principal-agent, partners, trustee-beneficiary, guardian-ward); a mere contractual relation is not enough. Engineering Corporation, The Mall, Lahore v. Government of Punjab and others (1991 SCMR 2324); Abdul Karim v. Iqbal-ur-Rehman (1980 CLC 1283); Province of West Pakistan v. Allah Ditta (PLD 1972 Karachi 8): “A suit for accounts is an equitable relief and is not maintainable in cases of simple contractual obligations, where the plaintiff is himself in a position to ascertain his alleged dues and seek recovery through a money suit”.
+PRECEDENTS AND PRINCIPLES THE JUDGE USES (citations only from the CASE LAW LIST)
+- Rendition of accounts: maintainable only where a fiduciary relationship exists (principal-agent, partners, trustee-beneficiary, guardian-ward); a mere contractual relation is not enough; see the CASE LAW LIST under "Rendition of accounts" for the citations and the quotation “A suit for accounts is an equitable relief and is not maintainable in cases of simple contractual obligations, where the plaintiff is himself in a position to ascertain his alleged dues and seek recovery through a money suit”.
 - Specific performance of an agreement to sell: execution of the agreement (Exh.P-1) proved by marginal witnesses and the scribe, payment of sale consideration in instalments with receipts / bank record, delivery of possession, the plaintiff's readiness and willingness, revenue record of the suit land, authority of a general attorney who executed the agreement; legal heirs of a deceased vendor are bound by the agreement; on conceding statements proof is still required under Order VIII Rule 5 CPC; a vendor without title (e.g. Kachi Abadi / State land) cannot pass title.
 - Declaration against warabandi / an official order: an order passed without notice or hearing violates audi alteram partem and is void; civil court jurisdiction is not ousted; relief = declaration + injunction, with liberty to the authority to pass a fresh order after notice and hearing.
 - Declaration (S.42), permanent / mandatory injunction (S.54 / 55 Specific Relief Act), recovery and possession suits use the same structure.
@@ -137,22 +140,22 @@ Then a short order in plain court English, usually 2 to 5 lines: what the case w
 Standard phrases, to be used ONLY when the stenographer asks for them (a ticked box or the instructions), never on your own: "Last opportunity is granted to the plaintiff to produce his evidence."; "subject to payment of costs of Rs.<..>/-"; "failing which his right to produce evidence shall be closed under Order XVII Rule 3 CPC"; "Right of the defendant to file written statement is struck off."; "Defendant is proceeded against ex-parte."; "Evidence of the plaintiff is closed under Order XVII Rule 3 CPC."
 Write it so that it continues the same order sheet as the previous entry: the same names and spellings, the same way of writing the Present block, the same name and designation lines at the end.
 The last line must state the full proceedings for which the case is fixed on the next date, in the same words the order sheet uses for that stage, not merely the pending step. Example: when the case is fixed for summoning of the judgment debtor through non-bailable warrant of arrest subject to deposit of process fee and the fee has not been deposited, write "Now, to come up for summoning of judgment debtor through issuance of his non-bailable warrant of arrest subject to deposit of process fee on <next date>." and not "Now, to come up for deposit of process fee on <next date>." Add a time limit such as "within 3 days" only when the user writes it or the previous order carries it.
-Do not write the heading "ORDER" (or any other heading) in a daily order: the text of the order starts directly on the line after the Present block, even if the previous order in the picture carries such a heading.
+Do not write the heading "ORDER" (or any other heading) in a daily order: the text of the order starts directly on the line after the Present block, even if the previous order in the picture carries such a heading. The only exception: the Judge's own SAMPLES of daily orders (Layer 2) consistently use such a heading.
 Do not use spaces or tabs to indent or line up anything, and do not break a Present entry over two lines: write each Present entry on one line starting at the left margin. The page layout is done separately.
 Do not number the paragraphs of a daily order: no "1.", "2." or similar before any sentence, including the "File be put up ..." / "Now, to come up ..." line, even if the previous order in the picture carries such numbers.
 Every order ends with "Announced:" and, on the line below it, the date of the order; after that come the Judge's name and designation lines.
 The Judge signs the printed order by hand: never write "[Signature]", "Sd/-", "(signed)" or any note about a stamp, seal or handwritten signature seen in the pictures.`,
 
 rent: `RENT / EJECTMENT PETITION (Punjab Rented Premises Act, 2009)
-Heading designation: "SPECIAL JUDGE RENT TRIBUNAL/CIVIL JUDGE 1ST CLASS, RAHIM YAR KHAN." (or the designation given). Parties "...Petitioner" / "...Respondent"; title "EJECTMENT PETITION UNDER THE PUNJAB RENTED PREMISES ACT, 2009."; heading "EXPARTE JUDGMENT:" / "JUDGMENT:". The same bold-name heading layout as the civil suit.
-Paragraphs: facts ("Briefly stated facts of the instant petition are that ...; that ...; hence, this petition."), service / ex-parte (refusal report, registered AD, publication with the newspaper name and date), evidence (AW-1.., Exh.A-1.., Mark-A..), "Arguments heard and record perused.", then the discussion in this order:
-- Relationship of landlord and tenant (rent agreement, ownership; the legal heir of a deceased landlord steps into his shoes).
-- Registration of the tenancy under Section 5 / penalty of 10% of the annual rent deposited (date), so the petition is maintainable.
-- The ground (default in rent, personal need, etc.) under Section 15; unrebutted evidence; the tenant did not show payment / tender / deposit.
-- Arrears of rent (period, amount); security adjusted as per the agreement.
+Heading designation: "CIVIL JUDGE 1st CLASS/JUDGE RENT TRIBUNAL," (or the designation given). Parties "**Petitioner/Landlord**" / "**Respondent/Tenant**"; title "EJECTMENT PETITION UNDER SECTION 15 OF THE PUNJAB RENTED PREMISES ACT, 2009."; a contested petition ends in "JUDGMENT:", an ex-parte one is decided by an "ORDER:" written after the Present block. The same bold-name heading layout as the civil suit.
+Paragraphs: facts ("Briefly stated facts of the instant petition are that ...; that ...; hence, this petition."), service / ex-parte (refusal report, registered AD, publication with the newspaper name and date), evidence (AW-1, AW-2 ..., Exh.A-1 .., Mark-A ..), "Arguments heard and record perused.", then the discussion in this order:
+- Relationship of landlord and tenant (rent agreement, ownership, registration of the tenancy at the Police Khidmat Markaz; the legal heir of a deceased landlord steps into his shoes).
+- Registration of the tenancy under Section 5 / penalty of 10% of the annual rent deposited (date), where the record shows it.
+- The ground (default in rent, personal need, etc.) under Section 15; unrebutted evidence; once the landlord states on oath that the rent was not paid, the onus shifts to the tenant to show payment / tender / deposit.
+- Arrears of rent (period, rate, amount); security adjusted as per the agreement.
 - Contested: leave to contest under Section 22 granted / refused; then issues and findings.
-Terms i., ii., iii.; "No order as to costs. File be consigned to the record room after due compliance."; Announced; certificate; a short order sheet.
-Defaults: 30 days to hand over vacant possession; security adjusted at vacation; on failure, implemented through process of law.`,
+Terms i., ii., iii.; "No order as to costs. File be consigned to the record room after its due completion and compilation."; Announced; a judgment also has the certificate, an order does not.
+Defaults: the period to hand over vacant possession is the one given by the stenographer (otherwise "____"); security adjusted at vacation; on failure, implemented through process of law.`,
 
 guardian: `GUARDIANSHIP (Guardians and Wards Act, 1890), using the civil-style heading and paragraphs
 - Petition under Section 25 (custody) or Sections 7 / 10 (appointment as guardian of the person / property); the minors' names, ages and present custody.
@@ -213,12 +216,196 @@ REPORT OF IDENTIFICATION PARADE
 FIR NO.<..>/<yyyy> [DATED <..>]
 OFFENCE U/S <..> PPC.
 P/S <..>, <DISTRICT>.
-"In order to hold identification parade of suspect(s) <names>, I approached District Jail, Rahim Yar Khan today i.e. <date> at about <time>. On the outer gate of the jail, I.O <name rank>, Police Station <..> along with record and identifying witnesses namely:-" 1. <name S/O, caste, age about __-years, <profession> by profession, R/O ...> (complainant). 2. ... "were present there. Mr. <name>, Assistant Superintendent Jail, Rahim Yar Khan was also present there." (Take the Assistant Superintendent's name from the record; if it is not shown write "____" and mention it in the notes.) "I ordered I.O to stay outside jail premises and police file was temporarily taken from him." Then the precautionary directions i. witnesses kept separate; ii. sent turn by turn; iii. after identification sent to another place, no communication; iv. mobile phones kept in the office of the Superintendent Jail; v. a warder / jail official to keep an eye; vi. the suspect placed among other persons in the proportion of nine to one (a separate row for each suspect) with the same physique, height, features and complexion. "I was informed after some time ... arrangements completed in the hall of jail."
+"In order to hold identification parade of suspect(s) <names>, I approached District Jail, Rahim Yar Khan today i.e. <date> at about <time>. On the outer gate of the jail, I.O <name rank>, Police Station <..> along with record and identifying witnesses namely:-" 1. <name S/O, caste, age about __-years, <profession> by profession, R/O ...> (complainant). 2. ... "were present there. Mr. <name>, Assistant Superintendent Jail, Rahim Yar Khan was also present there." (Take the Assistant Superintendent's name from the IDENTIFICATION PARADE DETAILS, else from the record; if it is not shown write "____" and mention it in the notes.) "I ordered I.O to stay outside jail premises and police file was temporarily taken from him." Then the precautionary directions i. witnesses kept separate; ii. sent turn by turn; iii. after identification sent to another place, no communication; iv. mobile phones kept in the office of the Superintendent Jail; v. a warder / jail official to keep an eye; vi. the suspect placed among other persons in the proportion of nine to one (a separate row for each suspect) with the same physique, height, features and complexion. "I was informed after some time ... arrangements completed in the hall of jail."
 For each suspect (heading "ROW NO.x (SUSPECT <NAME>)" when more than one): "I started identification parade proceeding of the suspect <name>. The Assistant Superintendent ... escorted me towards the place where suspect having features:-" then in Urdu: ملزم: <نام ولدیت، قوم، عمر، پیشہ، سکنہ>۔ حلیہ:- <چہرہ، داڑھی مونچھ، جسم، رنگ، قد>۔ "has been placed amongst nine other persons in a row. Particulars of whom are as under:-" 1..10 (English transliteration: Name S/O ..., caste ..., R/O ...; mark "(suspect)"). "All the persons have almost similar physique ... I asked ... to summon first identifying witness." "The first identifying witness <name> (complainant) was brought ... He identified the suspect and put his hand on the head of suspect sitting at Serial No.<n> from right to left in a row. He stated that:" <Urdu statement>. Objection, if any: "At this stage, the accused raised an objection that: <Urdu>" and "The impact of such objection will be adjudged by the trial court and I do not deem it proper to comment on it." "When the first identifying witness completed ... sent to some other place ..." "Before summoning the other witness, the suspect was asked whether he wants to change his position in the row, to which he did not change his position." Then the next witness the same way. Later rows may say "He reiterated the same statement as recorded above." A collective objection of all suspects is recorded once under "OBJECTION OF THE SUSPECTS:". If a witness fails to identify or points at a dummy, record it plainly ("He failed to identify the suspect and put his hand on the head of a dummy sitting at Serial No.x") and reflect it in the conclusion.
 CONCLUSION: "The complainant <..> and witness(es) <..> have rightly identified the accused <..>." Dated: <date>   <Judge>, Magistrate Sec-30, <District>
 CERTIFICATE: "It is certified that the above report of identification parade is a true and correct record of my proceedings comprising of ____ pages and that no collusion with police and witnesses or among the witnesses themselves was possible." Dated: <date>   Magistrate Section-30, <District>.
 Disposal order: <date>. "Present: <I.O name rank>/IO along with record. Complainant alongwith witness(es) are in attendance. Identification parade has been carried out in the jail premises. The very object of this petition has been achieved and accomplished; therefore, the petition for holding of identification parade is hereby disposed of. Identification parade proceedings along with this order be sent to the Worthy District & Sessions Judge, Rahim Yar Khan for onward transmission to the concerned competent court. Ahlmad is directed to dispatch the file immediately." Announced. <date>   <JUDGE NAME>, Magistrate Section 30, <District>.`
 };
+
+/* ---------- Case law the drafts may cite (Layer 1). Nothing outside this list (or the team's own list in Settings) may be cited. ---------- */
+const CASE_LAW = [
+  { topic: "Burden of proof: the initial burden lies on the plaintiff", principle: "The initial burden to prove the claim made in the plaint is always on the plaintiff; it does not shift merely because the defendant is absent or his case is weak.",
+    quote: "It was always the prime responsibility of plaintiff to discharge initial burden of prove with regard to her claim as per the plaint.", quoteFrom: "2022 SCMR 55",
+    cases: [["Mushtaq-ul-Arfin and others Vs. Mumtaz Muhammad and others", "2022 SCMR 55"], ["Federation of Pakistan through Secretary, Ministry of Defence Rawalpindi and another Vs. Messrs Farrukh International (Pvt.) Ltd. through Proprietor", "2023 SCMR 1118"], ["Aj Muhammad Khan Vs. Munawar Jan and others", "PLJ 2009 SC 375"]] },
+  { topic: "Written statement is not evidence", principle: "Assertions made in a written statement are not evidence; without evidence in support they cannot be relied upon.",
+    cases: [["Mrs. Shahina Shahid Vs. Qamran Construction", "2024 CLC 914"], ["Faiz Muhammad Vs. Province of Sindh", "2024 MLD 644"]] },
+  { topic: "Amendment of pleadings (Order VI Rule 17 CPC): liberal approach", principle: "Amendment of pleadings is to be allowed liberally so that the real question in controversy is decided, if the nature of the suit is not changed and the other side can be compensated by costs.",
+    cases: [["Mst. Ghulam Bibi and others Vs. Sarsa Khan and others", "PLD 1985 SC 345"]] },
+  { topic: "Late amendment: closer scrutiny", principle: "An amendment sought at a late stage is examined more strictly: the delay, its explanation, the bona fides and the prejudice to the other side.",
+    cases: [["Muhammad Arif Tarar Vs. Matloob Ahmad Warraich", "2026 SCLR 1"]] },
+  { topic: "Partition added by amendment in a suit for declaration of inheritance", principle: "The relief of partition can be added by amendment in a suit for declaration of inheritance, which avoids multiplicity of proceedings.",
+    cases: [["Mian Muhammad Saeed Vs. Mian Abdul Ghafoor", "PLD 2006 Lahore 456"], ["Syed Mohsin Raza Bukhari Vs. Syeda Azra Zenab Bukhari", "1993 CLC 31"]] },
+  { topic: "No limitation against inheritance", principle: "Limitation does not run against a legal heir's claim to his share in inheritance.",
+    cases: [["Ghulam Ali Vs. Mst. Ghulam Sarwar Naqvi", "PLD 1990 SC 1"]] },
+  { topic: "Rendition of accounts", principle: "A suit for rendition of accounts lies only where a fiduciary relationship exists (principal-agent, partners, trustee-beneficiary, guardian-ward); a simple contractual relation is not enough.",
+    quote: "A suit for accounts is an equitable relief and is not maintainable in cases of simple contractual obligations, where the plaintiff is himself in a position to ascertain his alleged dues and seek recovery through a money suit.", quoteFrom: "PLD 1972 Karachi 8",
+    cases: [["Engineering Corporation, The Mall, Lahore Vs. Government of Punjab and others", "1991 SCMR 2324"], ["Abdul Karim Vs. Iqbal-ur-Rehman", "1980 CLC 1283"], ["Province of West Pakistan Vs. Allah Ditta", "PLD 1972 Karachi 8"]] },
+  { topic: "Khula (Family Court)", principle: "A wife is entitled to dissolution of marriage on the basis of khula when the court is satisfied that the spouses cannot live together within the limits prescribed by Allah.",
+    cases: [["Mst. Khurshid Bibi Vs. Baboo Muhammad Amin", "PLD 1967 SC 97"]] }
+];
+/* The team's own case law from Settings: one per line, "Case title | Citation | What it decides". */
+function myCaseLaw() {
+  return String(settings.caseLaw || "").split("\n").map(l => l.split("|").map(x => x.trim())).filter(p => p.length >= 2 && p[0] && p[1]).slice(0, 60)
+    .map(([title, cite, ...rest]) => ({ title, cite, principle: rest.join(" | ") }));
+}
+function caseLawBlock() {
+  const lines = CASE_LAW.map(c => `- ${c.topic}. Principle: ${c.principle}${c.quote ? `\n  Quotation (from ${c.quoteFrom}, the only words that may be put in inverted commas): “${c.quote}”` : ""}\n  Cite: ${c.cases.map(([t, ci]) => `“${t}” ${ci}`).join("; ")}`);
+  const mine = myCaseLaw();
+  return `CASE LAW LIST (the ONLY precedents that may be cited; never invent or alter a name, year, journal, court or page; never put words in inverted commas as a quotation from a judgment unless the quotation is given here)
+${lines.join("\n")}${mine.length ? "\nAdded by the team (Settings):\n" + mine.map(c => `- “${c.title}” ${c.cite}${c.principle ? ". Principle: " + c.principle : ""}`).join("\n") : ""}
+If none of these fits a point, state the legal principle in plain words without any citation.`;
+}
+/* Citations found in a draft, each marked as in the app's list or not, for the "Verify citation" badge. */
+const CITE_RE = /\b(?:(?:PLD|PLJ|NLR|PCr\.?\s?LJ)\s+(?:19|20)\d{2}\s+(?:SC|FSC|Lahore|Lah\.?|Karachi|Kar\.?|Peshawar|Pesh\.?|Quetta|Islamabad|[A-Z][a-z]{2,})\s+\d{1,4}|(?:19|20)\d{2}\s+(?:SCMR|CLC|MLD|YLR|SCLR|CLD|PTD|PLC|MLR|KLR|NLR|CLR|GBLR|PCr\.?\s?LJ|P\.?\s?Cr\.?\s?L\.?\s?J\.?)\s+\d{1,4})\b/g;
+const citeKey = c => String(c).toUpperCase().replace(/LAHORE/g, "LAH").replace(/KARACHI/g, "KAR").replace(/PESHAWAR/g, "PESH").replace(/[^A-Z0-9]/g, "");
+function citationsIn(text) {
+  const known = new Set([...CASE_LAW.flatMap(c => c.cases.map(x => citeKey(x[1]))), ...myCaseLaw().map(c => citeKey(c.cite))]);
+  const seen = new Map();
+  for (const m of String(text || "").matchAll(CITE_RE)) { const k = citeKey(m[0]); if (!seen.has(k)) seen.set(k, { cite: m[0].replace(/\s+/g, " "), known: known.has(k) }); }
+  return [...seen.values()];
+}
+/* The Judge's name is always written as in Settings (e.g. "Ahmad", never "Ahmed"), in capitals where the draft uses capitals. */
+function fixJudgeName(t) {
+  const j = norm(settings.judge);
+  if (!/ahmad/i.test(j)) return t;
+  const re = new RegExp(j.split(" ").map(w => /^ahmad$/i.test(w) ? "Ahm[ae]d" : w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+"), "gi");
+  return String(t || "").replace(re, m => m === m.toUpperCase() ? j.toUpperCase() : j);
+}
+
+/* ---------- Global rules (Layer 1): apply to every draft and order ---------- */
+function globalRules(isOrder) {
+  const j = settings.judge, ahmad = /ahmad/i.test(j) ? ` (never "${j.replace(/ahmad/i, "Ahmed")}")` : "";
+  return `GLOBAL RULES (apply to every draft)
+1. Language: English court language. Statements of witnesses, the suspect's huliya and objections of the accused that were recorded in Urdu stay in Urdu script, exactly as recorded.
+2. When the decision is given, draft at once on that decision. Never stop to ask a question and never refuse to draft for want of a detail: an unknown detail is written as "____".
+3. Date: the date of the order / decision given; if none is given, today's date (${today()}).
+4. Unreadable or missing words, names, numbers or dates: write "____" in their place (never guess) and list each one in NOTES.
+5. Corrections to an existing draft change only what was asked; a fresh draft is never written in their place.
+6. If the stenographer's instructions say that more documents are still to come, do not draft: write only a short summary of what has been received, and in NOTES what is still awaited.
+7. Case law: ${isOrder ? "a daily order cites no case law." : "cite only precedents from the CASE LAW LIST (or supplied by the stenographer in this request). A citation that appears only in the samples or the learned notes is not in the list, so do not cite it. Never invent a citation. If no listed case fits, state the principle without a citation."}
+8. Judge's name: exactly "${j}"${ahmad}.
+9. Never write "[Signature]", "Sd/-", "(signed)", "[Stamp]", "[Seal]" or any note about a stamp, seal or handwritten signature: the signature block is only the name and designation lines.${isOrder ? `
+10. Daily order: no "ORDER" heading unless the Judge's samples of daily orders use one; no paragraph numbers; it ends with "Announced:", then the date of the order on the next line, then the Judge's name and designation lines.` : ""}`;
+}
+/* NOTES: after every draft, a short checklist for the stenographer in Roman Urdu. */
+function notesSpec(isOrder) {
+  return `a line with exactly ===NOTES=== and after it ${isOrder ? "1-5" : "3-10"} short lines in Roman Urdu (Urdu written in English letters, e.g. "Plaint mein khata No.123 hai magar jamabandi mein 132; check karein."), each starting with "- ", covering: every blank (____) and what should go there; uncertain readings; mismatches between documents (khata / khewat No. in the plaint vs the jamabandi, area or share, names in the NADRA FRC vs the plaint, dates, amounts); minors (anyone 18 or under) and how their share or interest is protected; every assumption made; and every citation used, with the reminder to verify it from the official report. If nothing needs checking, one line: "- Kuch check karne ki zaroorat nahi."`;
+}
+
+/* ---------- Types with their own drafting template (Layer 1) ---------- */
+const TYPE_INFO = {
+  "Permanent injunction: owner in possession": { base: "Civil suit",
+    hint: "e.g. suit decreed; defendants permanently restrained from interfering in the plaintiff's possession; PWs were not cross-examined",
+    docs: "Revenue record (jamabandi / fard / girdawari) / exhibits",
+    guide: `TYPE TEMPLATE: SUIT FOR PERMANENT INJUNCTION, OWNER IN POSSESSION (usually decreed; the PWs were not cross-examined)
+- The civil suit heading and closing; "SUIT FOR PERMANENT INJUNCTION." (add "DECLARATION AND" only when also claimed).
+- Facts: the plaintiff is the owner in possession of the suit property (khewat / khatooni / khasra Nos., area, mauza, as per the jamabandi / fard); the defendants, having no concern with it, are threatening to interfere in / dispossess him and refused to desist; hence the suit (Section 54, Specific Relief Act, 1877).
+- The defendants' side exactly as the record shows: ex-parte; or written statement filed but no evidence; or right of cross-examination closed.
+- POINT OF DETERMINATION (ex-parte / no issues) or the ISSUES exactly as framed.
+- Evidence: PW-1 (plaintiff or his attorney), PW-2 / PW-3 (witnesses of possession); Exh.P-1 jamabandi / fard, Exh.P-2 khasra girdawari and the rest as on the record.
+- Discussion: (a) ownership from the revenue record (an entry in the record of rights is presumed to be true until the contrary is proved, Section 52 of the Punjab Land Revenue Act, 1967); (b) possession from the PWs and the girdawari; (c) "The PWs were not cross-examined [despite opportunity / as the right of cross-examination was closed vide order dated <..>], so their statements on oath have gone unchallenged and unrebutted; a statement on oath which is not challenged in cross-examination is deemed to have been admitted." (no listed case covers this, so no citation); (d) the initial burden still lay on the plaintiff (the burden-of-proof paragraph with the listed citations); (e) if a written statement was filed but no evidence led, cite the listed cases under "Written statement is not evidence".
+- Do not decide title beyond what the revenue record shows.
+- RELIEF:- "suit of the plaintiff is hereby decreed as prayed for. The defendants are permanently restrained from interfering in the peaceful possession of the plaintiff over the suit property and from dispossessing him therefrom except in due course of law." Then the standard closing lines.` },
+  "Declaration of heirship: inherited vehicle": { base: "Civil suit",
+    hint: "e.g. suit decreed; plaintiffs and defendants 1-3 declared legal heirs; Motor Registering Authority to transfer the vehicle as per Shari shares; minors' shares through the Guardian Court",
+    docs: "Registration book / death certificate / NADRA FRC / Decline Certificate / bank NOC",
+    guide: `TYPE TEMPLATE: DECLARATION OF HEIRSHIP, INHERITED VEHICLE
+- "SUIT FOR DECLARATION" (add "AND MANDATORY INJUNCTION" when claimed). Defendants as on the plaint: usually the other legal heirs, the Motor Registering Authority (Excise, Taxation & Narcotics Control Department) and the bank, if any.
+- Facts: the vehicle (make, model, registration No., engine No., chassis No.) stood registered in the name of the deceased <name>, who died on <date> (death certificate); his legal heirs as per the NADRA Family Registration Certificate (FRC); NADRA declined to issue a letter of administration / succession certificate (NADRA Decline Certificate dated <..>, with the reason written in it); if the vehicle was financed, the bank's NOC / clearance; the Motor Registering Authority refuses to transfer the vehicle without a declaration of the court; hence the suit.
+- The defendants' side as on the record (conceding statements of the other heirs; the Authority's reply; ex-parte).
+- POINT OF DETERMINATION or the issues; evidence: PW-1, PW-2; registration book, death certificate, FRC, Decline Certificate, bank NOC, conceding statements, with the exhibit numbers on the record.
+- Discussion: death, relationship and the list of legal heirs proved by the FRC and the death certificate; the vehicle was owned by the deceased and devolves on all his legal heirs according to their Shari shares; no other claimant; conceding statements still need proof (Order VIII Rule 5 CPC). Compare the names in the FRC with the plaint; any difference goes in NOTES.
+- Shari shares: write each heir's fraction only when the stenographer gives it; otherwise "according to their Shari shares".
+- Minors: "The shares of the minor legal heirs <names> shall remain protected and shall not be alienated or transferred, nor shall any amount be received on their behalf, without the permission of the learned Guardian Court under the Guardians and Wards Act, 1890."
+- RELIEF:- declaration that the plaintiffs and defendants No.<..> are the legal heirs of the deceased <name> and are entitled to the vehicle No.<..> according to their Shari shares; direction to the Motor Registering Authority to transfer / record the vehicle accordingly (or in the name of the heir the other adult heirs consented to, if that is the decision) after completion of codal formalities and payment of the due tax / fee. Then the standard closing lines.` },
+  "Declaration of heirship: housing scheme plot / shop": { base: "Civil suit",
+    hint: "e.g. suit decreed; plaintiffs declared legal heirs; PHATA to enter their names against plot No.12 subject to Government dues and codal formalities",
+    docs: "Allotment / transfer letter / death certificate / NADRA FRC / receipts",
+    guide: `TYPE TEMPLATE: DECLARATION OF HEIRSHIP, PLOT / SHOP IN A HOUSING SCHEME (PHATA or the concerned authority)
+- "SUIT FOR DECLARATION" (add "AND MANDATORY INJUNCTION" when claimed). Defendants usually the Punjab Housing and Town Planning Agency (PHATA) / the concerned authority through its officer, and the other legal heirs.
+- Facts: plot / shop No.<..>, measuring <..>, in <scheme>, <city>, allotted / transferred to the deceased <name> (allotment letter / transfer letter / receipts); death on <date>; legal heirs as per the NADRA FRC; the department refuses to enter the names of the legal heirs without a declaration of the court; hence the suit.
+- The defendants' side as on the record (the department's reply; conceding heirs; ex-parte).
+- Evidence: PW-1, PW-2; allotment letter, death certificate, FRC, receipts / challans, the department's letter, with the exhibit numbers on the record.
+- Discussion: death, legal heirs, the deceased's title in the department's record, devolution on all legal heirs according to their Shari shares; names in the FRC vs the plaint and the allotment record (any difference goes in NOTES); minors' shares protected through the Guardian Court (as in the inherited-vehicle type).
+- RELIEF:- declaration that the plaintiffs and defendants No.<..> are the legal heirs of the deceased and entitled to the plot / shop No.<..> according to their Shari shares; "the defendant department is directed to enter the names of the legal heirs of the deceased in its record against the plot / shop in question as per their Shari shares, subject to payment of the Government dues (if any) and completion of codal formalities." Then the standard closing lines.` },
+  "Cancellation of agreement to sell + possession (seller's suit)": { base: "Civil suit", cond: true,
+    condWho: "the plaintiff (seller), for payment to the defendant", condWhat: "the amount received under the agreement (earnest money / part payment)",
+    hint: "e.g. suit decreed ex-parte subject to deposit of Rs.500,000 by the plaintiff within one month, failing which the suit shall stand dismissed; mesne profits declined",
+    docs: "Agreement to sell / legal notice / revenue record",
+    guide: `TYPE TEMPLATE: SELLER'S SUIT FOR CANCELLATION OF AGREEMENT TO SELL AND POSSESSION (ex-parte, conditional decree)
+- "SUIT FOR CANCELLATION OF AGREEMENT TO SELL DATED <..> AND POSSESSION" (add "AND MESNE PROFITS" when claimed). The plaintiff is the owner / seller, the defendant the buyer.
+- Facts: the agreement to sell dated <..> for the suit property <description> for Rs.<..>; earnest money / part payment of Rs.<..> received; the balance Rs.<..> payable by <date>; possession delivered to the defendant under the agreement (if so); the defendant failed to pay the balance within time despite demands / legal notice; hence the suit.
+- Ex-parte paragraph, POINT OF DETERMINATION ending "? OPP", ex-parte evidence (PW-1, PW-2, the agreement, the notice, the revenue record).
+- Discussion: (a) execution of the agreement and the defendant's default proved; he never came forward to show readiness and willingness; the plaintiff is entitled to cancellation of the agreement and to possession; (b) a clause forfeiting the earnest money is in the nature of a penalty: under Section 74 of the Contract Act, 1872 only reasonable compensation not exceeding the amount stipulated can be awarded, and only on proof of loss; no loss was proved, so the plaintiff cannot keep the amount received; (c) under Section 38 of the Specific Relief Act, 1877, on adjudging the rescission of a contract the Court may require the party to whom the relief is granted to make the compensation to the other side which justice requires; hence the decree is conditional on the deposit set out under CONDITIONAL DECREE; (d) mesne profits: no evidence of the rate or of the loss was produced, so that relief is declined; (e) the burden-of-proof paragraph with the listed citations.
+- RELIEF:- "suit of the plaintiff is hereby decreed ex-parte, subject to deposit of Rs.<amount> (Rupees <in words> only) by <who> in the Court within <period> from today, for payment to the defendant. On such deposit, the agreement to sell dated <..> shall stand cancelled and the defendant shall hand over the vacant possession of the suit property to the plaintiff. The defendant shall be at liberty to withdraw the deposited amount. The claim of mesne profits is declined. In case <who> fails to deposit the said amount within the stipulated period, <consequence>." Use the CONDITIONAL DECREE details of the case data exactly. Then the standard closing lines.` },
+  "Ejectment petition (PRPA 2009): ex-parte order": { base: "Rent / ejectment petition",
+    hint: "e.g. ejectment petition accepted ex-parte; respondent to vacate within 30 days and pay arrears of rent from 01.2025 to 12.2025 at Rs.10,000 per month",
+    guide: `TYPE TEMPLATE: EJECTMENT PETITION UNDER THE PUNJAB RENTED PREMISES ACT, 2009 (ex-parte; decided by an ORDER)
+HEADING (court lines bold and centred):
+THE COURT OF <JUDGE NAME IN CAPITALS>,
+CIVIL JUDGE 1st CLASS/JUDGE RENT TRIBUNAL,
+<DISTRICT IN CAPITALS>.
+Rent Petition No.<..>/<yyyy> (as written on the file)
+Date of Institution: <..>
+Date of Decision: <..>
+**<Landlord>** S/O <..>, caste <..>, R/O <..>.
+**Petitioner/Landlord**
+**VERSUS**
+**<Tenant>** S/O <..>, caste <..>, R/O <..>.
+**Respondent/Tenant**
+EJECTMENT PETITION UNDER SECTION 15 OF THE PUNJAB RENTED PREMISES ACT, 2009.
+<dd.mm.yyyy>
+Present.  Mr. <name> Advocate, learned counsel for the petitioner.
+          Respondent already ex-parte.
+ORDER:
+- "Through this order, I intend to dispose of the ejectment petition filed by the petitioner/landlord against the respondent/tenant." Then the facts: the premises, the tenancy (oral / written rent agreement dated <..>), the monthly rent, the ground under Section 15 (default since <..>, personal need ...); hence the petition.
+- Service and ex-parte: summoned through <modes on the record> but did not appear; proceeded against ex-parte on <date>.
+- Evidence: the petitioner appeared as AW-1 and produced <name> as AW-2; documents Exh.A-.. / Mark-A (rent agreement, registration of the tenancy at the Police Khidmat Markaz, ownership documents).
+- "Arguments heard. Record perused."
+- Discussion: relationship of landlord and tenant proved (rent agreement / registration at the Police Khidmat Markaz / unrebutted statement on oath); default: "The petitioner has stated on oath that the respondent has not paid the rent since <..>. Payment of rent is a fact within the special knowledge of the tenant; once the landlord states on oath that the rent was not paid, the onus shifts upon the tenant to prove the payment, which the respondent did not even attempt as he chose to remain ex-parte." (no citation unless a listed case fits); the evidence is unrebutted.
+- Decision: "the ejectment petition is accepted ex-parte. The respondent/tenant is directed to vacate the premises in question and hand over its vacant possession to the petitioner/landlord within <days as given; otherwise ____> days. The respondent shall also pay the arrears of rent from <..> to <..> at the rate of Rs.<..> per month, amounting to Rs.<..>." (arrears only when claimed and proved; security adjusted only if the record shows one).
+- "No order as to costs. File be consigned to the record room after its due completion and compilation."
+Then "Announced:" with the date, the Judge's name and "Civil Judge 1st Class/Judge Rent Tribunal, <District>". No certificate.` },
+  "Withdrawal of sale proceeds (partition after auction)": {
+    hint: "e.g. application accepted; Rs.1,250,000 (1/4 share) be released to the applicant after verification of his CNIC",
+    guide: `TYPE TEMPLATE: ORDER ON AN APPLICATION FOR WITHDRAWAL OF DEPOSITED SALE PROCEEDS (partition suit; the property was sold by auction)
+- The heading of ORDERS ON APPLICATIONS; title e.g. "APPLICATION FOR RELEASE OF THE SHARE OF THE APPLICANT OUT OF THE SALE PROCEEDS".
+- Background: the partition suit was decreed on <date>; the property, not capable of partition by metes and bounds, was put to auction under the Partition Act, 1893 and sold to <purchaser> for Rs.<..>; the sale was confirmed on <date>; the sale proceeds were deposited in the Court's account on <date>.
+- The application: the applicant <name>, a co-sharer, prays for release of his share.
+- Reports: "Report of the Ahlmad was requisitioned, according to which <amount deposited, earlier withdrawals, each co-sharer's share as per the decree>." and "Report of the Naib Nazir was also called, who reported that <amount available in the account>." Take the figures from the reports exactly; any difference between the reports goes in NOTES.
+- Notice to / no objection of the other co-sharers as on the record. "Arguments heard. Record perused."
+- Decision: the applicant is entitled to Rs.<figures> (Rupees <in words> only), being his <fraction> share. "The Naib Nazir is directed to release the amount of Rs.<figures> (Rupees <in words> only) to the applicant <name> S/O <..>, holder of CNIC No.<..>, after due verification of his identity and obtaining his receipt." Amounts always in figures AND words. Use the amount given by the stenographer; if only the share and the total are given, work it out and say in NOTES that the figure must be checked. A minor's share is released only as the Guardian Court permits.
+- Last line as the instructions say ("Now, to come up for <purpose> on <date>." or the file consigned). Announced; no certificate.` },
+  "Amendment to add partition (O.VI R.17)": {
+    hint: "e.g. application accepted subject to costs of Rs.2000; amended plaint with the partition relief within 7 days; now to come up for amended written statement",
+    guide: `TYPE TEMPLATE: ORDER ON AN APPLICATION UNDER ORDER VI RULE 17 CPC TO ADD THE RELIEF OF PARTITION IN A SUIT FOR DECLARATION OF INHERITANCE
+- The heading of ORDERS ON APPLICATIONS. Facts: the suit for declaration (inheritance of the deceased <name>) is pending; the plaintiff seeks to amend the plaint to add the relief of partition of the inherited / joint property; the proposed amendments i., ii. ...; the reply of the defendants.
+- "Arguments heard. Record perused."
+- Reasoning: amendment is allowed liberally to decide the real controversy and avoid multiplicity of proceedings, if the nature of the suit is not changed and no injustice is done (listed case under "Amendment of pleadings ... liberal approach"); partition flows from the declaration of inheritance and can be added by amendment (listed cases under "Partition added by amendment"); limitation does not run against a claim of inheritance (listed case under "No limitation against inheritance"); a late amendment is examined for delay, bona fides and prejudice (listed case under "Late amendment", only when the stage is late); a partition decree is passed and executed under Order XX Rule 18 CPC read with the Partition Act, 1893.
+- Decision (when accepted), with the conditions written out as i., ii. ...:
+  i. the plaintiff shall affix the requisite court fee on the relief of partition;
+  ii. the valuation of the amended suit must remain within the pecuniary jurisdiction of this Court, otherwise the plaint shall be returned under Order VII Rule 10 CPC for presentation before the competent court;
+  iii. all co-sharers / legal heirs shall be impleaded as parties under Order I Rule 10 CPC, if not already on the record;
+  iv. complete particulars of the joint property (khewat, khatooni, khasra Nos., area, share of each co-sharer) shall be given in the amended plaint;
+  v. the amended plaint shall be filed within <days given; otherwise ____> and the defendants shall be at liberty to file amended written statement(s);
+  vi. costs of Rs.<..>/- (only when the decision imposes costs).
+- Last line: "Now, to come up for submission of amended plaint / amended written statement on <date>." Announced; no certificate.` },
+  "Identification parade": {
+    guide: `TYPE TEMPLATE: IDENTIFICATION PARADE (these points add to the jail format in the STYLE GUIDE)
+- Date and time of the parade: from the IDENTIFICATION PARADE DETAILS in the case data; if not given there, from the Magistrate's order on the police application; else "____".
+- I.O: from the details; else from the Magistrate's order; else from the FIR's endorsement (the "مرتبہ / مرسلہ" part, the officer who wrote / sent the FIR); else "____".
+- Assistant Superintendent Jail: the name in the details; else from the record; else "____" with a note.
+- One block for each suspect, headed "ROW NO.1 (SUSPECT <NAME>)", "ROW NO.2 (SUSPECT <NAME>)" ... whenever there is more than one suspect; use the serial number given for each suspect.
+- From ROW NO.2 onwards, a witness who already made his statement in an earlier row is recorded as: "He reiterated the same statement as recorded above."
+- A witness who failed: "He failed to identify the suspect." A witness who pointed at a dummy: "He failed to identify the suspect and put his hand on the head of a dummy sitting at Serial No.<n>."
+- Objection of a suspect, in Urdu exactly as given: "At this stage, the suspect raised an objection that: <Urdu>" followed by "The impact of such objection will be adjudged by the trial court and I do not deem it proper to comment on it."
+- CONCLUSION: one sentence per witness for each suspect, following the results exactly: "The complainant <name> has rightly identified the suspect <name>." / "The witness <name> failed to identify the suspect <name>." / "The witness <name> failed to identify the suspect <name> and pointed out a dummy sitting at Serial No.<n>." Never write that a witness identified a suspect when the results say otherwise.
+- A suspect aged 18 or under: say so in NOTES (age proof to be checked; Juvenile Justice System Act, 2018), not in the report.
+- Then the CERTIFICATE and the disposal order as in the STYLE GUIDE.` }
+};
+const typeBase = st => TYPE_INFO[st]?.base || st;
+const isRent = st => /Rent|Ejectment/.test(st || "");
 
 /* ---------- Sections and their types ---------- */
 const SECTIONS = {
@@ -234,26 +421,48 @@ const SECTIONS = {
   },
   misc: {
     label: "Misc Application", desc: "Orders on applications: accepted, dismissed, or accepted with costs.",
-    subtypes: ["Temporary injunction (O.XXXIX R.1&2)", "Restoration of suit (O.IX R.9)", "Setting aside ex-parte (O.IX R.13 / R.7)", "Amendment of pleadings (O.VI R.17)", "List of witnesses (O.XVI R.1)", "Substitute / additional witness", "Summoning of witness / record", "Impleadment (O.I R.10)", "Legal heirs on record (O.XXII)", "Rejection of plaint (O.VII R.11)", "Return of plaint (O.VII R.10)", "Local commission (O.XXVI)", "Condonation of delay (S.5 Limitation)", "Stay of suit (S.10 CPC)", "Review (O.XLVII)", "Application u/s 12(2) CPC", "Guardian ad litem (O.XXXII)", "Execution objections (O.XXI R.58)", "Execution sine die / court representative", "Article 76 / 84 Qanun-e-Shahadat", "Interim maintenance (S.17-A Family Courts Act)", "Meeting schedule / interim custody", "Succession: surety bond", "Other application"],
+    groups: [
+      ["Orders: civil suits", ["Temporary injunction (O.XXXIX R.1&2)", "Restoration of suit (O.IX R.9)", "Setting aside ex-parte (O.IX R.13 / R.7)", "Amendment of pleadings (O.VI R.17)", "Amendment to add partition (O.VI R.17)", "List of witnesses (O.XVI R.1)", "Substitute / additional witness", "Summoning of witness / record", "Impleadment (O.I R.10)", "Legal heirs on record (O.XXII)", "Rejection of plaint (O.VII R.11)", "Return of plaint (O.VII R.10)", "Local commission (O.XXVI)", "Condonation of delay (S.5 Limitation)", "Stay of suit (S.10 CPC)", "Review (O.XLVII)", "Application u/s 12(2) CPC", "Guardian ad litem (O.XXXII)", "Article 76 / 84 Qanun-e-Shahadat"]],
+      ["Orders: execution and deposits", ["Execution objections (O.XXI R.58)", "Execution sine die / court representative", "Withdrawal of sale proceeds (partition after auction)"]],
+      ["Orders: family, guardian, succession", ["Interim maintenance (S.17-A Family Courts Act)", "Meeting schedule / interim custody", "Succession: surety bond"]],
+      ["Other", ["Other application"]]
+    ],
     fields: ["date", "nextDate"], opt: ["title", "cms", "caseNo", "present"],
     guide: `Order on an application. Follow ORDERS ON APPLICATIONS in the STYLE GUIDE, using the specific rules for this type of application where the guide has them; otherwise reason under the provision named in the type. End with the decision and the next date.`
   },
   judgment: {
     label: "Judgment", desc: "Final judgments in civil, family, rent, guardian and succession cases.",
-    subtypes: ["Civil suit", "Family suit", "Rent / ejectment petition", "Guardian petition", "Succession petition", "Execution final order"],
+    groups: [
+      ["Civil Judgment", ["Civil suit", "Permanent injunction: owner in possession", "Declaration of heirship: inherited vehicle", "Declaration of heirship: housing scheme plot / shop", "Cancellation of agreement to sell + possession (seller's suit)"]],
+      ["Rent", ["Rent / ejectment petition", "Ejectment petition (PRPA 2009): ex-parte order"]],
+      ["Family, guardian, succession", ["Family suit", "Guardian petition", "Succession petition"]],
+      ["Execution", ["Execution final order"]]
+    ],
     stages: ["Ex-parte", "Contested (issue-wise)", "Point of determination", "Compromise (issues framed)", "Conceding statements", "Order XVII Rule 3 CPC (want of evidence)"],
     fields: ["date"], opt: ["title", "cms", "caseNo", "instDate", "present"],
     points: true,
-    guide: `Final judgment. Follow the STYLE GUIDE for this case type, shaped by the stage chosen: Ex-parte (ex-parte paragraphs, point of determination, burden of proof), Contested (issues as framed, issue-wise findings), Point of determination (a contested case decided on a point of determination), Compromise (issues framed; Order XXIII Rule 3 and Order XII Rule 6 CPC; decree in terms of the compromise), Conceding statements (proof under Order VIII Rule 5 CPC), Order XVII Rule 3 CPC (want of evidence, as described in the STYLE GUIDE). Discuss each witness's examination-in-chief and cross-examination.`
+    guide: `Final judgment. Follow the STYLE GUIDE for this case type, shaped by the stage chosen: Ex-parte (ex-parte paragraphs, point of determination, burden of proof), Contested (issues as framed, issue-wise findings), Point of determination (a contested case decided on a point of determination), Compromise (issues framed; Order XXIII Rule 3 and Order XII Rule 6 CPC; decree in terms of the compromise), Conceding statements (proof under Order VIII Rule 5 CPC), Order XVII Rule 3 CPC (want of evidence, as described in the STYLE GUIDE). Discuss each witness's examination-in-chief and cross-examination. Where a TYPE TEMPLATE is given for this type, follow it for the structure and the relief.`
   },
   criminal: {
     label: "Criminal (Sec-30)", desc: "Criminal orders and judgments as Magistrate Section-30.",
-    subtypes: ["Charge (framing of charge)", "Statement u/s 342 Cr.P.C", "Challan judgment (conviction / acquittal)", "Section 512 Cr.P.C (absconding accused, file consigned)", "Bail (S.497 Cr.P.C)", "Section 249 Cr.P.C", "Section 249-A Cr.P.C acquittal", "Remand (S.167 Cr.P.C)", "Cancellation / discharge report (S.173 / 63)", "Private complaint (S.200 / 202 / 203)", "Proclamation (S.87 / 88)", "Superdari (S.516-A Cr.P.C)", "Identification parade", "Other criminal order"],
+    groups: [
+      ["Magistrate: trial", ["Charge (framing of charge)", "Statement u/s 342 Cr.P.C", "Challan judgment (conviction / acquittal)", "Section 512 Cr.P.C (absconding accused, file consigned)", "Section 249 Cr.P.C", "Section 249-A Cr.P.C acquittal"]],
+      ["Magistrate: bail, remand, police reports", ["Bail (S.497 Cr.P.C)", "Remand (S.167 Cr.P.C)", "Cancellation / discharge report (S.173 / 63)", "Private complaint (S.200 / 202 / 203)", "Proclamation (S.87 / 88)"]],
+      ["Magistrate: case property and identification", ["Superdari (S.516-A Cr.P.C)", "Identification parade"]],
+      ["Other", ["Other criminal order"]]
+    ],
     fields: ["date", "nextDate"], opt: ["title", "cms", "caseNo", "present"],
     points: true,
     guide: `Magistrate Section-30 work. Charge: formal charge "I, <judge>, Magistrate Section-30, do hereby charge you ..." with date, time, place, offence and section, "and I hereby direct that you be tried by this court on the said charge", and the accused's plea. Statement u/s 342: questions put to the accused on each piece of incriminating evidence with the answers; the last questions on why the case was made and whether he wants to produce defence evidence / make a statement on oath under S.340(2). Challan judgment: prosecution case, charge, PWs and exhibits, the 342 statement, arguments, discussion, then conviction with sentence / fine and the benefit of S.382-B, or acquittal with release and surety discharged; case property. Section 512: accused absconding, proceedings u/s 87/88 complete, evidence recorded if any, perpetual non-bailable warrants, file consigned to the record room to be revived on arrest. Bail: grounds, further inquiry, offence outside the prohibitory clause, recovery, bail with surety bonds of Rs.<..>. Section 249: proceedings stopped. Section 249-A: no probability of conviction, acquittal. Superdari and identification parade: as in the STYLE GUIDE.`
   }
 };
+// A section with groups gets its flat list of types from them (the order of the groups is the order of the list).
+Object.values(SECTIONS).forEach(S => { if (S.groups) S.subtypes = S.groups.flatMap(g => g[1]); });
+/* Type choices, grouped (Civil Judgment / Rent / Orders / Magistrate ...). */
+function subtypeOptions(S, sel) {
+  const opt = t => `<option${t === sel ? " selected" : ""}>${esc(t)}</option>`;
+  return S.groups ? S.groups.map(([label, list]) => `<optgroup label="${esc(label)}">${list.map(opt).join("")}</optgroup>`).join("") : S.subtypes.map(opt).join("");
+}
 const FIELD_DEF = {
   title: ["Case title", "e.g. Hina Ehsan VS. Muhammad Aslam etc.", "input", true],
   cms: ["CMS No.", "", "input"],
@@ -269,10 +478,12 @@ const FIELD_DEF = {
 const DECISIONS = ["", "Decreed / allowed", "Dismissed", "Partly", "Affirmative", "Negative", "Conviction", "Acquittal"];
 
 /* ---------- Courts: picked from the case type, designations kept in Settings ---------- */
-const DEFAULT_COURTS = { civil: "Civil Judge 1st Class", family: "Judge Family Court", rent: "Special Judge Rent Tribunal/Civil Judge 1st Class", guardian: "Guardian Judge", magistrate: "Magistrate Section-30" };
+const DEFAULT_COURTS = { civil: "Civil Judge 1st Class", family: "Judge Family Court", rent: "Civil Judge 1st Class/Judge Rent Tribunal", guardian: "Guardian Judge", magistrate: "Magistrate Section-30" };
+const OLD_RENT_COURT = "Special Judge Rent Tribunal/Civil Judge 1st Class";   // the earlier default; a saved copy of it follows the new default
+const DEFAULT_ASJ = "Muhammad Shafi\nMumtaz Hussain";
 const COURT_KINDS = [["civil", "Civil"], ["family", "Family"], ["rent", "Rent"], ["guardian", "Guardian"], ["magistrate", "Magistrate"]];
 const DEFAULT_CHIPS = "EV = evidence\nAR = arguments\nSEEK = seeks an adjournment\nPRES = present\nABS = absent\nPW = PWs\nWS = written statement";
-let settings = { judge: "Mian Ijaz Ahmad", district: "Rahim Yar Khan", courts: { ...DEFAULT_COURTS }, rules: "Always spell the Judge's name as 'Mian Ijaz Ahmad' (never 'Ahmed').", chips: DEFAULT_CHIPS, ada: "", adpp: "" };
+let settings = { judge: "Mian Ijaz Ahmad", district: "Rahim Yar Khan", courts: { ...DEFAULT_COURTS }, rules: "Always spell the Judge's name as 'Mian Ijaz Ahmad' (never 'Ahmed').", chips: DEFAULT_CHIPS, ada: "", adpp: "", caseLaw: "", asJail: DEFAULT_ASJ, debug: false };
 /* The law officers attached to the court, for the Present block and wherever the State is represented. */
 function officersLine() {
   const o = [], nm = v => v.trim().replace(/,?\s*(the\s+)?learned\s+(ADA|DDA|ADPP|DPP)\b.*$/i, "").trim();
@@ -302,11 +513,16 @@ function getSlots() {
     if (/Additional|Recasting/.test(st)) s.push(SL("issues", "Issues already framed"));
     return [...s, SL("orders", "Order sheet"), OTHER];
   }
-  if (sec === "misc") return [SL("app", "Application", 1), SL("reply", "Reply / objections"), SL("main", "Plaint / main case papers"), SL("docs", "Annexed documents"), SL("orders", "Order sheet"), OTHER];
+  if (sec === "misc") {
+    if (/Withdrawal of sale proceeds/.test(st)) return [SL("app", "Application for release of share", 1), SL("reports", "Ahlmad and Naib Nazir reports", 1), SL("decree", "Partition decree / auction and sale confirmation orders"), SL("reply", "Objections of other co-sharers"), SL("orders", "Order sheet"), OTHER];
+    if (/add partition/.test(st)) return [SL("app", "Application u/O VI R.17 with proposed amendments", 1), SL("reply", "Reply / objections"), SL("main", "Plaint / written statement"), SL("orders", "Order sheet"), OTHER];
+    return [SL("app", "Application", 1), SL("reply", "Reply / objections"), SL("main", "Plaint / main case papers"), SL("docs", "Annexed documents"), SL("orders", "Order sheet"), OTHER];
+  }
   if (sec === "judgment") {
-    let first = "Plaint", reply = "Written statement", docs = "Documents / exhibits";
+    let first = "Plaint", reply = "Written statement", docs = TYPE_INFO[st]?.docs || "Documents / exhibits";
     if (/Family/.test(st)) docs = "Nikahnama / documents / exhibits";
-    if (/Rent/.test(st)) { first = "Ejectment petition"; reply = "Reply / leave to contest"; docs = "Rent deed / documents"; }
+    if (isRent(st)) { first = "Ejectment petition"; reply = "Reply / leave to contest"; docs = "Rent agreement / Police Khidmat Markaz registration / ownership documents"; }
+    if (/PRPA 2009/.test(st)) return [SL("plaint", first, 1), SL("orders", "Order sheet (service, ex-parte)", 1), SL("pw", "Petitioner's evidence (AW statements / affidavits)", 1), SL("docs", docs), OTHER];
     if (/Guardian|Succession/.test(st)) { first = "Petition"; reply = "Reply / objections"; }
     if (/Execution/.test(st)) return [SL("app", "Execution petition", 1), SL("decree", "Decree / judgment"), SL("reply", "Objections"), SL("orders", "Order sheet"), OTHER];
     const s = [SL("plaint", first, 1)];
@@ -328,7 +544,7 @@ function getSlots() {
   if (/Private complaint/.test(st)) return [SL("app", "Private complaint", 1), SL("prelim", "Preliminary evidence / statements"), SL("inq", "Inquiry report"), OTHER];
   if (/Proclamation/.test(st)) return [SL("app", "Police application / report", 1), FIR, OTHER];
   if (/Superdari/.test(st)) return [SL("app", "Superdari application", 1), FIR, SL("record", "Police report"), SL("docs", "Ownership documents (registration / receipt)"), OTHER];
-  if (/Identification/.test(st)) return [SL("app", "Police application", 1), SL("forms", "Parade forms"), SL("stm", "Witness statements"), OTHER];
+  if (/Identification/.test(st)) return [SL("app", "Police application", 1), SL("order", "Magistrate's order (date / time of parade)"), SL("fir", "FIR"), SL("forms", "Parade forms"), SL("stm", "Witness statements"), OTHER];
   return [SL("app", "Application / report", 1), FIR, OS, OTHER];
 }
 
@@ -390,10 +606,15 @@ $$(".nav").forEach(n => n.addEventListener("click", () => show(n.dataset.view)))
 function blankCase(section) {
   const st0 = SECTIONS[section].subtypes[0], k0 = autoKind(section, st0);
   return { id: null, section, subtype: st0, stage: SECTIONS[section].stages?.[0] || "", courtKind: k0, court: courtName(k0), found: [], missing: [], questions: [], needCheck: false, readDone: false, dateAuto: true,
-    f: { title: "", cms: "", caseNo: "", instDate: "", date: today(), present: "", decision: "", nextDate: "", nextPurpose: "", instructions: "" },
+    f: { title: "", cms: "", caseNo: "", instDate: "", date: today(), present: "", decision: "", nextDate: "", nextPurpose: "", instructions: "", more: false },
     o: { text: "", date: today(), next: "", same: false, lo: false, loCost: false, loWarn: false, cost: "" },
-    notes: "", summary: "", flags: [], points: [], draft: "", draftNotes: "" };
+    cond: blankCond(st0), idp: { date: "", time: "", io: "", asj: "", witnesses: [], rows: [] },
+    notes: "", summary: "", flags: [], points: [], draft: "", draftNotes: "", prevDraft: "" };
 }
+/* Conditional decree: on by default for the types that always end in one (e.g. the seller's suit). */
+function blankCond(st) { const t = TYPE_INFO[st]; return { on: !!t?.cond, amount: "", period: t?.cond ? "one month" : "", who: "", consequence: "", asked: false, touched: false }; }
+function condAllowed() { return current.section === "judgment" && typeBase(current.subtype) === "Civil suit"; }
+function isIdParade() { return current.section === "criminal" && /Identification/.test(current.subtype); }
 function newCase(section) {
   current = blankCase(section || view); images = [];
   renderWork();
@@ -403,11 +624,12 @@ $("#newCase").addEventListener("click", () => newCase(view));
 /* The hint inside the order box follows the section and type, so the example always fits the work in hand. */
 function decisionHint() {
   const sec = current.section, st = current.subtype;
+  if (TYPE_INFO[st]?.hint) return TYPE_INFO[st].hint;
   if (sec === "issues") return /TI/.test(st) ? "e.g. TI application dismissed; issues be framed; now to come up for evidence of the plaintiff" : "e.g. frame the issues; now to come up for evidence of the plaintiff";
   if (sec === "misc") return "e.g. application accepted subject to costs of Rs.1500; now to come up for evidence of the plaintiff";
   if (sec === "judgment") {
     if (/Family/.test(st)) return "e.g. dissolution decreed on the basis of khula; maintenance of minor Rs.5000 per month with 10% annual increase; dowry articles declined";
-    if (/Rent/.test(st)) return "e.g. ejectment petition accepted; respondent to vacate within 30 days and pay the arrears of rent";
+    if (isRent(st)) return "e.g. ejectment petition accepted; respondent to vacate within 30 days and pay the arrears of rent";
     if (/Guardian/.test(st)) return "e.g. petition accepted; petitioner appointed guardian of the minor";
     if (/Succession/.test(st)) return "e.g. petition accepted; succession certificate be issued subject to surety bond";
     if (/Execution/.test(st)) return "e.g. decree satisfied; execution petition consigned to the record room";
@@ -440,7 +662,7 @@ function renderWork() {
   $("#draftBtn").textContent = isOrder ? "Generate order" : "Generate draft";
   if (isOrder) renderOrderCard();
   else {
-    $("#f_subtype").innerHTML = S.subtypes.map(s => `<option${s === current.subtype ? " selected" : ""}>${esc(s)}</option>`).join("");
+    $("#f_subtype").innerHTML = subtypeOptions(S, current.subtype);
     $("#stageWrap").hidden = !S.stages;
     if (S.stages) $("#f_stage").innerHTML = S.stages.map(s => `<option${s === current.stage ? " selected" : ""}>${esc(s)}</option>`).join("");
     renderCourt();
@@ -456,17 +678,105 @@ function renderWork() {
     [...S.fields, ...S.opt].forEach(k => $("#f_" + k).addEventListener("input", e => { current.f[k] = e.target.value; if (k === "date") current.dateAuto = false; }));
     $$("#fields [data-day-target]").forEach(showWeekday);
     $("#f_decision").value = current.f.decision || ""; $("#f_decision").placeholder = decisionHint();
-    renderChips(); renderSummary(); renderQuestions(); renderPoints(); renderThumbs();
+    $("#f_more").checked = !!current.f.more;
+    renderChips(); renderSummary(); renderQuestions(); renderPoints(); renderThumbs(); renderCond(); renderIdp();
   }
   setSheet(current.draft);
   $("#draftNotesWrap").hidden = !current.draftNotes; $("#draftNotes").textContent = current.draftNotes;
+  renderAfterDraft();
   status("#saveStatus", current.id ? "Saved case." : ""); status("#draftStatus", ""); status("#readStatus", "");
   renderReady();
 }
 $("#f_subtype").addEventListener("change", e => {
   current.subtype = e.target.value;
-  renderCourt(); refreshMissing(); renderThumbs(); renderChips(); $("#f_decision").placeholder = decisionHint();
+  if (!current.cond?.touched) current.cond = blankCond(current.subtype);
+  renderCourt(); refreshMissing(); renderThumbs(); renderChips(); $("#f_decision").placeholder = decisionHint(); renderCond(); renderIdp();
 });
+$("#f_more").addEventListener("change", e => { current.f.more = e.target.checked; status("#draftStatus", ""); });
+
+/* ---------- Conditional decree: amount, period, who deposits, what happens on failure ---------- */
+function renderCond() {
+  const show = condAllowed(), c = current.cond;
+  $("#condBox").hidden = !show;
+  if (!show) return;
+  $("#c_on").checked = !!c.on; $("#condFields").hidden = !c.on;
+  ["amount", "period", "who", "consequence"].forEach(k => { $("#c_" + k).value = c[k] || ""; });
+  const t = TYPE_INFO[current.subtype];
+  $("#c_who").placeholder = t?.condWho ? "e.g. " + t.condWho : "e.g. the plaintiff";
+}
+$("#c_on").addEventListener("change", e => { current.cond.on = e.target.checked; current.cond.touched = true; $("#condFields").hidden = !e.target.checked; });
+["amount", "period", "who", "consequence"].forEach(k => $("#c_" + k).addEventListener("input", e => { current.cond[k] = e.target.value; current.cond.touched = true; }));
+function condText() {
+  const c = current.cond, t = TYPE_INFO[current.subtype];
+  if (!condAllowed() || !c?.on) return "";
+  return `CONDITIONAL DECREE (write the relief as a decree subject to this deposit; say what happens on failure)
+Amount to be deposited: ${c.amount.trim() ? "Rs." + c.amount.trim() + " (write it in figures and in words)" : (t?.condWhat ? t.condWhat + ", as shown by the record (if not clear, ____)" : "as shown by the record (if not clear, ____)")}
+Period: ${c.period.trim() || "one month"} from the date of the decree
+Who must deposit: ${c.who.trim() || t?.condWho || "the plaintiff"}
+If not deposited within the period: ${c.consequence.trim() || "the suit shall stand dismissed"}`;
+}
+
+/* ---------- Identification parade: date and time, I.O, Assistant Superintendent, witnesses, one row per suspect ---------- */
+const ID_RES = [["", "Result not given"], ["identified", "Identified ✓"], ["failed", "Failed ✗"], ["dummy", "Pointed at a dummy"]];
+function asjNames() { return String(settings.asJail || "").split("\n").map(x => x.trim()).filter(Boolean); }
+function renderIdp() {
+  const show = isIdParade();
+  $("#idpBox").hidden = !show;
+  if (!show) return;
+  const d = current.idp, W = d.witnesses;
+  const inp = (k, lab, ph, extra = "") => `<label>${esc(lab)}<input data-idp="${k}" value="${esc(d[k] || "")}" placeholder="${esc(ph)}"${extra}></label>`;
+  $("#idpBox").innerHTML = `<strong>Identification parade details</strong>
+    <p class="note" style="margin:0">Leave a box empty to let the AI take it from the record (date and time from the Magistrate's order; I.O from the order, or from the FIR's مرتبہ / مرسلہ part).</p>
+    <div class="grid">${inp("date", "Date of parade", "dd.mm.yyyy")}${inp("time", "Time", "e.g. 10:00 a.m.")}${inp("io", "I.O (name, rank)", "e.g. Muhammad Akram SI")}${inp("asj", "Assistant Superintendent Jail", "Pick or write the name", ' list="asjList"')}</div>
+    <datalist id="asjList">${asjNames().map(n => `<option value="${esc(n)}">`).join("")}</datalist>
+    <strong>Identifying witnesses</strong>
+    ${W.map((w, i) => `<div class="idw"><input data-w="${i}" data-k="name" value="${esc(w.name)}" placeholder="Witness ${i + 1}: name S/O ..." aria-label="Witness ${i + 1} name"><input data-w="${i}" data-k="desc" value="${esc(w.desc)}" placeholder="e.g. complainant / eye-witness" aria-label="Witness ${i + 1} description"><button type="button" class="btn danger" data-wrm="${i}" aria-label="Remove witness ${i + 1}">x</button></div>`).join("")}
+    <div class="row"><button type="button" class="btn plain" id="idpAddW">+ Add witness</button></div>
+    <strong>Rows (one for each suspect)</strong>
+    ${d.rows.map((r, i) => {
+      const young = r.age !== "" && +r.age > 0 && +r.age <= 18;
+      return `<div class="idrow"><div class="rowhead"><b>ROW NO.${i + 1}</b><button type="button" class="btn danger" data-rrm="${i}">Remove row</button></div>
+        <div class="grid"><label>Suspect (name, parentage)<input data-r="${i}" data-k="suspect" value="${esc(r.suspect)}"></label><label>Age (years)<input data-r="${i}" data-k="age" inputmode="numeric" value="${esc(r.age)}"></label><label>Serial No. in the row<input data-r="${i}" data-k="serial" inputmode="numeric" value="${esc(r.serial)}" placeholder="e.g. 4"></label></div>
+        ${young ? `<div class="agewarn" role="note">Suspect is 18 or under: check the age proof (juvenile). This will be listed in the Notes.</div>` : ""}
+        <label>Huliya (Urdu, as recorded)<textarea data-r="${i}" data-k="huliya" rows="2" dir="auto" class="urdu">${esc(r.huliya)}</textarea></label>
+        <label>Objection of the suspect (Urdu, if any)<textarea data-r="${i}" data-k="objection" rows="2" dir="auto" class="urdu">${esc(r.objection)}</textarea></label>
+        ${W.length ? W.map((w, j) => { const x = r.res[j] || { r: "", dummy: "" }; return `<div class="idres"><span>${esc(w.name || "Witness " + (j + 1))}</span><select data-res="${i}" data-w="${j}" aria-label="Result for ${esc(w.name || "witness " + (j + 1))}">${ID_RES.map(([v, l]) => `<option value="${v}"${v === x.r ? " selected" : ""}>${l}</option>`).join("")}</select>${x.r === "dummy" ? `<input data-dummy="${i}" data-w="${j}" value="${esc(x.dummy)}" inputmode="numeric" placeholder="Dummy No." aria-label="Dummy serial number">` : "<span></span>"}</div>`; }).join("") : `<p class="note" style="margin:0">Add the witnesses above to record each one's result.</p>`}
+      </div>`;
+    }).join("")}
+    <div class="row"><button type="button" class="btn plain" id="idpAddR">+ Add row (suspect)</button></div>`;
+  const box = $("#idpBox");
+  box.querySelectorAll("[data-idp]").forEach(el => el.addEventListener("input", e => { d[e.target.dataset.idp] = e.target.value; }));
+  box.querySelectorAll("[data-w][data-k]").forEach(el => el.addEventListener("input", e => { W[+e.target.dataset.w][e.target.dataset.k] = e.target.value; }));
+  box.querySelectorAll("[data-r][data-k]").forEach(el => el.addEventListener("input", e => { d.rows[+e.target.dataset.r][e.target.dataset.k] = e.target.value; }));
+  box.querySelectorAll("[data-r][data-k=age]").forEach(el => el.addEventListener("change", () => renderIdp()));
+  box.querySelectorAll("[data-res]").forEach(el => el.addEventListener("change", e => { const r = d.rows[+e.target.dataset.res]; r.res[+e.target.dataset.w] = { ...(r.res[+e.target.dataset.w] || {}), r: e.target.value }; renderIdp(); }));
+  box.querySelectorAll("[data-dummy]").forEach(el => el.addEventListener("input", e => { const r = d.rows[+e.target.dataset.dummy]; r.res[+e.target.dataset.w].dummy = e.target.value; }));
+  box.querySelectorAll("[data-wrm]").forEach(b => b.addEventListener("click", () => { const i = +b.dataset.wrm; W.splice(i, 1); d.rows.forEach(r => r.res.splice(i, 1)); renderIdp(); }));
+  box.querySelectorAll("[data-rrm]").forEach(b => b.addEventListener("click", () => { d.rows.splice(+b.dataset.rrm, 1); renderIdp(); }));
+  $("#idpAddW").addEventListener("click", () => { W.push({ name: "", desc: "" }); renderIdp(); });
+  $("#idpAddR").addEventListener("click", () => { d.rows.push({ suspect: "", age: "", serial: "", huliya: "", objection: "", res: [] }); renderIdp(); });
+}
+function idpHasData() { const d = current.idp; return !!(d && (d.rows.some(r => r.suspect || r.res.some(x => x?.r)) || d.witnesses.some(w => w.name))); }
+function idpText() {
+  if (!isIdParade()) return "";
+  const d = current.idp, W = d.witnesses;
+  if (!d.date && !d.time && !d.io && !d.asj && !W.length && !d.rows.length) return "";
+  const wName = j => W[j]?.name?.trim() || `witness No.${j + 1}`;
+  const res = (x, r) => !x?.r ? "result not given (take it from the record; if not shown, ____)"
+    : x.r === "identified" ? `identified the suspect${r.serial ? ` sitting at Serial No.${r.serial}` : ""}`
+    : x.r === "failed" ? "failed to identify the suspect"
+    : `failed to identify the suspect and put his hand on the head of a dummy sitting at Serial No.${x.dummy || "____"}`;
+  return `IDENTIFICATION PARADE DETAILS (given by the stenographer; they decide the facts below over anything else)
+Date of parade: ${d.date.trim() || "not given: take it from the Magistrate's order"}
+Time: ${d.time.trim() || "not given: take it from the Magistrate's order"}
+I.O: ${d.io.trim() || "not given: take it from the Magistrate's order, else from the FIR (مرتبہ / مرسلہ)"}
+Assistant Superintendent Jail: ${d.asj.trim() ? "Mr. " + d.asj.trim().replace(/^Mr\.?\s*/i, "") : "not given: take it from the record, else ____"}
+Identifying witnesses: ${W.length ? W.map((w, j) => `${j + 1}. ${w.name.trim() || "____"}${w.desc.trim() ? " (" + w.desc.trim() + ")" : ""}`).join("; ") : "take them from the record"}
+${d.rows.map((r, i) => `ROW NO.${i + 1}: suspect ${r.suspect.trim() || "____"}${r.age ? `, age about ${r.age} years` : ""}${+r.age > 0 && +r.age <= 18 ? " [18 OR UNDER: mention in NOTES]" : ""}${r.serial ? `, placed at Serial No.${r.serial}` : ""}
+  Huliya (Urdu): ${r.huliya.trim() || "take it from the record"}
+  Objection of the suspect: ${r.objection.trim() || "none given (record one only if the record shows it)"}
+${W.map((w, j) => `  ${wName(j)}: ${res(r.res[j], r)}`).join("\n")}`).join("\n")}`.trim();
+}
 $("#f_stage").addEventListener("change", e => { current.stage = e.target.value; refreshMissing(); renderThumbs(); });
 $("#f_decision").addEventListener("input", e => { current.f.decision = e.target.value; });
 
@@ -477,12 +787,14 @@ function renderReady() {
 }
 
 function renderSummary() {
+  $("#sumWrap").hidden = !current.summary; $("#sumText").textContent = current.summary || "";
   $("#flagsWrap").hidden = !current.flags.length;
   $("#flags").innerHTML = current.flags.map(f => `<li>${esc(f)}</li>`).join("");
 }
 function renderQuestions() {
   const qs = current.questions || [];
   $("#qWrap").hidden = !qs.length;
+  $("#qHead").textContent = hasDecision() ? "Questions (optional: the draft is made on your decision; anything left unanswered is written as ____ and listed in the Notes)" : "Please answer (required)";
   $("#questions").innerHTML = qs.map((q, i) => `<div class="qa"><p>${i + 1}. ${esc(q.q)}</p><input data-qi="${i}" aria-label="Answer to question ${i + 1}" placeholder="Your answer" value="${esc(q.a || "")}"></div>`).join("");
   $$("#questions [data-qi]").forEach(el => el.addEventListener("input", e => { current.questions[+e.target.dataset.qi].a = e.target.value; current.needCheck = true; }));
 }
@@ -552,16 +864,24 @@ function renderMissing() {
     if (e.target.value.trim()) status("#readStatus", "");
   }));
 }
-/* Before drafting: every picture must have been read, and every missing document needs pictures or a reason. */
+/* The stenographer has stated the decision (in the order box, per point, or the parade results): then the draft is written at once. */
+function hasDecision() {
+  return !!norm(current.f.decision) || (current.points || []).some(p => p.decision) || (isIdParade() && idpHasData());
+}
+/* Before drafting: every picture must have been read. Without a decision, the questions must be answered and every missing
+   document needs pictures or a reason; with a decision, nothing stops the draft: blanks are written as ____ and listed in the Notes. */
 function recordReady() {
+  if (current.f.more) { status("#draftStatus", "You ticked \"More documents are still coming\". Add the remaining pictures and press Read record; untick the box when everything is in, then generate the draft.", true); $("#moreWrap").scrollIntoView({ block: "center", behavior: "smooth" }); return false; }
   if (images.some(im => !im.read)) { status("#readStatus", "Some pictures have not been read yet. Press Read record first.", true); $("#readBtn").scrollIntoView({ block: "center", behavior: "smooth" }); return false; }
-  if (!current.readDone && !current.notes) { status("#readStatus", images.length ? "Press Read record first." : "Add the record pictures and press Read record first.", true); $("#recSlot").scrollIntoView({ block: "center", behavior: "smooth" }); return false; }
+  const decided = hasDecision();
+  if (!current.readDone && !current.notes && !decided) { status("#readStatus", images.length ? "Press Read record first, or write the decision in the box above." : "Add the record pictures and press Read record, or write the decision in the box above.", true); $("#recSlot").scrollIntoView({ block: "center", behavior: "smooth" }); return false; }
+  if (decided) return true;
   const slots = getSlots(), open = (current.missing || []).filter(m => slots.some(s => s.key === m.key) && !String(m.reason || "").trim());
-  if ((current.questions || []).some(q => !String(q.a || "").trim())) { status("#readStatus", "Answer every question below, then press Read record again.", true); $("#qWrap").scrollIntoView({ block: "center", behavior: "smooth" }); return false; }
+  if ((current.questions || []).some(q => !String(q.a || "").trim())) { status("#readStatus", "Answer every question below (or write the decision in the box above), then press Read record again.", true); $("#qWrap").scrollIntoView({ block: "center", behavior: "smooth" }); return false; }
   if (current.needCheck) { status("#readStatus", "You have answered the questions. Press Read record again before generating the draft.", true); $("#readBtn").scrollIntoView({ block: "center", behavior: "smooth" }); return false; }
   if (open.length) {
     const names = open.map(m => slots.find(s => s.key === m.key).label).join(", ");
-    status("#readStatus", `This ${docWord()} cannot be completed yet: ${names} ${open.length === 1 ? "is" : "are"} missing. Upload the pictures or write the reason.`, true);
+    status("#readStatus", `This ${docWord()} cannot be completed yet: ${names} ${open.length === 1 ? "is" : "are"} missing. Upload the pictures, write the reason, or write the decision in the box above.`, true);
     $("#missBox").scrollIntoView({ block: "center", behavior: "smooth" });
     return false;
   }
@@ -611,7 +931,7 @@ function partyNames() {
   if (sec === "criminal") return ["complainant", "accused"];
   if (/Execution/i.test(st)) return ["decree holder", "judgment debtor"];
   if (sec === "misc") return ["applicant", "respondent"];
-  if (sec === "judgment" && /Rent|Guardian|Succession/.test(st)) return ["petitioner", "respondent"];
+  if (sec === "judgment" && (isRent(st) || /Guardian|Succession/.test(st))) return ["petitioner", "respondent"];
   return ["plaintiff", "defendant"];
 }
 const PARTY_CHIPS = "CPA = counsel for the {A}\nCPB = counsel for the {B}\nPA = {A}\nPB = {B}";
@@ -700,27 +1020,24 @@ function orderPrompt(examples) {
     if (!o.loCost) limits.push(`Do NOT impose any costs${unless}. The "cost" box was NOT ticked.`);
     if (!o.lo && !o.loCost && !o.loWarn) limits.push(`Do NOT grant a last opportunity${unless}. No last-opportunity box was ticked.`);
   }
-  const strict = limits.length ? `\n\nSTRICT LIMITS (these override the samples, the court knowledge and the style guide):\n- ${limits.join("\n- ")}` : "";
-  return `You write the next entry of the daily ORDER SHEET for ${settings.judge}, ${settings.district}, Punjab, Pakistan, in the Judge's style. Never invent names, dates or facts; unknown items: "____".
-${settings.rules || ""}
-${officersLine()}
-
+  const strict = limits.length ? `STRICT LIMITS (from the boxes ticked for this order; they bind over every layer):\n- ${limits.join("\n- ")}` : "";
+  const parts = [
+    { layer: 1, src: "Built in: global rules", text: globalRules(true) },
+    courtPart(null),
+    { layer: 1, src: "Built in: reading the order sheet", text: `HOW TO READ THE ORDER SHEET
 The attached image(s) show this case's order sheet. Read it first, without writing out what you read: the LAST (most recent) entry is the previous order. Note its Present block, what the case was fixed for today (the purpose in its last line), who had to do it, and any last opportunity, costs or warning already given.
+In the stenographer's words, "party A" means the side that brought the proceedings (plaintiff / petitioner / complainant / decree holder / applicant) and "party B" the other side (defendant / respondent / accused / judgment debtor). Never write "party A" or "party B" in the order: use the exact word this order sheet uses for that side.` },
+    { layer: 1, src: "Built in: daily order style", text: "STYLE GUIDE\n" + STYLE.ordersheet },
+    ...styleParts("order", examples),
+    ...rulesParts("order"),
+    { layer: 4, src: "This case: today's order (boxes and instructions)", text: `Today's date: ${day}\nNext date: ${next}\n\nWHAT TO WRITE\n${mode}` },
+    strict ? { layer: 4, src: "This case: strict limits from the boxes not ticked", text: strict } : null
+  ].filter(Boolean);
+  return `You write the next entry of the daily ORDER SHEET for ${settings.judge}, ${settings.district}, Punjab, Pakistan, in the Judge's style. Never invent names, dates or facts; unknown items: "____".
 
-Today's date: ${day}
-Next date: ${next}
+${joinLayers(parts)}
 
-In the stenographer's words, "party A" means the side that brought the proceedings (plaintiff / petitioner / complainant / decree holder / applicant) and "party B" the other side (defendant / respondent / accused / judgment debtor). Never write "party A" or "party B" in the order: use the exact word this order sheet uses for that side.
-
-WHAT TO WRITE
-${mode}${strict}
-
-STYLE GUIDE
-${STYLE.ordersheet}
-
-${learnedFor("order", examples)}
-
-${limits.length ? "Before answering, check the order against the STRICT LIMITS and remove anything they forbid.\n\n" : ""}OUTPUT: only today's order, ready to write in the order sheet, ending with "Announced:" and today's date (${day}) on the line below it, and then the Judge's name and designation lines as written under the previous order (if none is visible, end with "${settings.judge}"). The Judge signs the printout by hand, so never write "[Signature]", "Sd/-", "(signed)", "[Stamp]" or anything about a stamp, seal or handwritten signature you see in the picture. No commentary. Then a line with exactly ===TITLE=== and after it the case title as written on the order sheet (e.g. "Hina Ehsan VS. Muhammad Aslam etc."), or nothing if it is not visible.`;
+${limits.length ? "Before answering, check the order against the STRICT LIMITS and remove anything they forbid.\n\n" : ""}OUTPUT: only today's order, ready to write in the order sheet, ending with "Announced:" and today's date (${day}) on the line below it, and then the Judge's name and designation lines as written under the previous order (if none is visible, end with "${settings.judge}"). The Judge signs the printout by hand, so never write "[Signature]", "Sd/-", "(signed)", "[Stamp]" or anything about a stamp, seal or handwritten signature you see in the picture. No commentary. Then ${notesSpec(true)} Then a line with exactly ===TITLE=== and after it the case title as written on the order sheet (e.g. "Hina Ehsan VS. Muhammad Aslam etc."), or nothing if it is not visible.`;
 }
 
 /* ---------- AI calls ---------- */
@@ -746,7 +1063,7 @@ $("#readBtn").addEventListener("click", async () => {
   const given = () => `WHAT THE STENOGRAPHER HAS GIVEN
 Next order / instructions: ${c.f.decision || "(nothing written yet)"}
 Date of order / decision: ${fmtDate(c.f.date) || "(not given)"}${S.fields.includes("nextDate") ? `\nNext date: ${fmtDate(c.f.nextDate) || "(not given)"}` : ""}${c.f.title ? `\nCase title: ${c.f.title}` : ""}${c.f.present ? `\nPresent: ${c.f.present}` : ""}${c.questions.some(q => String(q.a || "").trim()) ? "\nHis answers to earlier questions (do not ask these again):\n" + c.questions.filter(q => String(q.a || "").trim()).map(q => `- ${q.q} — ${q.a.trim()}`).join("\n") : ""}`;
-  const askRule = `"questions": ask ONLY when it is truly necessary, i.e. when without the answer this ${S.label.toLowerCase()} would come out wrong or with a blank in an essential place: the decision on a claim, issue or application is not stated anywhere, his instructions clearly contradict the record on a material point, or an essential date or amount is missing. Do NOT ask about anything you can settle from the record, from his instructions or answers, or from the usual practice of the court; do not ask for confirmation of what is already stated; do not ask about minor details, spellings, style, or things that can properly be left as "____"; do not ask for documents (those go in "needed"). Usually there is nothing to ask: then return an empty list. Never more than 3 questions, each short, specific and in plain English.`;
+  const askRule = `"questions": ask ONLY when it is truly necessary, i.e. when without the answer this ${S.label.toLowerCase()} would come out wrong or with a blank in an essential place: the decision on a claim, issue or application is not stated anywhere, his instructions clearly contradict the record on a material point, or an essential date or amount is missing. Do NOT ask about anything you can settle from the record, from his instructions or answers, or from the usual practice of the court; do not ask for confirmation of what is already stated; do not ask about minor details, spellings, style, or things that can properly be left as "____"; do not ask for documents (those go in "needed"). Usually there is nothing to ask: then return an empty list. ${hasDecision() ? "The stenographer has ALREADY given the decision, so the draft will be written on it at once: ask nothing unless the record flatly contradicts his decision on a material point (any question is optional for him). " : ""}Never more than 3 questions, each short, specific and in plain English.`;
   const addQuestions = list => (Array.isArray(list) ? list : []).forEach(q => { q = norm(q); if (q && !c.questions.some(x => x.q === q)) c.questions.push({ q, a: "" }); });
   const unanswered = () => c.questions.some(q => !String(q.a || "").trim());
   if (!ordered.length) {
@@ -785,7 +1102,7 @@ ${askRule}`, { modelTier: "complex", cache: false, effort: "low" });
       lastBatch = batches[b].length;
       if (current === c) status("#readStatus", `Reading the record${batches.length > 1 ? ` (part ${b + 1} of ${batches.length})` : ""}... this can take a minute or two.`);
       const prompt = `You are a court stenographer's assistant in Rahim Yar Khan, Punjab, Pakistan. The attached images are pages from a court file (plaint, written statement, applications, replies, issues, witness statements with cross-examination, exhibits, FIR, order sheets). Many are handwritten Urdu. Read them very carefully. Never invent names, dates or amounts; if a word is unreadable write "____".
-Task context: section "${S.label}", type "${current.subtype}"${current.stage ? `, stage "${current.stage}"` : ""}, court: ${courtName(current.courtKind)}.
+Task context: section "${S.label}", type "${current.subtype}"${current.stage ? `, stage "${current.stage}"` : ""}, court: ${courtName(current.courtKind)}.${c.f.more ? "\nThe stenographer says more documents are still to come: read and summarise these pages only; do not ask for documents that may still come." : ""}
 The pictures were uploaded together and may be in any order. First work out which document each page belongs to, then take each thing from its own document: e.g. the plaint facts only from the plaint pages, and the cross-examination from the evidence pages.${batches.length > 1 ? ` This is part ${b + 1} of ${batches.length}; the other pages are read separately.` : ""}
 Documents that this type of work may need:
 ${docList}
@@ -795,7 +1112,7 @@ Reply with only one JSON object:
  "fields": {"title": "Plaintiff VS. Defendant etc. in English", "cms": "", "caseNo": "", "instDate": "dd.mm.yyyy", "present": "counsel names if visible"},
  "notes": "Detailed English notes for drafting: full party descriptions (name, parentage, caste, address, numbering incl. legal heirs), facts of the plaint para-wise, written statement / reply with preliminary objections, issues as framed, each witness (PW/DW) with examination-in-chief and every admission/denial in cross-examination, exhibits and marks with descriptions, relevant order-sheet dates (ex-parte, right closed, compromise statements), FIR particulars. Keep Urdu quotations of statements in Urdu script where needed.",
  "points": ["each claim / relief / issue / charge that needs a decision, one short line each"],
- "flags": ["plain English: anything unreadable, or conflicting between documents (dates, khata numbers, amounts, names)"],
+ "flags": ["plain English: anything unreadable, or conflicting between documents (dates; khata / khewat numbers in the plaint vs the jamabandi; area or shares; names in the NADRA FRC vs the plaint; amounts), and any party or suspect aged 18 or under"],
  "present": ["the keys from the list above whose pages are among these images"],
  "needed": [{"key": "a key from the list above", "why": "one short plain-English line"}],
  "questions": ["..."]}
@@ -857,7 +1174,7 @@ function styleFor(sec, st) {
     if (/Family/.test(st)) p.push(STYLE.family);
     else {
       p.push(STYLE.civil);
-      if (/Rent/.test(st)) p.push(STYLE.rent);
+      if (isRent(st)) p.push(STYLE.rent);
       if (/Guardian/.test(st)) p.push(STYLE.guardian);
       if (/Succession/.test(st)) p.push(STYLE.succession);
       if (/Execution/.test(st)) p.push(STYLE.applications);
@@ -866,56 +1183,114 @@ function styleFor(sec, st) {
   if (sec === "criminal") { p.push(STYLE.magistrate); if (/Identification/.test(st)) p.push(STYLE.idparade); }
   return p.join("\n\n");
 }
-function draftPrompt(examples, notesCap) {
-  const S = SECTIONS[current.section], f = current.f;
+
+/* ---------- Prompt layers ----------
+   1 BASE: Pakistani court practice and the default style (the Judge's own, built in), the global rules and the case-law list.
+   2 JUDGE STYLE: what the Samples teach (the closest samples word for word, and the notes learned from all of them).
+   3 RULES: the standing instructions (Settings) and the team's rules (Samples page).
+   4 CASE DATA: this case only.
+   The final prompt is BASE + JUDGE STYLE + RULES + CASE DATA. Every part keeps its source, so the debug panel can show
+   which layer gave which instruction. */
+const LAYER_HEAD = {
+  1: "LAYER 1 — BASE: Pakistani court practice and the default drafting style (the style of Mian Ijaz Ahmad)",
+  2: "LAYER 2 — JUDGE STYLE: learned from the Judge's own samples",
+  3: "LAYER 3 — RULES: standing instructions and the team's rules",
+  4: "LAYER 4 — CASE DATA: this case only"
+};
+const PRECEDENCE = `HOW TO READ THE LAYERS BELOW: where they differ, LAYER 3 (RULES) wins over Layers 1 and 2; LAYER 2 (JUDGE STYLE) wins over LAYER 1 in wording and layout (the heading, the Present block, set phrases and the closing lines); LAYER 1 (BASE) applies wherever the others are silent, and when there are no samples it is the style to use. LAYER 4 gives only the facts and the decision of this case, never the style; its STRICT LIMITS, when present, bind over every layer. No layer allows inventing facts, names, numbers, dates or case law.`;
+let lastParts = [];
+function joinLayers(parts) {
+  lastParts = parts.filter(p => String(p.text || "").trim());
+  let out = PRECEDENCE, cur = 0;
+  for (const p of lastParts) {
+    if (p.layer !== cur) { cur = p.layer; out += `\n\n========== ${LAYER_HEAD[cur]} ==========`; }
+    out += "\n\n" + p.text.trim();
+  }
+  return out;
+}
+function courtPart(court) {
+  return { layer: 1, src: "Settings: judge, court and law officers", text: `COURT DETAILS
+- Judge's name: "${settings.judge}" in the heading and the signature.
+- Court designation: ${court || "as written under the previous order in the picture"}; district: ${settings.district}.${officersLine() ? "\n- " + officersLine() : ""}` };
+}
+function styleParts(sec, samplesText) {
+  const p = [];
+  if (digests[sec]?.text) p.push({ layer: 2, src: `Samples page: notes learned from all ${SECTIONS[sec].label} samples`, text: `COURT KNOWLEDGE LEARNED FROM THE JUDGE'S SAMPLES (${SECTIONS[sec].label}):\n${digests[sec].text}` });
+  if (samplesText) p.push({ layer: 2, src: "Samples page: the closest samples, word for word", text: samplesText + "\nWhere the samples and the learned notes differ, follow the samples." });
+  return p;
+}
+function rulesParts(sec) {
+  const p = [];
+  if (norm(settings.rules)) p.push({ layer: 3, src: "Settings: standing instructions", text: "STANDING INSTRUCTIONS (always follow):\n" + String(settings.rules).trim() });
+  const rules = lessons.filter(l => l.section === sec || l.section === "all").sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)).slice(-60);
+  if (rules.length) p.push({ layer: 3, src: "Samples page: your rules", text: "YOUR RULES (always follow; if two conflict, the later one wins, and these win over the standing instructions):\n" + rules.map(l => "- " + String(l.text).slice(0, 400)).join("\n") });
+  return p;
+}
+
+/* Layer 4 for drafts: the stenographer's details and decision, and what is known to be missing. */
+function caseDataText() {
+  const S = SECTIONS[current.section], f = current.f, decided = hasDecision();
   const pts = current.points.filter(p => p.decision || p.note).map(p => `- ${p.label}: ${p.decision || "(no decision given)"}${p.note ? " — " + p.note : ""}`).join("\n");
-  return `You draft court orders and judgments for ${settings.judge}, ${current.court}, ${settings.district}, Punjab, Pakistan, exactly in the Judge's own style described in the STYLE GUIDE (taken from his own judgments). Follow its headings, standard sentences, legal formulae and level of detail. Never invent facts, names, numbers, dates or case law; cite only case law that appears in the STYLE GUIDE. Unknown items: "____".
-
-HOUSE RULES
-- Judge's name: "${settings.judge}" in the heading and the signature. ${settings.rules || ""}${officersLine() ? "\n- " + officersLine() : ""}
-- Court designation: ${current.court}; district: ${settings.district}.
-- Party names in bold. Use **double asterisks** for bold (headings, party names, "VERSUS", signature lines). Do not print layout notes such as "(centred)".
-- English court language; keep Urdu statements of witnesses / accused in Urdu script where the STYLE GUIDE says so.
-- Use the decision exactly as given; do not change the outcome.
-- If the stenographer's words say "party A" / "party B": party A is the side that brought the proceedings (plaintiff / petitioner / complainant / decree holder / applicant) and party B the other side. Never print "party A" or "party B"; use the proper word for this case as the record uses it.
-- The Judge signs the printout by hand: never write "[Signature]", "Sd/-", "(signed)", "[Stamp]" or any note about stamps, seals or handwritten signatures seen in the record. The signature block is only the name and designation lines.
-
-TASK (${S.label} / ${current.subtype}${current.stage ? " / " + current.stage : ""})
-${S.guide}
-
-STYLE GUIDE
-${styleFor(current.section, current.subtype)}
-
-${learnedFor(current.section, examples)}
-
-CASE TO DRAFT
+  const answered = (current.questions || []).filter(q => String(q.a || "").trim()), open = decided ? (current.questions || []).filter(q => !String(q.a || "").trim()) : [];
+  const slots = getSlots(), label = k => slots.find(s => s.key === k)?.label || k;
+  const miss = (current.missing || []).filter(m => slots.some(s => s.key === m.key));
+  const withReason = miss.filter(m => String(m.reason || "").trim()), noReason = decided ? miss.filter(m => !String(m.reason || "").trim()) : [];
+  return [`CASE TO DRAFT
 Type: ${current.subtype}${current.stage ? " — " + current.stage : ""}
 Court designation: ${current.court}
 Title: ${f.title || "____"}
 CMS No.: ${f.cms || "____"}
 Suit / petition / FIR No.: ${f.caseNo || "____"}
 Date of institution: ${fmtDate(f.instDate) || "____"}
-Date of order / decision: ${fmtDate(f.date) || "____"}
+Date of order / decision: ${fmtDate(f.date) || today() + " (today; no date was given)"}
 Present: ${f.present || "____"}
-Order / decision and instructions given by the stenographer (follow them; they state the Judge's decision): ${f.decision || "(see the points)"}
-${pts ? "Decision on each point:\n" + pts : ""}
-Next date: ${fmtDate(f.nextDate) || "(none given)"}${f.nextPurpose ? " for " + f.nextPurpose : " (take the purpose of the next date from the instructions above)"}${f.instructions ? "\nSpecial instructions: " + f.instructions : ""}
-${(current.questions || []).some(q => String(q.a || "").trim()) ? "Questions asked to the stenographer and his answers (treat the answers as instructions):\n" + current.questions.filter(q => String(q.a || "").trim()).map(q => `- ${q.q}\n  Answer: ${q.a.trim()}`).join("\n") : ""}
+Order / decision and instructions given by the stenographer (follow them; they state the Judge's decision): ${f.decision || "(see the points)"}${pts ? "\nDecision on each point:\n" + pts : ""}
+Next date: ${fmtDate(f.nextDate) || "(none given)"}${f.nextPurpose ? " for " + f.nextPurpose : " (take the purpose of the next date from the instructions above)"}${f.instructions ? "\nSpecial instructions: " + f.instructions : ""}`,
+    answered.length ? "Questions asked to the stenographer and his answers (treat the answers as instructions):\n" + answered.map(q => `- ${q.q}\n  Answer: ${q.a.trim()}`).join("\n") : "",
+    open.length ? "Questions the stenographer left unanswered (do not stop: write \"____\" where the answer was needed and list each in NOTES):\n" + open.map(q => "- " + q.q).join("\n") : "",
+    condText(), idpText(),
+    withReason.length ? "DOCUMENTS NOT ON THE FILE (explained by the stenographer; do not invent their contents, and write the draft consistently with these reasons):\n" + withReason.map(m => `- ${label(m.key)}: ${m.reason.trim()}`).join("\n") : "",
+    noReason.length ? "DOCUMENTS NOT RECEIVED (no reason given; do not invent their contents: leave what depends on them as \"____\" and list it in NOTES):\n" + noReason.map(m => "- " + label(m.key)).join("\n") : ""
+  ].filter(Boolean).join("\n\n");
+}
+function draftParts(examples, notesCap) {
+  const S = SECTIONS[current.section], st = current.subtype, t = TYPE_INFO[st];
+  return [
+    { layer: 1, src: "Built in: global rules", text: globalRules(false) },
+    courtPart(current.court),
+    { layer: 1, src: "Built in: house style", text: `HOUSE STYLE
+- Party names in bold. Use **double asterisks** for bold (headings, party names, "VERSUS", signature lines). Do not print layout notes such as "(centred)".
+- Use the decision exactly as given; do not change the outcome.
+- If the stenographer's words say "party A" / "party B": party A is the side that brought the proceedings (plaintiff / petitioner / complainant / decree holder / applicant) and party B the other side. Never print "party A" or "party B"; use the proper word for this case as the record uses it.` },
+    { layer: 1, src: `Built in: task (${S.label})`, text: `TASK (${S.label} / ${st}${current.stage ? " / " + current.stage : ""})\n${S.guide}` },
+    t?.guide ? { layer: 1, src: `Built in: type template (${st})`, text: t.guide } : null,
+    { layer: 1, src: "Built in: style guide", text: "STYLE GUIDE\n" + styleFor(current.section, st) },
+    { layer: 1, src: "Built in + Settings: case-law list", text: caseLawBlock() },
+    ...styleParts(current.section, examples),
+    ...rulesParts(current.section),
+    { layer: 4, src: "This case: details, decision and what is missing", text: caseDataText() },
+    { layer: 4, src: "This case: record notes (Read record)", text: "RECORD NOTES\n" + (current.notes || current.summary || "(none: no record was read; use only what the stenographer gave and leave the rest as ____)").slice(0, notesCap || 150000) }
+  ].filter(Boolean);
+}
+function draftPrompt(examples, notesCap) {
+  return `You draft court orders and judgments for ${settings.judge}, ${current.court}, ${settings.district}, Punjab, Pakistan, in the Judge's own style. Follow the headings, standard sentences, legal formulae and level of detail given below.
 
-${(current.missing || []).some(m => String(m.reason || "").trim()) ? "DOCUMENTS NOT ON THE FILE (explained by the stenographer; do not invent their contents, and write the draft consistently with these reasons):\n" + current.missing.filter(m => String(m.reason || "").trim()).map(m => `- ${getSlots().find(s => s.key === m.key)?.label || m.key}: ${m.reason.trim()}`).join("\n") + "\n\n" : ""}RECORD NOTES
-${(current.notes || current.summary || "(none)").slice(0, notesCap || 150000)}
+${joinLayers(draftParts(examples, notesCap))}
 
-OUTPUT: First the complete document text only, ready to print, no commentary. Then a line with exactly ===NOTES=== and after it 3-8 short lines in plain English listing blanks left, assumptions made and record conflicts the stenographer must check.`;
+OUTPUT: First the complete document text only, ready to print, no commentary. Then ${notesSpec(false)}`;
 }
 /* ---------- Learning from Samples: the closest samples word for word, what the app learned from all of them, and your rules ---------- */
 const SAMPLE_CFG = { order: [25, 3000], issues: [6, 12000], misc: [6, 12000], judgment: [4, 25000], criminal: [5, 15000] };
+/* Judgments and criminal work use only samples of the same type; a type built on another (e.g. the heirship suits on
+   "Civil suit") also uses that type's samples, so the Judge's heading, Present block and closing still come from his samples. */
 function matchingSamples() {
-  const sec = current.section, strict = sec === "judgment" || sec === "criminal";
-  return samples.filter(s => s.section === sec && (!strict || s.subtype === current.subtype));
+  const sec = current.section, strict = sec === "judgment" || sec === "criminal", base = typeBase(current.subtype);
+  return samples.filter(s => s.section === sec && (!strict || s.subtype === current.subtype || s.subtype === base));
 }
 function pickSamples() {
+  const base = typeBase(current.subtype);
   return matchingSamples()
-    .map(s => ({ s, score: (s.subtype === current.subtype ? 4 : 0) + (current.stage && s.stage === current.stage ? 2 : 0) }))
+    .map(s => ({ s, score: (s.subtype === current.subtype ? 4 : s.subtype === base ? 2 : 0) + (current.stage && s.stage === current.stage ? 2 : 0) }))
     .sort((a, b) => b.score - a.score || (b.s.createdAt || 0) - (a.s.createdAt || 0))
     .slice(0, SAMPLE_CFG[current.section][0]).map(x => x.s);
 }
@@ -932,14 +1307,6 @@ function samplesBlock(list, budget) {
   }
   return n ? "SAMPLES: final versions of the Judge's own documents, the closest match first. Follow their wording, layout and practice. Never copy their names, dates, amounts or facts into this case.\n\n" + out.trim() : "";
 }
-function learnedFor(sec, samplesText) {
-  const parts = [];
-  if (digests[sec]?.text) parts.push(`COURT KNOWLEDGE LEARNED FROM THE JUDGE'S SAMPLES (${SECTIONS[sec].label}):\n${digests[sec].text}`);
-  const rules = lessons.filter(l => l.section === sec || l.section === "all").sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)).slice(-60);
-  if (rules.length) parts.push("YOUR RULES (always follow; if two conflict, follow the later one):\n" + rules.map(l => "- " + String(l.text).slice(0, 400)).join("\n"));
-  if (samplesText) parts.push(samplesText);
-  return parts.length ? "Where these differ, follow YOUR RULES first, then the SAMPLES, then the COURT KNOWLEDGE, then the STYLE GUIDE.\n\n" + parts.join("\n\n") : "";
-}
 /* Safety net: the Judge signs the printout by hand, so markers such as "[Signature]", "(Sd/-)", "[Stamp]"
    or a line that only says "Signature" are taken out of every draft, even if Claude writes them.
    Only markers made of these words are removed, so text like "(Signature of PW-1 is Exh.P-3)" or "(stamp paper)" stays. */
@@ -951,10 +1318,14 @@ function stripSignMarks(t) {
     .split("\n").filter(l => !/^\s*(?:\*\*)?\s*(?:signature|signed|sd\/?-?|stamp|seal)\s*[:.]?\s*(?:\*\*)?\s*$/i.test(l)).join("\n")
     .replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n");
 }
+/* The answer is: the document, then "===NOTES===" and the notes, and for orders "===TITLE===" and the title (in either order). */
 function parseOut(t) {
-  const [main, titlePart] = String(t || "").split("===TITLE===");
-  const [doc, notes] = main.split("===NOTES===");
-  return { doc: stripSignMarks(doc.replace(/\n=+[A-Z]*\s*$/, "")).replace(/^[ \t\u00a0]+/gm, "").trim(), notes: (notes || "").trim(), title: (titlePart || "").trim().split("\n")[0].replace(/^["']|["']$/g, "").trim() };
+  const s = String(t || ""), at = k => { const i = s.indexOf(k); return i < 0 ? Infinity : i; };
+  const iN = at("===NOTES==="), iT = at("===TITLE==="), ends = [iN, iT, s.length];
+  const part = (i, k) => i === Infinity ? "" : s.slice(i + k.length, Math.min(...ends.filter(x => x > i)));
+  const doc = s.slice(0, Math.min(...ends));
+  return { doc: fixJudgeName(stripSignMarks(doc.replace(/\n=+[A-Z]*\s*$/, ""))).replace(/^[ \t\u00a0]+/gm, "").trim(),
+    notes: part(iN, "===NOTES===").replace(/\n=+[A-Z]*\s*$/, "").trim(), title: part(iT, "===TITLE===").trim().split("\n")[0].replace(/^["']|["']$/g, "").trim() };
 }
 
 $("#draftBtn").addEventListener("click", async () => {
@@ -966,6 +1337,16 @@ $("#draftBtn").addEventListener("click", async () => {
     renderCourt();
     if (current.dateAuto && current.f.date !== today()) { current.f.date = today(); const el = $("#f_date"); if (el) el.value = current.f.date; }
     if (!recordReady()) return;
+    // Conditional decree: ask once who deposits and what happens on failure; pressing again uses the defaults.
+    const cd = current.cond;
+    if (condAllowed() && cd.on && (!cd.who.trim() || !cd.consequence.trim()) && !cd.asked) {
+      cd.asked = true;
+      const t = TYPE_INFO[current.subtype];
+      status("#draftStatus", `Conditional decree: who must deposit the amount, and what happens if it is not deposited? Fill the two boxes, or press Generate draft again to use "${t?.condWho || "the plaintiff"}" and "the suit shall stand dismissed".`, true);
+      $("#condBox").scrollIntoView({ block: "center", behavior: "smooth" });
+      $(!cd.who.trim() ? "#c_who" : "#c_consequence").focus({ preventScroll: true });
+      return;
+    }
   }
   drafting = true;
   // Keep the prompt within the size limit: shorten the record notes first, then fit past work into what is left.
@@ -976,8 +1357,10 @@ $("#draftBtn").addEventListener("click", async () => {
   const ex = samplesBlock(pickSamples(), Math.min(100000, PROMPT_LIMIT - bytes(base) - 2000));
   const prompt = isOrder ? orderPrompt(ex) : draftPrompt(ex, notesCap);
   const c = current;
-  c.cont = null;
-  runDraft(c, { prompt, isOrder, shortened, effort: draftEffort(c.section), images: isOrder ? images.slice(-imgMax).map(x => x.file) : null });
+  c.cont = null; c.layers = lastParts; c.prevDraft = "";
+  const slots = isOrder ? [] : getSlots();
+  const openItems = !isOrder && ((c.questions || []).some(q => !String(q.a || "").trim()) || (c.missing || []).some(m => slots.some(s => s.key === m.key) && !String(m.reason || "").trim()) || (!c.readDone && !c.notes));
+  runDraft(c, { prompt, isOrder, shortened, openItems, effort: draftEffort(c.section), images: isOrder ? images.slice(-imgMax).map(x => x.file) : null });
 });
 $("#contBtn").addEventListener("click", () => {
   const c = current;
@@ -1015,7 +1398,8 @@ async function runDraft(c, job, sofar = "") {
   ctl = new AbortController();
   // Show that work is going on: a spinner on the button, shimmering lines on the page and a running count of seconds.
   const mine = () => current === c, t0 = Date.now();
-  let phase = base ? "Continuing" : isOrder ? "Reading the previous order" : "Reading the record", gotText = false;
+  const fixing = job.kind === "fix";
+  let phase = base ? "Continuing" : fixing ? "Applying the corrections" : isOrder ? "Reading the previous order" : "Reading the record", gotText = false;
   const tick = () => { if (mine()) status("#draftStatus", `${phase}... ${Math.round((Date.now() - t0) / 1000)}s`); };
   setDraftBusy(true);
   if (base) setSheet(parseOut(base).doc);
@@ -1024,13 +1408,13 @@ async function runDraft(c, job, sofar = "") {
   const onText = ({ text }) => {
     const doc = parseOut(base + text).doc;
     if (!doc) return;
-    if (!gotText) { gotText = true; phase = base ? "Continuing the draft" : isOrder ? "Writing the order" : "Writing the draft"; tick(); }
+    if (!gotText) { gotText = true; phase = base ? "Continuing the draft" : fixing ? "Applying the corrections" : isOrder ? "Writing the order" : "Writing the draft"; tick(); }
     if (mine()) setSheet(doc);
   };
   // Keep the text; an unfinished one can be continued.
   const finish = (raw, unfinished) => {
     const out = parseOut(raw);
-    c.raw = raw; c.draft = out.doc; c.draftNotes = isOrder ? "" : out.notes;
+    c.raw = raw; c.draft = out.doc; c.draftNotes = out.notes;
     if (isOrder && out.title && !c.f.title) c.f.title = out.title;
     c.cont = unfinished && raw.trim() ? job : null;
   };
@@ -1046,10 +1430,13 @@ async function runDraft(c, job, sofar = "") {
       $("#draftNotesWrap").hidden = !c.draftNotes; $("#draftNotes").textContent = c.draftNotes;
       const msg = stopReason === "time_limit" ? "The server's time limit was reached before the draft was finished." + KEPT
         : truncated ? "The draft is longer than one answer allows." + KEPT
-        : isOrder ? "Order ready. Check it and save."
+        : fixing ? "Corrections applied. Check them (Undo brings the earlier text back) and save."
+        : isOrder ? "Order ready. Check it and the Notes, and save."
         : job.shortened ? "Draft ready. The record notes were very long, so only their first part was used. Check it and save."
-        : "Draft ready. Check it and save.";
+        : job.openItems ? "Draft ready on your decision. Unanswered questions and documents not received were left as ____: see the Notes. Check it and save."
+        : "Draft ready. Check it and the Notes, and save.";
       status("#draftStatus", msg, truncated, !truncated);
+      if (fixing && !truncated) $("#fixText").value = "";
     }
   } catch (e) {
     clearInterval(timer);
@@ -1057,12 +1444,73 @@ async function runDraft(c, job, sofar = "") {
     if (e?.code === "refused") c.cont = null;          // asking again would be declined again
     else if (partial.trim()) finish(partial, true);
     if (mine()) { setSheet(c.draft); status("#draftStatus", errText(e) + (c.cont ? KEPT : ""), e?.code !== "cancelled"); }
-  } finally { clearInterval(timer); drafting = false; setDraftBusy(false); }
+  } finally { clearInterval(timer); drafting = false; setDraftBusy(false); if (mine()) renderAfterDraft(); }
 }
+
+/* ---------- After a draft: citation warning, corrections box, prompt layers ---------- */
+function renderCites() {
+  const cites = (current.draft || "").trim() ? citationsIn(current.draft) : [];
+  $("#citeWrap").hidden = !cites.length;
+  $("#citeList").innerHTML = cites.map(x => `<li>${esc(x.cite)}${x.known ? "" : ` <span class="unk">not in the app's case-law list: remove it, or check it in the official report before keeping it</span>`}</li>`).join("");
+}
+function renderAfterDraft() {
+  renderCites();
+  $("#fixWrap").hidden = !(current.draft || "").trim() || drafting;
+  $("#fixBtn").disabled = !sample || drafting;
+  $("#undoFixBtn").hidden = !current.prevDraft || drafting;
+  const L = settings.debug && current.layers?.length;
+  $("#layersWrap").hidden = !L;
+  $("#layers").innerHTML = L ? current.layers.map(p => `<details class="layer"><summary><b>Layer ${p.layer}</b> · ${esc(p.src)} · ${Math.max(1, Math.round(bytes(p.text) / 1024))} KB</summary><pre>${esc(p.text)}</pre></details>`).join("") : "";
+}
+/* Corrections: the AI edits the draft as it stands (with the stenographer's own edits) instead of writing a new one. */
+function fixPrompt(draft, fix) {
+  const isOrder = current.section === "order";
+  const parts = [
+    { layer: 1, src: "Built in: global rules", text: globalRules(isOrder) },
+    courtPart(isOrder ? null : current.court),
+    isOrder ? null : { layer: 1, src: "Built in + Settings: case-law list", text: caseLawBlock() },
+    ...rulesParts(current.section),
+    { layer: 4, src: "This case: record notes (only for facts a correction needs)", text: "RECORD NOTES (use them only for facts a correction needs)\n" + (current.notes || current.summary || "(none)").slice(0, 60000) }
+  ].filter(Boolean);
+  return `You correct an existing court ${isOrder ? "order" : "draft"} for ${settings.judge}, ${settings.district}, Punjab, Pakistan.
+TASK: apply ONLY the stenographer's corrections below to the CURRENT DRAFT. Keep every other word, line, heading, number and the layout exactly as they are. Do not write a fresh draft; do not shorten, re-order or improve anything that was not asked. The corrections may be in Roman Urdu or English; write the changed text in court English (Urdu quotations stay in Urdu script). If a correction cannot be made from the information given, leave that place as it is and say so in NOTES.
+
+${joinLayers(parts)}
+
+CORRECTIONS FROM THE STENOGRAPHER
+${fix}
+
+CURRENT NOTES (update them: drop what the corrections resolved, keep the rest, and add one line for each change made)
+${current.draftNotes || "(none)"}
+
+CURRENT DRAFT (exactly as it stands now)
+<<<DRAFT>>>
+${draft}
+<<<END OF DRAFT>>>
+
+OUTPUT: the complete corrected document from its first line to its last, ready to print, no commentary. Then ${notesSpec(isOrder)}`;
+}
+$("#fixBtn").addEventListener("click", () => {
+  const c = current;
+  if (!sample || drafting || !c) return;
+  const fix = $("#fixText").value.trim(), draft = sheetText();
+  if (!draft) return;
+  if (fix.length < 3) { status("#draftStatus", "Write the corrections first.", true); $("#fixText").focus(); return; }
+  const prompt = fixPrompt(draft, fix);
+  c.prevDraft = draft; c.prevNotes = c.draftNotes; c.cont = null; c.layers = lastParts;
+  runDraft(c, { prompt, isOrder: c.section === "order", kind: "fix", effort: c.section === "judgment" ? "medium" : "low" });
+});
+$("#undoFixBtn").addEventListener("click", () => {
+  const c = current;
+  if (!c.prevDraft || drafting) return;
+  c.draft = c.prevDraft; c.draftNotes = c.prevNotes || c.draftNotes; c.prevDraft = ""; c.cont = null; c.raw = c.draft;
+  setSheet(c.draft); $("#draftNotesWrap").hidden = !c.draftNotes; $("#draftNotes").textContent = c.draftNotes;
+  renderAfterDraft(); renderReady(); status("#draftStatus", "The last correction was undone.", false, true);
+});
 function setDraftBusy(on) {
   const btn = $("#draftBtn"), sheet = $("#sheet"), isOrder = current.section === "order";
   $("#stopBtn").hidden = !on;
-  if (on) $("#contBtn").hidden = true;
+  if (on) { $("#contBtn").hidden = true; $("#fixWrap").hidden = true; $("#undoFixBtn").hidden = true; }
   sheet.contentEditable = on ? "false" : "true";
   if (on) {
     btn.disabled = true;
@@ -1127,7 +1575,10 @@ function sheetText() {
   try { return c.innerText.replace(/\u00a0/g, " ").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim(); }
   finally { c.remove(); }
 }
-$("#sheet").addEventListener("input", () => { current.draft = sheetText(); if (current.cont) current.raw = current.draft + "\n"; });
+$("#sheet").addEventListener("input", () => {
+  current.draft = sheetText(); if (current.cont) current.raw = current.draft + "\n";
+  clearTimeout(renderCites.t); renderCites.t = setTimeout(renderCites, 400);
+});
 
 $("#copyBtn").addEventListener("click", async () => {
   const txt = $("#sheet").innerText;
@@ -1163,7 +1614,7 @@ async function saveCase() {
   if (!c.draft) { status("#saveStatus", "There is nothing to save yet.", true); return; }
   if (!c.id) c.id = rid("c_");
   c.courtKind = autoKind(c.section, c.subtype); c.court = courtName(c.courtKind);
-  const doc = fitDoc({ kind: "case", section: c.section, subtype: c.subtype, stage: c.stage, court: c.court, courtKind: c.courtKind, found: c.found || [], missing: c.missing || [], questions: c.questions || [], needCheck: !!c.needCheck, readDone: !!c.readDone, f: c.f, o: c.o, notes: c.notes, summary: c.summary, flags: c.flags, points: c.points, draft: c.draft, draftNotes: c.draftNotes, updatedAt: Date.now() }, ["notes", "summary", "draftNotes", "draft"]);
+  const doc = fitDoc({ kind: "case", section: c.section, subtype: c.subtype, stage: c.stage, court: c.court, courtKind: c.courtKind, found: c.found || [], missing: c.missing || [], questions: c.questions || [], needCheck: !!c.needCheck, readDone: !!c.readDone, f: c.f, o: c.o, cond: c.cond, idp: c.idp, notes: c.notes, summary: c.summary, flags: c.flags, points: c.points, draft: c.draft, draftNotes: c.draftNotes, updatedAt: Date.now() }, ["notes", "summary", "draftNotes", "draft"]);
   try { await col.doc(c.id).set(doc); if (current === c) status("#saveStatus", "Saved to History.", false, true); }
   catch (e) { status("#saveStatus", "Could not save. Please try again.", true); }
 }
@@ -1190,7 +1641,8 @@ function renderHistory() {
     const c = cases.find(x => x.id === b.dataset.open); if (!c || !SECTIONS[c.section]) return;
     const base = blankCase(c.section);
     if (current) stash[current.section] = { current, images };
-    current = { ...base, ...c, f: { ...base.f, ...c.f }, o: { ...base.o, ...(c.o || {}) } };
+    current = { ...base, ...c, f: { ...base.f, ...c.f }, o: { ...base.o, ...(c.o || {}) }, cond: { ...base.cond, ...(c.cond || {}), asked: false },
+      idp: c.idp && Array.isArray(c.idp.rows) ? structuredClone(c.idp) : base.idp, prevDraft: "", layers: null };
     current.found = Array.isArray(c.found) ? [...c.found] : []; current.missing = Array.isArray(c.missing) ? c.missing.map(m => ({ ...m })) : []; current.questions = Array.isArray(c.questions) ? c.questions.map(q => ({ ...q })) : [];
     images = []; current.dateAuto = false; if (!current.readDone && current.notes) current.readDone = true;
     view = c.section; $$(".nav").forEach(n => n.classList.toggle("active", n.dataset.view === view));
@@ -1475,11 +1927,13 @@ $("#l_add").addEventListener("click", async () => {
 /* ---------- Settings ---------- */
 function renderSettings() {
   $("#set_judge").value = settings.judge; $("#set_district").value = settings.district; $("#set_rules").value = settings.rules; $("#set_chips").value = settings.chips; $("#set_ada").value = settings.ada || ""; $("#set_adpp").value = settings.adpp || "";
+  $("#set_caselaw").value = settings.caseLaw || ""; $("#set_asj").value = settings.asJail || ""; $("#set_debug").checked = !!settings.debug;
   COURT_KINDS.forEach(([k]) => { $("#set_c_" + k).value = courtName(k); });
 }
 $("#setSave").addEventListener("click", async () => {
   const courts = {}; COURT_KINDS.forEach(([k]) => { courts[k] = $("#set_c_" + k).value.trim() || DEFAULT_COURTS[k]; });
-  settings = { judge: $("#set_judge").value.trim() || settings.judge, district: $("#set_district").value.trim() || settings.district, courts, rules: $("#set_rules").value, chips: $("#set_chips").value.trim(), ada: $("#set_ada").value.trim(), adpp: $("#set_adpp").value.trim() };
+  settings = { judge: $("#set_judge").value.trim() || settings.judge, district: $("#set_district").value.trim() || settings.district, courts, rules: $("#set_rules").value, chips: $("#set_chips").value.trim(), ada: $("#set_ada").value.trim(), adpp: $("#set_adpp").value.trim(),
+    caseLaw: $("#set_caselaw").value.trim(), asJail: $("#set_asj").value.trim(), debug: $("#set_debug").checked };
   renderChips();
   if (!col) { status("#setStatus", "Not connected to the database, so the settings were not saved.", true); toast("Settings were not saved: not connected to the database.", 5000); return; }
   const btn = $("#setSave"); btn.disabled = true; btn.innerHTML = `<span class="spin" aria-hidden="true"></span>Saving`;
@@ -1605,14 +2059,20 @@ col.onSnapshot(snap => {
   samples = all.filter(x => x.kind === "sample" && x.text);
   digests = Object.fromEntries(all.filter(x => x.kind === "digest" && x.section).map(x => [x.section, x]));
   const st = all.find(x => x.id === "settings");
-  if (st) settings = { judge: st.judge || settings.judge, district: st.district || settings.district, courts: (st.courts && typeof st.courts === "object") ? { ...DEFAULT_COURTS, ...st.courts } : settings.courts, rules: st.rules ?? settings.rules, chips: typeof st.chips === "string" ? st.chips : settings.chips, ada: typeof st.ada === "string" ? st.ada : settings.ada, adpp: typeof st.adpp === "string" ? st.adpp : settings.adpp };
+  if (st) {
+    const str = (v, d) => typeof v === "string" ? v : d;
+    settings = { judge: st.judge || settings.judge, district: st.district || settings.district, courts: (st.courts && typeof st.courts === "object") ? { ...DEFAULT_COURTS, ...st.courts } : settings.courts, rules: st.rules ?? settings.rules, chips: str(st.chips, settings.chips), ada: str(st.ada, settings.ada), adpp: str(st.adpp, settings.adpp),
+      caseLaw: str(st.caseLaw, settings.caseLaw), asJail: str(st.asJail, settings.asJail), debug: !!st.debug };
+    if (settings.courts.rent === OLD_RENT_COURT) settings.courts.rent = DEFAULT_COURTS.rent;   // the old default follows the new one; a court's own wording stays
+  }
   $("#brandSub").textContent = settings.district ? settings.district + " courts" : "Court drafting desk";
   renderCounts();
   if (view === "history") renderHistory();
   if (view === "samples") renderSamples();
   renderChips();
   if (view === "settings" && !$("#settingsView").contains(document.activeElement)) renderSettings();
-  if (current && SECTIONS[view] && view !== "order") renderCourt();
+  if (current && SECTIONS[view] && view !== "order") { renderCourt(); if (isIdParade() && !$("#idpBox").contains(document.activeElement)) renderIdp(); }
+  if (current) renderAfterDraft();
   $("#conn").hidden = true;
 }, (e) => {
   clearTimeout(connTimer);
