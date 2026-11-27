@@ -1697,12 +1697,12 @@ function renderSamples() {
   $$("#sampTabs [data-sf]").forEach(b => b.addEventListener("click", () => { sampFilter = b.dataset.sf; status("#digestStatus", ""); renderSamples(); }));
   const dg = digests[sampFilter];
   $("#digestSummary").textContent = `What the app has learned from the ${SECTIONS[sampFilter].label} samples${dg?.count ? ` (${dg.count} studied)` : ""}`;
-  $("#digestText").textContent = dg?.text || "Nothing yet. Add samples to this section; the app studies them and writes what it learned here.";
+  $("#digestText").textContent = dg?.text || "ابھی کچھ نہیں۔ اس سیکشن کے نمونے ڈالیں؛ ایپ ان کا مطالعہ کر کے جو سیکھے گی وہ یہاں لکھے گی۔";
   const list = samples.filter(x => x.section === sampFilter).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   $("#sampList").innerHTML = list.length ? list.map(s => `<div class="item"><div><h4>${esc(sampleTitle(s))}</h4>
       <div class="meta">${s.stage ? `<span class="chip">${esc(s.stage)}</span>` : ""}${(String(s.text).length / 1000).toFixed(1)}k characters · added ${new Date(s.createdAt || Date.now()).toLocaleDateString("en-GB")}</div></div>
       <div class="row"><select class="mini-select" data-sre="${s.id}" aria-label="Section and type">${typeOptions(s.section, s.subtype)}</select><button class="btn danger" data-sdel="${s.id}">Delete</button></div></div>`).join("")
-    : `<p class="note">No ${esc(SECTIONS[sampFilter].label)} samples yet.</p>`;
+    : `<p class="ur" lang="ur" dir="rtl">ابھی ${esc(SECTIONS[sampFilter].label)} کا کوئی نمونہ نہیں۔</p>`;
   $$("#sampList [data-sre]").forEach(sel => sel.addEventListener("change", async () => {
     const [sec, type] = sel.value.split("|"), s = samples.find(x => x.id === sel.dataset.sre);
     try { await col?.doc(sel.dataset.sre).update({ section: sec, subtype: type, stage: sec === "judgment" ? (s?.stage || "") : "" }); } catch (e) {}
@@ -1985,7 +1985,7 @@ async function renderTeam() {
   $("#teamRole").textContent = isAdmin ? "You are the admin" : "You are a member";
   $("#inviteCard").hidden = !isAdmin; $("#renameCard").hidden = !isAdmin;
   $("#meName").value = ctx.profile.full_name || ""; $("#teamRename").value = ctx.team.name;
-  $("#memberList").innerHTML = `<p class="note">Loading members...</p>`;
+  $("#memberList").innerHTML = `<p class="ur" lang="ur" dir="rtl">ممبر لوڈ ہو رہے ہیں...</p>`;
   try {
     const list = await teamApi.members();
     members = Object.fromEntries(list.map(m => [m.id, m.full_name || m.email]));
