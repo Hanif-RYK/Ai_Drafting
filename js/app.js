@@ -282,11 +282,10 @@ function globalRules(isOrder) {
 3. Date: the date of the order / decision given; if none is given, today's date (${today()}).
 4. Unreadable or missing words, names, numbers or dates: write "____" in their place (never guess) and list each one in NOTES.
 5. Corrections to an existing draft change only what was asked; a fresh draft is never written in their place.
-6. If the stenographer's instructions say that more documents are still to come, do not draft: write only a short summary of what has been received, and in NOTES what is still awaited.
-7. Case law: ${isOrder ? "a daily order cites no case law." : "cite only precedents from the CASE LAW LIST (or supplied by the stenographer in this request). A citation that appears only in the samples or the learned notes is not in the list, so do not cite it. Never invent a citation. If no listed case fits, state the principle without a citation."}
-8. Judge's name: exactly "${j}"${ahmad}.
-9. Never write "[Signature]", "Sd/-", "(signed)", "[Stamp]", "[Seal]" or any note about a stamp, seal or handwritten signature: the signature block is only the name and designation lines.${isOrder ? `
-10. Daily order: no "ORDER" heading unless the Judge's samples of daily orders use one; no paragraph numbers; it ends with "Announced:", then the date of the order on the next line, then the Judge's name and designation lines.` : ""}`;
+6. Case law: ${isOrder ? "a daily order cites no case law." : "cite only precedents from the CASE LAW LIST (or supplied by the stenographer in this request). A citation that appears only in the samples or the learned notes is not in the list, so do not cite it. Never invent a citation. If no listed case fits, state the principle without a citation."}
+7. Judge's name: exactly "${j}"${ahmad}.
+8. Never write "[Signature]", "Sd/-", "(signed)", "[Stamp]", "[Seal]" or any note about a stamp, seal or handwritten signature: the signature block is only the name and designation lines.${isOrder ? `
+9. Daily order: no "ORDER" heading unless the Judge's samples of daily orders use one; no paragraph numbers; it ends with "Announced:", then the date of the order on the next line, then the Judge's name and designation lines.` : ""}`;
 }
 /* NOTES: after every draft, a short checklist for the stenographer in Roman Urdu. */
 function notesSpec(isOrder) {
@@ -603,6 +602,7 @@ function show(v) {
   if (v === "history") renderHistory();
   if (v === "samples") renderSamples();
   if ((v === "settings" || v === "drafting") && !setDirty) renderSettings();
+  if (v === "drafting") renderRules();
   if (v === "team") renderTeam();
   try { localStorage.setItem(inSet ? "fd_settab" : "fd_view", v); } catch (e) {}
   scrollToTop();
@@ -621,7 +621,7 @@ $("#setBack").addEventListener("click", () => show(lastWork));
 function blankCase(section) {
   const st0 = SECTIONS[section].subtypes[0], k0 = autoKind(section, st0);
   return { id: null, section, subtype: st0, stage: SECTIONS[section].stages?.[0] || "", courtKind: k0, court: courtName(k0), found: [], missing: [], questions: [], needCheck: false, readDone: false, dateAuto: true,
-    f: { title: "", cms: "", caseNo: "", instDate: "", date: today(), present: "", decision: "", nextDate: "", nextPurpose: "", instructions: "", more: false },
+    f: { title: "", cms: "", caseNo: "", instDate: "", date: today(), present: "", decision: "", nextDate: "", nextPurpose: "", instructions: "" },
     o: { text: "", date: today(), next: "", same: false, lo: false, loCost: false, loWarn: false, cost: "" },
     cond: blankCond(st0), idp: { date: "", time: "", io: "", asj: "", witnesses: [], rows: [] },
     notes: "", summary: "", flags: [], points: [], draft: "", draftNotes: "", prevDraft: "" };
@@ -693,7 +693,6 @@ function renderWork() {
     [...S.fields, ...S.opt].forEach(k => $("#f_" + k).addEventListener("input", e => { current.f[k] = e.target.value; if (k === "date") current.dateAuto = false; }));
     $$("#fields [data-day-target]").forEach(showWeekday);
     $("#f_decision").value = current.f.decision || ""; $("#f_decision").placeholder = decisionHint();
-    $("#f_more").checked = !!current.f.more;
     renderChips(); renderSummary(); renderQuestions(); renderPoints(); renderThumbs(); renderCond(); renderIdp();
   }
   setSheet(current.draft);
@@ -707,7 +706,6 @@ $("#f_subtype").addEventListener("change", e => {
   if (!current.cond?.touched) current.cond = blankCond(current.subtype);
   renderCourt(); refreshMissing(); renderThumbs(); renderChips(); $("#f_decision").placeholder = decisionHint(); renderCond(); renderIdp();
 });
-$("#f_more").addEventListener("change", e => { current.f.more = e.target.checked; status("#draftStatus", ""); });
 
 /* ---------- Conditional decree: amount, period, who deposits, what happens on failure ---------- */
 function renderCond() {
@@ -886,7 +884,6 @@ function hasDecision() {
 /* Before drafting: every picture must have been read. Without a decision, the questions must be answered and every missing
    document needs pictures or a reason; with a decision, nothing stops the draft: blanks are written as ____ and listed in the Notes. */
 function recordReady() {
-  if (current.f.more) { status("#draftStatus", "You ticked \"More documents are still coming\". Add the remaining pictures and press Read record; untick the box when everything is in, then generate the draft.", true); $("#moreWrap").scrollIntoView({ block: "center", behavior: "smooth" }); return false; }
   if (images.some(im => !im.read)) { status("#readStatus", "Some pictures have not been read yet. Press Read record first.", true); $("#readBtn").scrollIntoView({ block: "center", behavior: "smooth" }); return false; }
   const decided = hasDecision();
   if (!current.readDone && !current.notes && !decided) { status("#readStatus", images.length ? "Press Read record first, or write the decision in the box above." : "Add the record pictures and press Read record, or write the decision in the box above.", true); $("#recSlot").scrollIntoView({ block: "center", behavior: "smooth" }); return false; }
@@ -1117,7 +1114,7 @@ ${askRule}`, { modelTier: "complex", cache: false, effort: "low" });
       lastBatch = batches[b].length;
       if (current === c) status("#readStatus", `Reading the record${batches.length > 1 ? ` (part ${b + 1} of ${batches.length})` : ""}... this can take a minute or two.`);
       const prompt = `You are a court stenographer's assistant in Rahim Yar Khan, Punjab, Pakistan. The attached images are pages from a court file (plaint, written statement, applications, replies, issues, witness statements with cross-examination, exhibits, FIR, order sheets). Many are handwritten Urdu. Read them very carefully. Never invent names, dates or amounts; if a word is unreadable write "____".
-Task context: section "${S.label}", type "${current.subtype}"${current.stage ? `, stage "${current.stage}"` : ""}, court: ${courtName(current.courtKind)}.${c.f.more ? "\nThe stenographer says more documents are still to come: read and summarise these pages only; do not ask for documents that may still come." : ""}
+Task context: section "${S.label}", type "${current.subtype}"${current.stage ? `, stage "${current.stage}"` : ""}, court: ${courtName(current.courtKind)}.
 The pictures were uploaded together and may be in any order. First work out which document each page belongs to, then take each thing from its own document: e.g. the plaint facts only from the plaint pages, and the cross-examination from the evidence pages.${batches.length > 1 ? ` This is part ${b + 1} of ${batches.length}; the other pages are read separately.` : ""}
 Documents that this type of work may need:
 ${docList}
@@ -1695,7 +1692,6 @@ function renderSamples() {
   if (!$("#s_section").options.length) {
     $("#s_section").innerHTML = `<option value="auto">Auto-detect</option>` + Object.entries(SECTIONS).map(([k, s]) => `<option value="${k}">${esc(s.label)}</option>`).join("");
     fillSampleTypes();
-    $("#l_section").innerHTML = `<option value="all">All sections</option>` + Object.entries(SECTIONS).map(([k, s]) => `<option value="${k}">${esc(s.label)}</option>`).join("");
   }
   $("#sampTabs").innerHTML = Object.entries(SECTIONS).map(([k, s]) => `<button class="tab${k === sampFilter ? " on" : ""}" data-sf="${k}">${esc(s.label)} · ${samples.filter(x => x.section === k).length}</button>`).join("");
   $$("#sampTabs [data-sf]").forEach(b => b.addEventListener("click", () => { sampFilter = b.dataset.sf; status("#digestStatus", ""); renderSamples(); }));
@@ -1929,6 +1925,8 @@ $("#digestRebuild").addEventListener("click", async () => {
   catch (e) { status("#digestStatus", errText(e), true); }
   finally { dProg.finish(); sBusy = false; renderSamples(); }
 });
+/* Rules (Settings → Drafting): they apply to new drafts of the chosen section, or of every section; not to any sample. */
+$("#l_section").innerHTML = `<option value="all">All sections</option>` + Object.entries(SECTIONS).map(([k, s]) => `<option value="${k}">${esc(s.label)}</option>`).join("");
 $("#l_add").addEventListener("click", async () => {
   const text = $("#l_text").value.trim();
   if (text.length < 5) { status("#l_status", "Write the rule first.", true); return; }
@@ -2093,6 +2091,7 @@ col.onSnapshot(snap => {
   renderCounts();
   if (view === "history") renderHistory();
   if (view === "samples") renderSamples();
+  if (view === "drafting") renderRules();
   renderChips();
   if ((view === "settings" || view === "drafting") && !setDirty && !$("#setShell").contains(document.activeElement)) renderSettings();
   if (current && SECTIONS[view] && view !== "order") { renderCourt(); if (isIdParade() && !$("#idpBox").contains(document.activeElement)) renderIdp(); }

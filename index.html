@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap">
 <!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever the CSS / JS change. -->
-<link rel="stylesheet" href="styles.css?v=2026112702">
+<link rel="stylesheet" href="styles.css?v=2026112703">
 <script defer src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 </head>
 <body>
@@ -169,7 +169,6 @@
               </div>
             </div>
             <div id="idpBox" class="subbox stack" hidden></div>
-            <label class="chk" id="moreWrap"><input type="checkbox" id="f_more"> More documents are still coming: only read and summarise for now</label>
             <div class="row"><button class="btn ghost" id="readBtn">Read record</button><span class="status" id="readStatus"></span></div>
             <div id="missBox" class="stack" hidden></div>
             <div id="qWrap" hidden class="stack">
@@ -224,10 +223,11 @@
       </div>
     </section>
 
-    <!-- SETTINGS: court, drafting, samples and team, each in its own tab -->
+    <!-- SETTINGS: court, drafting, samples and team, each in its own tab. Every setting has a short note in Urdu. -->
     <section id="setShell" hidden>
       <div class="head">
-        <div><h1>Settings</h1><p>Set these once; every draft uses them. Your daily work stays in the menu.</p></div>
+        <div><h1>Settings</h1><p>Set these once; every draft uses them. Your daily work stays in the menu.</p>
+          <p class="ur" lang="ur" dir="rtl">یہ ترتیبات ایک دفعہ کرنی ہیں؛ ہر ڈرافٹ انہی کے مطابق بنتا ہے اور پوری ٹیم کے لیے ایک جیسی رہتی ہیں۔ روز کا کام اوپر / سائیڈ کے مینیو میں ہی رہتا ہے۔</p></div>
         <div class="row"><button class="btn plain" id="setBack" type="button">← Back to work</button></div>
       </div>
       <div class="tabs settabs" role="tablist" aria-label="Settings">
@@ -240,11 +240,13 @@
     <!-- COURT -->
     <section id="settingsView" hidden>
       <p class="panehint">Used in the heading, the Present block and the signature of every draft.</p>
+      <p class="ur" lang="ur" dir="rtl">یہ معلومات ہر ڈرافٹ کی ہیڈنگ، Present (حاضری) اور دستخط والی سطروں میں لکھی جاتی ہیں۔</p>
       <div class="card stack" style="max-width:760px">
         <div class="grid">
           <label>Judge's name<input id="set_judge"></label>
           <label>District<input id="set_district"></label>
         </div>
+        <p class="ur" lang="ur" dir="rtl">جج صاحب کا نام بالکل ویسا لکھیں جیسا فیصلوں پر آتا ہے (مثلاً Mian Ijaz Ahmad)؛ یہی نام ہیڈنگ اور دستخط میں جاتا ہے۔ ضلع کا نام ہیڈنگ میں عدالت کے عہدے کے نیچے لکھا جاتا ہے۔</p>
         <strong style="margin-top:6px">Court designations</strong>
         <p class="note" style="margin:0">The app picks the court from the case type: criminal work goes to the Magistrate, family matters to the Family Court, rent to Rent, guardian matters to the Guardian Court, and everything else to the Civil Court.</p>
         <div class="grid">
@@ -254,31 +256,53 @@
           <label>Guardian court<input id="set_c_guardian"></label>
           <label>Magistrate (criminal)<input id="set_c_magistrate"></label>
         </div>
+        <p class="ur" lang="ur" dir="rtl">ہر قسم کی عدالت کا عہدہ جیسا ہیڈنگ اور دستخط میں لکھا جائے۔ ایپ کیس کی قسم دیکھ کر خود صحیح عہدہ چنتی ہے: فوجداری کام مجسٹریٹ، فیملی کیس فیملی کورٹ، کرایہ داری رینٹ، گارڈین کیس گارڈین کورٹ، اور باقی سب سول کورٹ۔</p>
         <strong style="margin-top:6px">Law officers and jail</strong>
         <div class="grid">
           <label>Learned ADA / DDA (civil side)<input id="set_ada" placeholder="Name only, e.g. Mr. ____"></label>
           <label>Learned ADPP (criminal side)<input id="set_adpp" placeholder="Name only, e.g. Mr. ____"></label>
         </div>
+        <p class="ur" lang="ur" dir="rtl">سرکاری وکلاء کے صرف نام لکھیں (عہدہ ایپ خود لگاتی ہے)۔ ADA / DDA سول کیس میں حکومت کی طرف سے اور ADPP فوجداری کیس میں سرکار کی طرف سے Present میں صرف تب لکھے جاتے ہیں جب ریکارڈ میں ان کی حاضری ہو۔</p>
         <label>Assistant Superintendents of District Jail (for identification parades), one per line<textarea id="set_asj" rows="3" spellcheck="false" placeholder="Muhammad Shafi"></textarea></label>
+        <p class="ur" lang="ur" dir="rtl">ڈسٹرکٹ جیل کے اسسٹنٹ سپرنٹنڈنٹ صاحبان کے نام، ہر سطر پر ایک۔ شناخت پریڈ کے کارڈ میں یہ نام چننے کے لیے آتے ہیں۔</p>
         <div class="row"><button class="btn" id="setSave" type="button">Save</button><span class="status" id="setStatus"></span></div>
+        <p class="ur" lang="ur" dir="rtl">کچھ بدلنے کے بعد Save ضرور دبائیں؛ تبدیلی پوری ٹیم کے لیے محفوظ ہو جاتی ہے۔</p>
       </div>
     </section>
 
     <!-- DRAFTING -->
     <section id="draftingView" hidden>
-      <p class="panehint">How every draft is written: your standing instructions, the case law the AI may cite, and the quick words under the order box.</p>
-      <div class="card stack" style="max-width:760px">
-        <label>Standing instructions (Layer 3 "Rules": applied to every draft and override the samples and the built-in style)<textarea id="set_rules" rows="5" placeholder="e.g. Always spell the Judge's name as 'Ahmad', never 'Ahmed'."></textarea></label>
-        <label>Your case law (added to the app's list; the AI cites nothing else). One per line: Case title | Citation | What it decides<textarea id="set_caselaw" rows="4" spellcheck="false" placeholder="e.g. Muhammad Akram Vs. Mst. Zainab | 2020 SCMR 123 | gift must be proved by its three ingredients"></textarea></label>
-        <label>Quick words under the order box in every section. CPA, CPB, PA and PB are always there and follow the kind of case (party A / party B). Add your own words below, one per line, as SHORT = words.<textarea id="set_chips" rows="9" spellcheck="false" placeholder="EV = evidence"></textarea></label>
-        <label class="chk"><input type="checkbox" id="set_debug"> Show the prompt layers under each draft (for checking which layer gave which instruction)</label>
-        <div class="row"><button class="btn" id="setSaveD" type="button">Save</button><span class="status" id="setStatusD"></span></div>
+      <p class="panehint">How every draft is written: your standing instructions and rules, the case law the AI may cite, and the quick words under the order box.</p>
+      <p class="ur" lang="ur" dir="rtl">یہاں وہ ہدایات ہیں جن کے مطابق AI ہر ڈرافٹ لکھتا ہے۔ یہ ہدایات Samples اور ایپ کے اپنے انداز، دونوں پر غالب رہتی ہیں۔</p>
+      <div class="stack" style="max-width:760px">
+        <div class="card stack">
+          <label>Standing instructions (Layer 3 "Rules": applied to every draft and override the samples and the built-in style)<textarea id="set_rules" rows="5" placeholder="e.g. Always spell the Judge's name as 'Ahmad', never 'Ahmed'."></textarea></label>
+          <p class="ur" lang="ur" dir="rtl">مستقل ہدایات جو ہر سیکشن کے ہر ڈرافٹ پر لاگو ہوتی ہیں، مثلاً نام کے ہجے۔ ایک ہی خانے میں جتنی چاہیں لکھیں۔</p>
+          <label>Your case law (added to the app's list; the AI cites nothing else). One per line: Case title | Citation | What it decides<textarea id="set_caselaw" rows="4" spellcheck="false" placeholder="e.g. Muhammad Akram Vs. Mst. Zainab | 2020 SCMR 123 | gift must be proved by its three ingredients"></textarea></label>
+          <p class="ur" lang="ur" dir="rtl">ایپ کی اپنی فہرست کے علاوہ جن فیصلوں کا حوالہ AI دے سکتا ہے، وہ یہاں لکھیں؛ ہر سطر پر ایک: کیس کا نام | سائٹیشن | کیا طے ہوا۔ ان کے سوا AI کوئی حوالہ نہیں دیتا۔ سائٹیشن سرکاری رپورٹ سے دیکھ کر لکھیں۔</p>
+          <label>Quick words under the order box in every section. CPA, CPB, PA and PB are always there and follow the kind of case (party A / party B). Add your own words below, one per line, as SHORT = words.<textarea id="set_chips" rows="9" spellcheck="false" placeholder="EV = evidence"></textarea></label>
+          <p class="ur" lang="ur" dir="rtl">آرڈر والے خانے کے نیچے چھوٹے بٹن؛ بٹن دبانے سے پورے الفاظ خانے میں لکھ دیے جاتے ہیں۔ ہر سطر پر ایک: چھوٹا نام = پورے الفاظ (مثلاً EV = evidence)۔ CPA, CPB, PA, PB ہمیشہ موجود رہتے ہیں۔</p>
+          <label class="chk"><input type="checkbox" id="set_debug"> Show the prompt layers under each draft (for checking which layer gave which instruction)</label>
+          <p class="ur" lang="ur" dir="rtl">ٹک کریں تو ہر ڈرافٹ کے نیچے دکھایا جاتا ہے کہ کون سی ہدایت کہاں سے آئی (ایپ کا انداز، Samples، Rules یا کیس)۔ روز کے کام میں اس کی ضرورت نہیں۔</p>
+          <div class="row"><button class="btn" id="setSaveD" type="button">Save</button><span class="status" id="setStatusD"></span></div>
+          <p class="ur" lang="ur" dir="rtl">اوپر کے خانوں میں تبدیلی کے بعد Save دبائیں۔</p>
+        </div>
+        <div class="card stack">
+          <strong>Your rules</strong>
+          <p class="note" style="margin:0">Short instructions every draft must follow, e.g. "In list of witnesses orders, never write the witnesses' names."</p>
+          <p class="ur" lang="ur" dir="rtl">چھوٹے اصول، ہر اصول الگ۔ یہ کسی نمونے (sample) پر نہیں بلکہ نئے ڈرافٹ پر لاگو ہوتے ہیں: Applies to میں All sections ہو تو ہر ڈرافٹ پر، ورنہ صرف چنے گئے سیکشن کے ڈرافٹ پر۔ کسی ایک قسم (مثلاً ejectment) کے لیے ہو تو اس کا نام اصول میں ہی لکھ دیں۔ دو اصول ٹکرائیں تو بعد والا چلتا ہے۔ Add rule دباتے ہی اصول محفوظ ہو جاتا ہے۔</p>
+          <div class="grid"><label>Applies to<select id="l_section"></select></label></div>
+          <label>Rule<textarea id="l_text" rows="2"></textarea></label>
+          <div class="row"><button class="btn" id="l_add">Add rule</button><span class="status" id="l_status"></span></div>
+          <div class="list" id="ruleList"></div>
+        </div>
       </div>
     </section>
 
     <!-- SAMPLES -->
     <section id="samplesView" hidden>
       <p class="panehint">Upload the final versions of the Judge's orders and judgments, the ones corrected and completed in Word. The app studies them and drafts the same way. The more samples you add, the better the drafts.</p>
+      <p class="ur" lang="ur" dir="rtl">جج صاحب کے مکمل اور درست کیے ہوئے فیصلے اور آرڈر یہاں ڈالیں۔ ایپ ان سے ہیڈنگ، جملے اور انداز سیکھ کر ویسے ہی ڈرافٹ بناتی ہے؛ نمونے سے نام، تاریخیں اور حقائق کبھی نہیں لیے جاتے۔ جتنے زیادہ نمونے ہوں گے، ڈرافٹ اتنے بہتر بنیں گے۔</p>
       <div class="cols">
         <div class="stack">
           <div class="card stack">
@@ -287,28 +311,23 @@
               <label>Section<select id="s_section"></select></label>
               <label>Type<select id="s_type"></select></label>
             </div>
+            <p class="ur" lang="ur" dir="rtl">سیکشن اور قسم چن لیں تو نمونہ اسی قسم کے ڈرافٹ میں استعمال ہوگا؛ Auto-detect پر ایپ خود پہچان لیتی ہے۔</p>
             <div class="drop" id="sDrop">
               Drop Word files (.docx), text files or pictures here, or choose them:<br>
               <label class="addpic">Choose files<input type="file" id="sFile" accept=".docx,.txt,image/*" multiple class="fileover"></label>
               <div class="note" style="margin-top:6px">You can add many files at once. Each Word or text file is one sample; pictures added together are read as the pages of one sample.</div>
             </div>
+            <p class="ur" lang="ur" dir="rtl">ایک ساتھ کئی فائلیں ڈال سکتے ہیں۔ ہر Word یا ٹیکسٹ فائل ایک الگ نمونہ ہے؛ ایک ساتھ ڈالی گئی تصویریں ایک ہی نمونے کے صفحے سمجھی جاتی ہیں۔</p>
             <details><summary>Paste text instead</summary>
               <div class="stack" style="margin-top:10px">
                 <label>Title<input id="s_title" placeholder="e.g. Ex-parte khula judgment"></label>
                 <label>Text<textarea id="s_text" rows="8" placeholder="Paste the full final text of the order or judgment"></textarea></label>
                 <div class="row"><button class="btn plain" id="sPasteAdd">Add sample</button></div>
+                <p class="ur" lang="ur" dir="rtl">فائل نہ ہو تو فیصلے کا پورا آخری متن یہاں چسپاں کر کے Add sample دبائیں۔</p>
               </div>
             </details>
             <div class="progbox" id="sProg" role="status" aria-live="polite" hidden></div>
             <div class="status" id="sStatus"></div>
-          </div>
-          <div class="card stack">
-            <strong>Your rules</strong>
-            <p class="note" style="margin:0">Short instructions every draft must follow, e.g. "In list of witnesses orders, never write the witnesses' names."</p>
-            <div class="grid"><label>Applies to<select id="l_section"></select></label></div>
-            <label>Rule<textarea id="l_text" rows="2"></textarea></label>
-            <div class="row"><button class="btn" id="l_add">Add rule</button><span class="status" id="l_status"></span></div>
-            <div class="list" id="ruleList"></div>
           </div>
         </div>
         <div class="card stack">
@@ -316,6 +335,7 @@
           <details id="digestBox"><summary id="digestSummary">What the app has learned</summary>
             <div class="notes" id="digestText" style="margin-top:8px"></div>
             <p class="note" style="margin:8px 0 0">After deleting or moving samples, press "Study all samples again" so this stays in line with them.</p>
+            <p class="ur" lang="ur" dir="rtl">ہر سیکشن کے تمام نمونوں سے سیکھے گئے نکات۔ نمونے حذف یا منتقل کرنے کے بعد Study all samples again دبائیں تاکہ یہ نکات نمونوں کے مطابق رہیں۔</p>
             <div class="row" style="margin-top:8px"><button class="btn plain" id="digestRebuild">Study all samples again</button><span class="status" id="digestStatus"></span></div>
             <div class="progbox" id="dProg" role="status" aria-live="polite" hidden style="margin-top:8px"></div>
           </details>
@@ -327,15 +347,18 @@
     <!-- TEAM -->
     <section id="teamView" hidden>
       <p class="panehint">Everyone in the team shares the same cases, samples, rules and settings.</p>
+      <p class="ur" lang="ur" dir="rtl">ٹیم کے تمام لوگ ایک ہی کیس، نمونے، اصول اور ترتیبات دیکھتے اور استعمال کرتے ہیں۔</p>
       <div class="cols">
         <div class="stack">
           <div class="card stack">
             <div class="row" style="justify-content:space-between"><strong id="teamName"></strong><span class="chip" id="teamRole"></span></div>
+            <p class="ur" lang="ur" dir="rtl">ٹیم کے ممبر۔ ایڈمن کسی کو ایڈمن بنا سکتا ہے یا ٹیم سے نکال سکتا ہے۔</p>
             <div class="list" id="memberList"></div>
           </div>
           <div class="card stack" id="inviteCard" hidden>
             <strong>Invite a member</strong>
             <p class="note" style="margin:0">Write the email the person will use to register or log in. The invitation appears on their first screen, and they join the team when they accept it.</p>
+            <p class="ur" lang="ur" dir="rtl">نئے ممبر کی وہ ای میل لکھیں جس سے وہ رجسٹر یا لاگ اِن کرے گا۔ دعوت اس کی پہلی اسکرین پر آئے گی اور Accept کرتے ہی وہ ٹیم میں شامل ہو جائے گا۔ Admin کو ٹیم کے انتظام کا اختیار ہوتا ہے، Member صرف کام کرتا ہے۔</p>
             <div class="grid">
               <label>Email<input id="invEmail" type="email" inputmode="email" placeholder="name@example.com"></label>
               <label>Role<select id="invRole"><option value="member">Member</option><option value="admin">Admin</option></select></label>
@@ -348,19 +371,23 @@
           <div class="card stack">
             <strong>You</strong>
             <label>Your name<input id="meName"></label>
+            <p class="ur" lang="ur" dir="rtl">آپ کا نام، جو History میں ہر محفوظ کیس کے ساتھ (saved by) نظر آتا ہے۔</p>
             <div class="row"><button class="btn plain" id="meSave">Save name</button><span class="status" id="meStatus"></span></div>
           </div>
           <div class="card stack" id="renameCard" hidden>
             <strong>Team name</strong>
             <label>Name<input id="teamRename"></label>
+            <p class="ur" lang="ur" dir="rtl">ٹیم (عدالت) کا نام؛ صرف ایڈمن بدل سکتا ہے۔</p>
             <div class="row"><button class="btn plain" id="teamRenameBtn">Rename</button><span class="status" id="teamRenameStatus"></span></div>
           </div>
           <div class="card stack">
             <strong>AI usage this month</strong>
             <p class="note" id="usageLine" style="margin:0">Loading...</p>
+            <p class="ur" lang="ur" dir="rtl">اس مہینے AI کتنی دفعہ استعمال ہوا اور کون سا ماڈل چل رہا ہے۔</p>
           </div>
           <div class="card stack">
             <div class="row"><button class="btn danger" id="leaveTeamBtn">Leave team</button><button class="btn plain" id="teamSignOut">Sign out</button></div>
+            <p class="ur" lang="ur" dir="rtl">Leave team سے آپ اس ٹیم سے نکل جائیں گے؛ Sign out سے صرف اس ڈیوائس سے لاگ آؤٹ ہوگا، ٹیم میں آپ رہیں گے۔</p>
             <span class="status" id="teamStatus"></span>
           </div>
         </div>
@@ -381,6 +408,6 @@ setTimeout(function () {
   if (!shown) document.getElementById("bootFail").hidden = false;
 }, 12000);
 </script>
-<script type="module" src="js/main.js?v=2026112702"></script>
+<script type="module" src="js/main.js?v=2026112703"></script>
 </body>
 </html>
