@@ -16,9 +16,14 @@ scroll nahi hota). Settings ke 4 tab:
 | Tab | Kya hai |
 |---|---|
 | Court | Judge ka naam, district, court designations, ADA / ADPP, A.S. Jail ke naam |
-| Drafting | Standing instructions, apna case law, quick words, prompt layers (debug) |
-| Samples | Judge ke samples aur Rules |
+| Drafting | Standing instructions, Rules, apna case law, quick words, prompt layers (debug) |
+| Samples | Judge ke samples |
 | Team | Members, invite, apna naam, team ka naam, AI usage, sign out |
+
+Har setting ke saath Urdu mein likha hai ke woh kis liye hai.
+
+**Rules** kisi sample par nahi, naye drafts par lagte hain: "Applies to" mein All sections ho
+to har draft par, warna sirf chune gaye section ke drafts par.
 
 "← Back to work" (ya menu ka koi section) wapas usi kaam par le jata hai. Kuch likh kar Save
 na kiya ho to Settings chhorte waqt yaad dilaya jata hai. App hamesha kaam wale section par
@@ -179,7 +184,7 @@ mein koi drafting hidayat nahi). Har draft ka prompt in 4 layers se banta hai:
 |---|---|---|
 | 1. Base | Pakistani court practice aur default style (Mian Ijaz Ahmad ka style), global rules, case-law list, har type ka template | `GLOBAL RULES` (`globalRules`), `STYLE`, `SECTIONS`, `TYPE_INFO`, `CASE_LAW` |
 | 2. Judge style | Judge ke apne Samples (sab se qareeb samples hoo-ba-hoo) aur un se seekhe notes | Settings → Samples (`docs`: sample / digest) |
-| 3. Rules | Settings → Drafting ki "Standing instructions" aur Settings → Samples ke "Rules" | `docs`: settings / lesson |
+| 3. Rules | Settings → Drafting ki "Standing instructions" aur "Rules" | `docs`: settings / lesson |
 | 4. Case data | Is case ki details, faisla, conditional decree, parade details, record notes | Work page |
 
 Jahan farq ho: Rules > Judge style > Base. Samples na hon to Base ka style chalta hai.
@@ -190,8 +195,7 @@ ke kaun si hidayat kis layer se aayi.
 Urdu mein; faisla diya ho to foran draft (sawal ke liye nahi rukta); tareekh na ho to aaj
 ki; na parha jane wala lafz `____` aur Notes mein; har draft ke baad **Roman Urdu Notes**
 (blanks, shak wali reading, plaint vs jamabandi / FRC ke farq, minors, assumptions);
-**Corrections** box: AI usi draft ko badalta hai, naya nahi likhta (Undo bhi hai); "More
-documents are still coming" tick ho to sirf parhta / summary deta hai; Judge ka naam
+**Corrections** box: AI usi draft ko badalta hai, naya nahi likhta (Undo bhi hai); Judge ka naam
 "Ahmad" (kabhi "Ahmed" nahi, app khud bhi theek kar deti hai); `[Signature]`, `Sd/-`,
 seal ki koi line nahi; daily order mein "ORDER" heading aur paragraph numbers nahi.
 

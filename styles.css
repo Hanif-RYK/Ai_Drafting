@@ -288,3 +288,8 @@ select.mini-select{width:auto;max-width:230px;font-size:12.5px;padding:5px 8px}
   .settabs .tab{flex:none}
   #setShell .head .row{display:none}
 }
+
+/* Urdu notes under the settings (Nastaliq, right to left) */
+.ur{margin:0;direction:rtl;text-align:right;font-family:"Noto Nastaliq Urdu",var(--doc);font-size:13.5px;line-height:2.2;color:var(--muted)}
+.head .ur{margin-top:6px;max-width:75ch}
+.panehint + .ur{margin:-6px 0 12px;max-width:75ch}
