@@ -573,11 +573,16 @@ let drafting = false, reading = false;
 let readBatch = 0;   // pictures per "Read record" request; halved after the server time limit is reached
 /* Settings (court, drafting, samples, team) are one page with tabs, opened from the Settings button; they are not
    among the sections in the side panel, which are used all day. */
-const SET_TABS = ["settings", "drafting", "samples", "team"];
-let lastWork = "order", lastSetTab = "settings";
-try { if (SET_TABS.includes(localStorage.getItem("fd_settab"))) lastSetTab = localStorage.getItem("fd_settab"); } catch (e) {}
+const SET_TABS = ["settings", "drafting", "samples", "team", "quickwords", "account"];
+const ADMIN_TABS = ["settings", "drafting", "samples", "team"];   // court, drafting, samples and team: the admin only
+const isAdmin = ctx.profile.role === "admin";
+const setTabOk = v => SET_TABS.includes(v) && (isAdmin || !ADMIN_TABS.includes(v));
+$$("[data-set]").forEach(b => { b.hidden = !setTabOk(b.dataset.set); });
+let lastWork = "order", lastSetTab = isAdmin ? "settings" : "quickwords";
+try { if (setTabOk(localStorage.getItem("fd_settab"))) lastSetTab = localStorage.getItem("fd_settab"); } catch (e) {}
 function show(v) {
-  if (!SECTIONS[v] && v !== "history" && !SET_TABS.includes(v)) v = "order";
+  if (SET_TABS.includes(v) && !setTabOk(v)) v = "quickwords";
+  if (!SECTIONS[v] && v !== "history" && v !== "inbox" && !SET_TABS.includes(v)) v = "order";
   const inSet = SET_TABS.includes(v), leaving = SET_TABS.includes(view) && !inSet;
   if (leaving && setDirty) toast("Your changes in Settings were not saved. Open Settings and press Save to keep them.", 7000);
   view = v;
@@ -588,11 +593,15 @@ function show(v) {
   const isWork = !!SECTIONS[v];
   $("#workView").hidden = !isWork;
   $("#historyView").hidden = v !== "history";
+  $("#inboxView").hidden = v !== "inbox";
   $("#setShell").hidden = !inSet;
   $("#settingsView").hidden = v !== "settings";
   $("#draftingView").hidden = v !== "drafting";
   $("#samplesView").hidden = v !== "samples";
   $("#teamView").hidden = v !== "team";
+  $("#quickView").hidden = v !== "quickwords";
+  $("#accountView").hidden = v !== "account";
+  if (!isWork) $("#sendBox").hidden = true;
   if (isWork) {
     // Each section keeps its own unfinished work, so moving to another section and back loses nothing.
     if (current) stash[current.section] = { current, images };
@@ -604,6 +613,9 @@ function show(v) {
   if ((v === "settings" || v === "drafting") && !setDirty) renderSettings();
   if (v === "drafting") renderRules();
   if (v === "team") renderTeam();
+  if (v === "quickwords") renderQuickWords();
+  if (v === "account") $("#meName").value = ctx.profile.full_name || "";
+  if (v === "inbox") { renderInbox(); loadInbox(); }
   try { localStorage.setItem(inSet ? "fd_settab" : "fd_view", v); } catch (e) {}
   scrollToTop();
 }
@@ -623,7 +635,7 @@ function blankCase(section) {
   return { id: null, section, subtype: st0, stage: SECTIONS[section].stages?.[0] || "", courtKind: k0, court: courtName(k0), found: [], missing: [], questions: [], needCheck: false, readDone: false, dateAuto: true,
     f: { title: "", cms: "", caseNo: "", instDate: "", date: today(), present: "", decision: "", nextDate: "", nextPurpose: "", instructions: "" },
     o: { text: "", date: today(), next: "", same: false, lo: false, loCost: false, loWarn: false, cost: "" },
-    cond: blankCond(st0), idp: { date: "", time: "", io: "", asj: "", witnesses: [], rows: [] },
+    cond: blankCond(st0), idp: { date: "", time: "", io: "", asj: "", witnesses: [], rows: [] }, cause: null,
     notes: "", summary: "", flags: [], points: [], draft: "", draftNotes: "", prevDraft: "" };
 }
 /* Conditional decree: on by default for the types that always end in one (e.g. the seller's suit). */
@@ -698,7 +710,8 @@ function renderWork() {
   setSheet(current.draft);
   $("#draftNotesWrap").hidden = !current.draftNotes; $("#draftNotes").textContent = current.draftNotes;
   renderAfterDraft();
-  status("#saveStatus", current.id ? "Saved case." : ""); status("#draftStatus", ""); status("#readStatus", "");
+  setSendOpen(false);
+  status("#saveStatus", current.saved ? "Saved case." : ""); status("#draftStatus", ""); status("#readStatus", "");
   renderReady();
 }
 $("#f_subtype").addEventListener("change", e => {
@@ -947,10 +960,16 @@ function partyNames() {
   return ["plaintiff", "defendant"];
 }
 const PARTY_CHIPS = "CPA = counsel for the {A}\nCPB = counsel for the {B}\nPA = {A}\nPB = {B}";
+/* Quick words: the built-in ones (PARTY_CHIPS and DEFAULT_CHIPS, changed only by an app update) for everyone, then the
+   user's own from Settings → Quick words. A short name that is already built in cannot be used again. */
+const builtInChips = () => [...parseChips(PARTY_CHIPS), ...parseChips(DEFAULT_CHIPS)];
+function myChips(text = ctx.profile.quick_words) {
+  const taken = new Set(builtInChips().map(ch => ch.label.toUpperCase()));
+  return parseChips(text).filter(ch => { const k = ch.label.toUpperCase(); if (taken.has(k)) return false; taken.add(k); return true; });
+}
 function renderChips() {
   const [A, B] = partyNames(), fill = t => t.replace(/\{A\}/gi, A).replace(/\{B\}/gi, B).replace(/\bthe (party [AB])\b/g, "$1");
-  const mine = parseChips(settings.chips).filter(ch => !/^(CPA|CPB|PA|PB)$/i.test(ch.label));
-  const html = [...parseChips(PARTY_CHIPS), ...mine].map(ch => `<button type="button" class="chipbtn" data-text="${esc(fill(ch.text))}" title="${esc(fill(ch.text))}">${esc(ch.label)}</button>`).join("");
+  const html = [...builtInChips(), ...myChips()].map(ch => `<button type="button" class="chipbtn" data-text="${esc(fill(ch.text))}" title="${esc(fill(ch.text))}">${esc(ch.label)}</button>`).join("");
   $("#o_chips").innerHTML = html; $("#f_chips").innerHTML = html;
 }
 function insertPhrase(ta, phrase) {
@@ -1539,14 +1558,24 @@ $("#stopBtn").addEventListener("click", () => ctl?.abort());
 function mdToHtml(t) { return esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/_{4,}/g, m => `<span class="blank">${m}</span>`); }
 /* Layout of the printed page: the Present block hangs in a column, and the Judge's name and designation sit on the right, as on the court's own order sheets. */
 const plain = l => l.replace(/\*\*/g, "").trim();
+/* A line of the Present block says who appeared or did not ("Mr. X Advocate, learned counsel for the plaintiff.",
+   "Defendant already ex-parte.", "Nemo for the defendant.", "Learned ADPP for the State.", "I.O with record."); a line
+   that says what happened ("Counsel for the plaintiff seeks adjournment.", "Now, to come up for ...") is the order itself. */
+const ATTEND = /\b(advocates?|counsel|learned|ADPP|DDPP|DPP|ADA|DDA|ex-?parte|nemo|in person|present|absent|attendance|on bail|from (the )?(district )?jail|judicial lock-?up|on behalf of|alongwith|along with|with record|I\.?\s?O\b|SHO|S\.?\s?I\b|A\.?\s?S\.?\s?I\b|moharrir|naib court|reader|ahlmad|process server|guardian|attorney|plaintiffs?|defendants?|petitioners?|respondents?|applicants?|appellants?|accused|complainants?|witness(es)?|decree[- ]holders?|judgment[- ]debtors?|already)\b/i;
+const NARRATE = /\b(seeks?|sought|seeking|filed|submitted|argued|arguments|heard|come up|adjourn\w*|granted|perused|stated|states|recorded|closed|struck|proceeded|directed|issued|fixed|requested|application|written statement|reply|summon\w*|warrant|charge|framed|evidence of|produce|evidence|deposit\w*|cost|order|judgment|announced)\b/i;
+function isAttendance(l) {
+  const s = String(l || "").trim();
+  return !!s && s.length <= 160 && ATTEND.test(s) && !NARRATE.test(s);
+}
 function layoutParts(t) {
   const lines = String(t || "").split("\n"), parts = [], judge = norm(settings.judge).toLowerCase();
   const push = (kind, l) => { const last = parts[parts.length - 1]; if (last && last.kind === kind && kind === "text") last.lines.push(l); else parts.push({ kind, lines: [l] }); };
   for (let i = 0; i < lines.length; i++) {
     const p = plain(lines[i]);
     if (/^Present\s*[:.]/i.test(p)) {
+      // The Present block holds only the attendance lines; the order itself starts at the first line that is not one.
       const blk = { kind: "present", lines: [lines[i].trim()] };
-      while (i + 1 < lines.length && lines[i + 1].trim() && blk.lines.length < 14 && !/^(ORDER|JUDGMENT)\b/i.test(plain(lines[i + 1]))) blk.lines.push(lines[++i].trim());
+      while (i + 1 < lines.length && lines[i + 1].trim() && blk.lines.length < 14 && isAttendance(plain(lines[i + 1]))) blk.lines.push(lines[++i].trim());
       parts.push(blk);
     } else if (judge && p.replace(/[,.]$/, "").toLowerCase() === judge) {
       const blk = { kind: "sign", lines: [lines[i].trim()] };
@@ -1619,18 +1648,133 @@ function fitDoc(doc, keys) {
   }
   return doc;
 }
-async function saveCase() {
-  if (!col) { status("#saveStatus", "Not connected to the database, so this could not be saved.", true); return; }
-  const c = current;
-  c.draft = sheetText();
-  if (!c.draft) { status("#saveStatus", "There is nothing to save yet.", true); return; }
+/* The stored form of a case: what Save puts in History and what Send puts in the receiver's Inbox. */
+function caseDoc(c) {
   if (!c.id) c.id = rid("c_");
   c.courtKind = autoKind(c.section, c.subtype); c.court = courtName(c.courtKind);
-  const doc = fitDoc({ kind: "case", section: c.section, subtype: c.subtype, stage: c.stage, court: c.court, courtKind: c.courtKind, found: c.found || [], missing: c.missing || [], questions: c.questions || [], needCheck: !!c.needCheck, readDone: !!c.readDone, f: c.f, o: c.o, cond: c.cond, idp: c.idp, notes: c.notes, summary: c.summary, flags: c.flags, points: c.points, draft: c.draft, draftNotes: c.draftNotes, updatedAt: Date.now() }, ["notes", "summary", "draftNotes", "draft"]);
-  try { await col.doc(c.id).set(doc); if (current === c) status("#saveStatus", "Saved to History.", false, true); }
-  catch (e) { status("#saveStatus", "Could not save. Please try again.", true); }
+  return fitDoc({ kind: "case", section: c.section, subtype: c.subtype, stage: c.stage, court: c.court, courtKind: c.courtKind, found: c.found || [], missing: c.missing || [], questions: c.questions || [], needCheck: !!c.needCheck, readDone: !!c.readDone, f: c.f, o: c.o, cond: c.cond, idp: c.idp, cause: c.cause || null, notes: c.notes, summary: c.summary, flags: c.flags, points: c.points, draft: c.draft, draftNotes: c.draftNotes, updatedAt: Date.now() }, ["notes", "summary", "draftNotes", "draft"]);
+}
+async function saveCase() {
+  if (!col) { status("#saveStatus", "Not connected to the database, so this could not be saved.", true); return null; }
+  const c = current;
+  c.draft = sheetText();
+  if (!c.draft) { status("#saveStatus", "There is nothing to save yet.", true); return null; }
+  const doc = caseDoc(c);
+  try { await col.doc(c.id).set(doc); c.saved = true; if (current === c) status("#saveStatus", "Saved to History.", false, true); return c.id; }
+  catch (e) { status("#saveStatus", "Could not save. Please try again.", true); return null; }
 }
 $("#saveBtn").addEventListener("click", () => saveCase());
+
+/* ---------- Send: the draft as it stands goes to the chosen member's Inbox, with the case's No. in the cause list
+   and the date of that cause list. Sending does not save to History: only Save does (Word file and Copy do not either). ---------- */
+const INBOX_SQL = "The Inbox needs a one-time database update: the team admin must run supabase/update_inbox_quickwords.sql in Supabase (SQL Editor).";
+function inboxErr(e) {
+  const m = String(e?.message || e?.code || "");
+  if (/inbox|schema cache|does not exist|42P01|PGRST20/i.test(m)) return INBOX_SQL;
+  if (/team mein nahi/i.test(m)) return m;
+  if (/Cause list ka number/i.test(m)) return "Write the case's No. in the cause list and the cause list date.";
+  if (/inbox_data_size|too large|payload/i.test(m)) return "This draft is too long to send. Shorten the record notes, or save it and tell the member to open it from History.";
+  if (/fetch|network/i.test(m)) return "Could not reach the server. Check your internet connection.";
+  return "Something went wrong: " + m;
+}
+function setSendOpen(open) { $("#sendBox").hidden = !open; $("#sendBtn").setAttribute("aria-expanded", String(open)); }
+$("#sendClose").addEventListener("click", () => setSendOpen(false));
+$("#sendBtn").addEventListener("click", async () => {
+  if (!$("#sendBox").hidden) { setSendOpen(false); return; }
+  if (!sheetText()) { status("#saveStatus", "There is nothing to send yet.", true); return; }
+  setSendOpen(true); status("#sendStatus", "");
+  // The cause list details stay with the case, so sending it again (or forwarding it) does not ask twice.
+  const cl = current.cause || {};
+  $("#sendCauseNo").value = cl.no || ""; $("#sendCauseDate").value = cl.date || today(); showWeekday($("#sendCauseDate"));
+  $("#sendList").innerHTML = `<p class="note">Loading your team...</p>`;
+  try {
+    const list = await teamApi.members();
+    members = Object.fromEntries(list.map(m => [m.id, m.full_name || m.email]));
+    const others = list.filter(m => m.id !== uid);
+    $("#sendList").innerHTML = others.length
+      ? others.map(m => `<button type="button" class="btn plain sendto" data-to="${m.id}">${esc(m.full_name || m.email)}<small>${esc(ROLE_LABEL[m.role] || m.role)}</small></button>`).join("")
+      : `<p class="note">Nobody else is in your team yet. The admin can invite members in Settings → Team.</p>`;
+  } catch (e) { $("#sendList").innerHTML = ""; status("#sendStatus", "Could not load your team. Check your internet connection.", true); }
+});
+$("#sendList").addEventListener("click", async e => {
+  const b = e.target.closest("[data-to]");
+  if (!b || b.disabled) return;
+  const c = current, name = members[b.dataset.to] || "the member";
+  const no = $("#sendCauseNo").value.trim(), date = fmtDate($("#sendCauseDate").value), iso = toISO(date);
+  if (!no) { status("#sendStatus", "Write the case's No. in the cause list first.", true); $("#sendCauseNo").focus(); return; }
+  if (!iso || isNaN(new Date(iso + "T00:00:00"))) { status("#sendStatus", "Write the cause list date (dd.mm.yyyy) first.", true); $("#sendCauseDate").focus(); return; }
+  c.draft = sheetText();
+  if (!c.draft) { status("#sendStatus", "There is nothing to send yet.", true); return; }
+  c.cause = { no, date };
+  b.disabled = true; status("#sendStatus", `Sending to ${name}...`);
+  try {
+    const data = caseDoc(c);   // not saved: the draft travels with the message
+    const title = c.f.title || (c.section === "order" ? "Daily order" : c.subtype) || "Draft";
+    await teamApi.inbox.send({ to_user: b.dataset.to, case_id: c.id, title: title.slice(0, 300), section: c.section, subtype: (c.section === "order" ? "Daily order" : c.subtype).slice(0, 200), note: $("#sendNote").value.trim().slice(0, 1000), cause_no: no.slice(0, 40), cause_date: iso, data });
+    b.classList.add("sent");
+    status("#sendStatus", `Sent to ${name} (cause list ${date}, No. ${no}). It was not saved to History; press Save if you want it there.`, false, true);
+  } catch (err) { status("#sendStatus", inboxErr(err), true); }
+  finally { b.disabled = false; }
+});
+
+/* ---------- Inbox: each user's own; new messages arrive live, with a count in the menu ---------- */
+let inbox = [], inboxError = "";
+const BASE_TITLE = document.title;
+async function loadInbox() {
+  try { inbox = await teamApi.inbox.list(); inboxError = ""; }
+  catch (e) { inboxError = inboxErr(e); }
+  renderInboxCount();
+  if (view === "inbox") renderInbox();
+}
+function renderInboxCount() {
+  const n = inbox.filter(m => !m.read_at).length;
+  $("#inboxCount").hidden = !n; $("#inboxCount").textContent = n > 99 ? "99+" : String(n);
+  document.title = (n ? `(${n}) ` : "") + BASE_TITLE;
+}
+function renderInbox() {
+  const unread = inbox.filter(m => !m.read_at);
+  $("#inboxReadAll").hidden = !unread.length;
+  if (inboxError && !inbox.length) { $("#inboxList").innerHTML = `<p class="status err">${esc(inboxError)}</p>`; return; }
+  $("#inboxList").innerHTML = inbox.length ? inbox.map(m => `<div class="item${m.read_at ? "" : " unread"}"><div>
+      <h4>${m.read_at ? "" : '<span class="dot" aria-label="Not read yet"></span>'}${m.cause_no ? `<span class="causetag">Cause list ${esc(fmtCause(m.cause_date))} · No. ${esc(m.cause_no)}</span>` : ""}${esc(m.title || "Untitled case")}</h4>
+      <div class="meta"><span class="chip">${esc(SECTIONS[m.section]?.label || m.section || "Draft")}</span>${esc(m.subtype || "")} · from ${esc(members[m.from_user] || "a team member")} · ${new Date(m.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+      ${m.note ? `<p class="inote">${esc(m.note)}</p>` : ""}</div>
+      <div class="row"><button class="btn plain" data-iopen="${m.id}">Open</button><button class="btn danger" data-idel="${m.id}">Remove</button></div></div>`).join("")
+    : `<p class="note">Nothing here yet. When a team member presses Send under a draft and chooses you, it appears here.</p>`;
+  $$("#inboxList [data-iopen]").forEach(b => b.addEventListener("click", () => openInbox(b.dataset.iopen)));
+  $$("#inboxList [data-idel]").forEach(b => b.addEventListener("click", () => confirmInline(b, async () => {
+    try { await teamApi.inbox.remove(b.dataset.idel); inbox = inbox.filter(m => m.id !== b.dataset.idel); renderInboxCount(); renderInbox(); }
+    catch (e) { toast(inboxErr(e), 6000); }
+  })));
+}
+async function markRead(list) {
+  const ids = list.filter(m => !m.read_at).map(m => m.id);
+  if (!ids.length) return;
+  try { await teamApi.inbox.markRead(ids); const t = new Date().toISOString(); list.forEach(m => { m.read_at = m.read_at || t; }); renderInboxCount(); if (view === "inbox") renderInbox(); }
+  catch (e) { /* stays unread; the next refresh tries again */ }
+}
+const fmtCause = d => { const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}.${m[2]}.${m[1]}` : String(d || ""); };
+/* Opens the draft that came with the message (as it was when sent). It is not in History until the receiver presses Save. */
+async function openInbox(id) {
+  const m = inbox.find(x => x.id === id); if (!m) return;
+  let data = null;
+  try { data = await teamApi.inbox.get(id); } catch (e) { toast(inboxErr(e), 6000); return; }
+  let c = data && data.section ? { ...data, id: m.case_id } : cases.find(x => x.id === m.case_id);   // older messages pointed to History
+  if (!c) { toast("This draft could not be opened: it is not in the message and not in History.", 6000); return; }
+  markRead([m]);
+  openCase(c, !(data && data.section));
+  current.cause = m.cause_no ? { no: m.cause_no, date: fmtCause(m.cause_date) } : current.cause;
+  status("#saveStatus", `Opened from your Inbox (sent by ${members[m.from_user] || "a team member"}${m.cause_no ? `, cause list ${fmtCause(m.cause_date)}, No. ${m.cause_no}` : ""}). It is not in History until you press Save.`);
+}
+$("#inboxReadAll").addEventListener("click", () => markRead(inbox));
+// New messages arrive live; a slow refresh and a refresh on returning to the app cover a dropped connection.
+teamApi.inbox.watch(payload => {
+  const m = payload?.new;
+  if (payload?.eventType === "INSERT" && m?.id && !inbox.some(x => x.id === m.id)) toast(`New in your Inbox: ${m.title || "a draft"} from ${members[m.from_user] || "a team member"}.`, 6000);
+  loadInbox();
+});
+setInterval(() => { if (document.visibilityState === "visible") loadInbox(); }, 90000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadInbox(); });
 
 function status(sel, msg, err, ok) { const el = $(sel); el.textContent = msg; el.className = "status" + (err ? " err" : ok ? " okk" : ""); }
 
@@ -1649,20 +1793,23 @@ function renderHistory() {
       <div class="row"><button class="btn plain" data-open="${c.id}">Open</button><button class="btn danger" data-del="${c.id}">Delete</button></div></div>`;
   }).join("")
     : `<p class="note">${cases.length ? "No saved cases match this filter." : "Nothing saved yet. Generate a draft in any section and press Save; it will appear here."}</p>`;
-  $$("#histList [data-open]").forEach(b => b.addEventListener("click", () => {
-    const c = cases.find(x => x.id === b.dataset.open); if (!c || !SECTIONS[c.section]) return;
-    const base = blankCase(c.section);
-    if (current) stash[current.section] = { current, images };
-    current = { ...base, ...c, f: { ...base.f, ...c.f }, o: { ...base.o, ...(c.o || {}) }, cond: { ...base.cond, ...(c.cond || {}), asked: false },
-      idp: c.idp && Array.isArray(c.idp.rows) ? structuredClone(c.idp) : base.idp, prevDraft: "", layers: null };
-    current.found = Array.isArray(c.found) ? [...c.found] : []; current.missing = Array.isArray(c.missing) ? c.missing.map(m => ({ ...m })) : []; current.questions = Array.isArray(c.questions) ? c.questions.map(q => ({ ...q })) : [];
-    images = []; current.dateAuto = false; if (!current.readDone && current.notes) current.readDone = true;
-    view = c.section; $$(".nav").forEach(n => n.classList.toggle("active", n.dataset.view === view));
-    ["historyView", "setShell"].forEach(id => { $("#" + id).hidden = true; }); $("#workView").hidden = false; lastWork = view;
-    renderWork(); scrollToTop();
-  }));
+  $$("#histList [data-open]").forEach(b => b.addEventListener("click", () => { const c = cases.find(x => x.id === b.dataset.open); if (c) openCase(c); }));
   $$("#histList [data-del]").forEach(b => b.addEventListener("click", () => confirmInline(b, () => col?.doc(b.dataset.del).delete().catch(delFail))));}
 $("#histSearch").addEventListener("input", renderHistory);
+/* Opens a case in its section (a saved one from History, or a draft from the Inbox), keeping the unfinished work of that
+   section aside. */
+function openCase(c, saved = true) {
+  if (!c || !SECTIONS[c.section]) return;
+  const base = blankCase(c.section);
+  if (current) stash[current.section] = { current, images };
+  current = { ...base, ...c, f: { ...base.f, ...c.f }, o: { ...base.o, ...(c.o || {}) }, cond: { ...base.cond, ...(c.cond || {}), asked: false },
+    idp: c.idp && Array.isArray(c.idp.rows) ? structuredClone(c.idp) : base.idp, prevDraft: "", layers: null, saved };
+  current.found = Array.isArray(c.found) ? [...c.found] : []; current.missing = Array.isArray(c.missing) ? c.missing.map(m => ({ ...m })) : []; current.questions = Array.isArray(c.questions) ? c.questions.map(q => ({ ...q })) : [];
+  images = []; current.dateAuto = false; if (!current.readDone && current.notes) current.readDone = true;
+  view = c.section; $$(".nav").forEach(n => n.classList.toggle("active", n.dataset.view === view));
+  ["historyView", "inboxView", "setShell"].forEach(id => { $("#" + id).hidden = true; }); $("#workView").hidden = false; lastWork = view;
+  renderWork(); scrollToTop();
+}
 function confirmInline(btn, fn) {
   if (btn.dataset.armed) { fn(); return; }
   btn.dataset.armed = "1"; const old = btn.textContent; btn.textContent = "Sure?";
@@ -1939,7 +2086,7 @@ $("#l_add").addEventListener("click", async () => {
 
 /* ---------- Settings ---------- */
 function renderSettings() {
-  $("#set_judge").value = settings.judge; $("#set_district").value = settings.district; $("#set_rules").value = settings.rules; $("#set_chips").value = settings.chips; $("#set_ada").value = settings.ada || ""; $("#set_adpp").value = settings.adpp || "";
+  $("#set_judge").value = settings.judge; $("#set_district").value = settings.district; $("#set_rules").value = settings.rules; $("#set_ada").value = settings.ada || ""; $("#set_adpp").value = settings.adpp || "";
   $("#set_caselaw").value = settings.caseLaw || ""; $("#set_asj").value = settings.asJail || ""; $("#set_debug").checked = !!settings.debug;
   COURT_KINDS.forEach(([k]) => { $("#set_c_" + k).value = courtName(k); });
 }
@@ -1947,7 +2094,7 @@ let setDirty = false;   // settings typed but not saved yet: kept as they are wh
 ["#settingsView", "#draftingView"].forEach(sel => $(sel).addEventListener("input", () => { setDirty = true; }));
 async function saveSettings(btn, statusSel) {
   const courts = {}; COURT_KINDS.forEach(([k]) => { courts[k] = $("#set_c_" + k).value.trim() || DEFAULT_COURTS[k]; });
-  settings = { judge: $("#set_judge").value.trim() || settings.judge, district: $("#set_district").value.trim() || settings.district, courts, rules: $("#set_rules").value, chips: $("#set_chips").value.trim(), ada: $("#set_ada").value.trim(), adpp: $("#set_adpp").value.trim(),
+  settings = { judge: $("#set_judge").value.trim() || settings.judge, district: $("#set_district").value.trim() || settings.district, courts, rules: $("#set_rules").value, chips: settings.chips, ada: $("#set_ada").value.trim(), adpp: $("#set_adpp").value.trim(),
     caseLaw: $("#set_caselaw").value.trim(), asJail: $("#set_asj").value.trim(), debug: $("#set_debug").checked };
   renderChips();
   if (!col) { status(statusSel, "Not connected to the database, so the settings were not saved.", true); toast("Settings were not saved: not connected to the database.", 5000); return; }
@@ -1984,7 +2131,7 @@ async function renderTeam() {
   $("#teamName").textContent = ctx.team.name;
   $("#teamRole").textContent = isAdmin ? "You are the admin" : "You are a member";
   $("#inviteCard").hidden = !isAdmin; $("#renameCard").hidden = !isAdmin;
-  $("#meName").value = ctx.profile.full_name || ""; $("#teamRename").value = ctx.team.name;
+  $("#teamRename").value = ctx.team.name;
   $("#memberList").innerHTML = `<p class="ur" lang="ur" dir="rtl">ممبر لوڈ ہو رہے ہیں...</p>`;
   try {
     const list = await teamApi.members();
@@ -2051,6 +2198,35 @@ $("#teamRenameBtn").addEventListener("click", async () => {
   try { await teamApi.rename(name); ctx.team.name = name; renderUserBox(); $("#teamName").textContent = name; status("#teamRenameStatus", "Team renamed.", false, true); }
   catch (e) { status("#teamRenameStatus", e.message, true); }
 });
+/* ---------- Quick words (Settings → Quick words): everyone keeps their own ---------- */
+function renderQuickWords() {
+  $("#defChips").innerHTML = builtInChips().map(ch => `<span class="chipbtn static" title="${esc(ch.text.replace(/\{A\}/gi, "party A").replace(/\{B\}/gi, "party B"))}">${esc(ch.label)}</span>`).join("");
+  if (document.activeElement === $("#my_chips")) return;
+  let mine = ctx.profile.quick_words || "";
+  // The admin's earlier team-wide quick words (before each user had their own) are offered once, to keep them.
+  const extra = parseChips(settings.chips).filter(ch => !builtInChips().some(d => d.label.toUpperCase() === ch.label.toUpperCase()));
+  if (isAdmin && !mine.trim() && extra.length) {
+    mine = extra.map(ch => `${ch.label} = ${ch.text}`).join("\n");
+    status("#myChipsStatus", "Your team's earlier quick words were copied here. Press Save to keep them as yours.");
+  }
+  $("#my_chips").value = mine;
+}
+$("#myChipsSave").addEventListener("click", async () => {
+  const text = $("#my_chips").value.replace(/\r/g, "").trim();
+  if (text.length > 4000) { status("#myChipsStatus", "That is too long. Keep the quick words under 4000 letters.", true); return; }
+  const lines = text ? text.split("\n").filter(l => l.trim()) : [];
+  const bad = lines.filter(l => !/^[^=]{1,12}=\s*\S/.test(l.trim()));
+  const taken = parseChips(text).filter(ch => builtInChips().some(d => d.label.toUpperCase() === ch.label.toUpperCase())).map(ch => ch.label);
+  const btn = $("#myChipsSave"); btn.disabled = true;
+  try {
+    await teamApi.saveQuickWords(text);
+    renderChips();
+    const warn = [bad.length ? `${bad.length} line${bad.length === 1 ? " is" : "s are"} not in the form SHORT = words` : "", taken.length ? `already built in: ${taken.join(", ")}` : ""].filter(Boolean).join("; ");
+    status("#myChipsStatus", warn ? `Saved. Not used: ${warn}.` : "Saved. Your quick words now appear under the order box.", !!warn, !warn);
+  } catch (e) {
+    status("#myChipsStatus", /quick_words|schema cache|column/i.test(String(e?.message)) ? "Could not save: the database needs a one-time update (supabase/update_inbox_quickwords.sql). Ask the team admin." : "Could not save. Please try again.", true);
+  } finally { btn.disabled = false; }
+});
 $("#leaveTeamBtn").addEventListener("click", () => confirmInline($("#leaveTeamBtn"), async () => {
   try { await teamApi.leave(); location.reload(); } catch (e) { status("#teamStatus", e.message, true); }
 }));
@@ -2065,10 +2241,12 @@ if (SET_TABS.includes(startView)) startView = "order";
 show(startView);
 renderCounts();
 renderReady();
+loadInbox();
 imgMax = Math.min(ctx.imgMax || imgMax, 20);
 teamApi.members().then(list => {
   members = Object.fromEntries(list.map(m => [m.id, m.full_name || m.email]));
   if (view === "history") renderHistory();
+  if (view === "inbox") renderInbox();
 }).catch(() => {});
 
 const connTimer = setTimeout(() => { $("#conn").hidden = false; $("#conn").textContent = "The database is not responding yet. Check your internet connection; your data will appear as soon as it arrives."; }, 10000);
@@ -2080,7 +2258,7 @@ col.onSnapshot(snap => {
   lessons = all.filter(x => x.kind === "lesson" && x.text);
   samples = all.filter(x => x.kind === "sample" && x.text);
   digests = Object.fromEntries(all.filter(x => x.kind === "digest" && x.section).map(x => [x.section, x]));
-  const st = all.find(x => x.id === "settings");
+  const st = all.find(x => x.id === "settings" && x.kind === "settings");
   if (st) {
     const str = (v, d) => typeof v === "string" ? v : d;
     settings = { judge: st.judge || settings.judge, district: st.district || settings.district, courts: (st.courts && typeof st.courts === "object") ? { ...DEFAULT_COURTS, ...st.courts } : settings.courts, rules: st.rules ?? settings.rules, chips: str(st.chips, settings.chips), ada: str(st.ada, settings.ada), adpp: str(st.adpp, settings.adpp),

@@ -9,15 +9,18 @@
 --      mein move ho jate hain (backup). Jab yaqeen ho jaye ke unki zaroorat nahi,
 --      is file ke aakhir mein diya hua ek line ka command chala kar unhein
 --      hamesha ke liye hata dein.
---   2. Naye tables bante hain: teams, profiles, team_invites, docs, ai_usage.
+--   2. Naye tables bante hain: teams, profiles, team_invites, docs, ai_usage, inbox.
 --   3. Row Level Security (RLS): har user sirf apni team ka data dekh/badal sakta hai.
 --
 -- Team model:
 --   * Register karne wala user pehle "Create team" karta hai → woh us team ka admin hai.
 --   * Admin doosron ko email se invite karta hai. Invite kiya hua user usi email se
 --     register/login karta hai, invite dekhta hai aur Accept karta hai.
---   * Team ke sab members (admin + member) team ke saare cases, samples, rules aur
---     settings dekh aur edit kar sakte hain. Delete: banane wala ya admin.
+--   * Team ke sab members team ke saare cases dekh aur save kar sakte hain (delete:
+--     banane wala ya admin). Settings, samples, rules aur seekhe hue notes sab parhte
+--     hain (drafting ke liye) magar likhta / badalta / hatata sirf admin hai.
+--   * Har user ke apne quick words (profiles.quick_words) aur apna Inbox (inbox table,
+--     message sirf bhejne wala aur receiver dekh sakte hain).
 -- =====================================================================
 
 
@@ -90,10 +93,19 @@ create table if not exists public.profiles (
   full_name   text not null default '',
   team_id     uuid references public.teams(id) on delete set null,
   role        text not null default 'member' check (role in ('admin', 'member')),
+  quick_words text not null default '',
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
 create index if not exists profiles_team_idx on public.profiles (team_id);
+alter table public.profiles add column if not exists quick_words text not null default '';
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_quick_words_len') then
+    alter table public.profiles add constraint profiles_quick_words_len check (length(quick_words) <= 4000);
+  end if;
+end $$;
+
 create index if not exists profiles_email_idx on public.profiles (lower(email));
 
 create table if not exists public.team_invites (
@@ -145,6 +157,38 @@ create table if not exists public.ai_usage (
   created_at     timestamptz not null default now()
 );
 create index if not exists ai_usage_team_idx on public.ai_usage (team_id, created_at desc);
+
+-- Inbox: team member ko bheja hua draft, cause list ke number aur tareekh ke saath (History mein sirf Save se)
+create table if not exists public.inbox (
+  id          uuid primary key default gen_random_uuid(),
+  team_id     uuid not null references public.teams(id) on delete cascade,
+  from_user   uuid references auth.users(id) on delete set null,
+  to_user     uuid not null references auth.users(id) on delete cascade,
+  case_id     text not null check (length(case_id) between 1 and 120),
+  title       text not null default '' check (length(title) <= 300),
+  section     text not null default '' check (length(section) <= 40),
+  subtype     text not null default '' check (length(subtype) <= 200),
+  note        text not null default '' check (length(note) <= 1000),
+  cause_no    text not null default '',          -- case ka number cause list mein
+  cause_date  date,                              -- kis tareekh ki cause list
+  data        jsonb not null default '{}'::jsonb, -- bheja hua draft (History mein save hona zaroori nahi)
+  created_at  timestamptz not null default now(),
+  read_at     timestamptz
+);
+create index if not exists inbox_to_idx on public.inbox (to_user, created_at desc);
+-- Pehle wala inbox table ho to naye columns bhi aa jayein
+alter table public.inbox add column if not exists cause_no text not null default '';
+alter table public.inbox add column if not exists cause_date date;
+alter table public.inbox add column if not exists data jsonb not null default '{}'::jsonb;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'inbox_cause_no_len') then
+    alter table public.inbox add constraint inbox_cause_no_len check (length(cause_no) <= 40);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'inbox_data_size') then
+    alter table public.inbox add constraint inbox_data_size check (octet_length(data::text) <= 400000);
+  end if;
+end $$;
 
 
 -- ---------------------------------------------------------------------
@@ -416,6 +460,47 @@ create trigger docs_guard
 
 
 -- ---------------------------------------------------------------------
+-- 5b. INBOX GUARD + "parha hua" RPC
+-- ---------------------------------------------------------------------
+-- Browser se aane wala har message: bhejne wala, team aur waqt server khud likhta hai;
+-- receiver isi team ka member hona chahiye. Draft message ke saath jata hai, History mein
+-- save hona zaroori nahi.
+-- (Ye trigger function security definer NAHI hai, taake current_user browser ka role rahe.)
+create or replace function public.inbox_guard()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    new.team_id    := public.my_team_id();
+    new.from_user  := auth.uid();
+    new.created_at := now();
+    new.read_at    := null;
+    if new.team_id is null then raise exception 'Aap kisi team mein nahi hain'; end if;
+    if not exists (select 1 from public.profiles where id = new.to_user and team_id = new.team_id) then
+      raise exception 'Ye shakhs aap ki team mein nahi hai';
+    end if;
+    if length(btrim(new.cause_no)) = 0 or new.cause_date is null then
+      raise exception 'Cause list ka number aur tareekh likhein';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists inbox_guard on public.inbox;
+create trigger inbox_guard
+  before insert on public.inbox
+  for each row execute function public.inbox_guard();
+
+-- Parha hua mark karna: sirf apne inbox ke messages, sirf read_at badalta hai
+create or replace function public.inbox_mark_read(p_ids uuid[])
+returns void language sql security definer set search_path = public as $$
+  update public.inbox set read_at = now()
+  where id = any(p_ids) and to_user = auth.uid() and read_at is null;
+$$;
+revoke all on function public.inbox_mark_read(uuid[]) from public, anon;
+grant execute on function public.inbox_mark_read(uuid[]) to authenticated;
+
+
+-- ---------------------------------------------------------------------
 -- 6. ROW LEVEL SECURITY
 -- ---------------------------------------------------------------------
 alter table public.teams        enable row level security;
@@ -423,6 +508,7 @@ alter table public.profiles     enable row level security;
 alter table public.team_invites enable row level security;
 alter table public.docs         enable row level security;
 alter table public.ai_usage     enable row level security;
+alter table public.inbox        enable row level security;
 
 -- Purani (isi naam ki) policies hata kar dobara banayein, taake file dobara chal sake
 do $$
@@ -431,7 +517,7 @@ begin
   for r in
     select policyname, tablename from pg_policies
     where schemaname = 'public'
-      and tablename in ('teams', 'profiles', 'team_invites', 'docs', 'ai_usage')
+      and tablename in ('teams', 'profiles', 'team_invites', 'docs', 'ai_usage', 'inbox')
   loop
     execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
   end loop;
@@ -457,23 +543,38 @@ create policy invites_select on public.team_invites
   for select to authenticated
   using (team_id = public.my_team_id() or email = public.my_email());
 
--- DOCS: poori team parh/likh sakti hai; delete banane wala ya admin
+-- DOCS: poori team parhti hai; cases har member likhta hai, settings / samples / rules /
+-- seekhe hue notes sirf admin. Delete: case banane wala ya admin; baqi sab sirf admin.
 create policy docs_select on public.docs
   for select to authenticated
   using (team_id = public.my_team_id());
 
 create policy docs_insert on public.docs
   for insert to authenticated
-  with check (team_id = public.my_team_id());
+  with check (team_id = public.my_team_id() and (kind = 'case' or public.is_team_admin()));
 
 create policy docs_update on public.docs
   for update to authenticated
-  using (team_id = public.my_team_id())
-  with check (team_id = public.my_team_id());
+  using (team_id = public.my_team_id() and (kind = 'case' or public.is_team_admin()))
+  with check (team_id = public.my_team_id() and (kind = 'case' or public.is_team_admin()));
 
 create policy docs_delete on public.docs
   for delete to authenticated
-  using (team_id = public.my_team_id() and (created_by = auth.uid() or created_by is null or public.is_team_admin()));
+  using (team_id = public.my_team_id()
+         and (public.is_team_admin() or (kind = 'case' and (created_by = auth.uid() or created_by is null))));
+
+-- INBOX: message sirf bhejne wala aur receiver dekhte hain; hatata sirf receiver hai
+create policy inbox_select on public.inbox
+  for select to authenticated
+  using (team_id = public.my_team_id() and (to_user = auth.uid() or from_user = auth.uid()));
+
+create policy inbox_insert on public.inbox
+  for insert to authenticated
+  with check (team_id = public.my_team_id() and from_user = auth.uid());
+
+create policy inbox_delete on public.inbox
+  for delete to authenticated
+  using (team_id = public.my_team_id() and to_user = auth.uid());
 
 -- AI USAGE: team dekh sakti hai; likhti sirf Edge Function (service role) hai
 create policy ai_usage_select on public.ai_usage
@@ -493,10 +594,13 @@ revoke truncate on public.docs from authenticated;
 grant select on public.teams, public.team_invites, public.ai_usage to authenticated;
 grant select, update on public.profiles to authenticated;
 grant select, insert, update, delete on public.docs to authenticated;
+revoke all on public.inbox from anon;
+revoke update, truncate on public.inbox from authenticated;
+grant select, insert, delete on public.inbox to authenticated;
 
 
 -- ---------------------------------------------------------------------
--- 8. REALTIME: docs table ki tabdeeliyan foran sab members ko pahunchti hain
+-- 8. REALTIME: docs ki tabdeeliyan sab members ko, inbox ke naye messages receiver ko foran
 -- ---------------------------------------------------------------------
 do $$
 begin
@@ -506,6 +610,13 @@ begin
        where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'docs'
      ) then
     alter publication supabase_realtime add table public.docs;
+  end if;
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'inbox'
+     ) then
+    alter publication supabase_realtime add table public.inbox;
   end if;
 end $$;
 

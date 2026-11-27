@@ -216,6 +216,48 @@ export function initAuth(sb, onReady) {
         if (error) throw error;
         profile.full_name = full_name;
       },
+      // The user's own quick words (Settings → Quick words); the built-in ones live in the app's code.
+      async saveQuickWords(text) {
+        const { error } = await sb.from("profiles").update({ quick_words: text }).eq("id", profile.id);
+        if (error) throw error;
+        profile.quick_words = text;
+      },
+      // Inbox: drafts sent to this user. The database lets each user see only messages sent to or by them.
+      inbox: {
+        // The list leaves out the drafts themselves (they can be large); get() fetches one when it is opened.
+        async list() {
+          const { data, error } = await sb.from("inbox").select("id, team_id, from_user, to_user, case_id, title, section, subtype, note, cause_no, cause_date, created_at, read_at")
+            .eq("to_user", profile.id).order("created_at", { ascending: false }).limit(200);
+          if (error) throw error;
+          return data || [];
+        },
+        async get(id) {
+          const { data, error } = await sb.from("inbox").select("data").eq("id", id).maybeSingle();
+          if (error) throw error;
+          return data?.data || null;
+        },
+        async send(msg) {
+          // team_id, from_user and the time are set again by the database; they are sent for the NOT NULL columns
+          const { error } = await sb.from("inbox").insert({ ...msg, team_id: teamId, from_user: profile.id });
+          if (error) throw error;
+        },
+        async markRead(ids) {
+          if (!ids.length) return;
+          const { error } = await sb.rpc("inbox_mark_read", { p_ids: ids });
+          if (error) throw error;
+        },
+        async remove(id) {
+          const { error, count } = await sb.from("inbox").delete({ count: "exact" }).eq("id", id);
+          if (error) throw error;
+          if (count === 0) throw new Error("Not allowed to remove this message");
+        },
+        watch(cb) {
+          const ch = sb.channel(`inbox-${profile.id}`)
+            .on("postgres_changes", { event: "*", schema: "public", table: "inbox", filter: `to_user=eq.${profile.id}` }, cb)
+            .subscribe();
+          return () => sb.removeChannel(ch);
+        },
+      },
       async usageThisMonth() {
         const from = new Date(); from.setDate(1); from.setHours(0, 0, 0, 0);
         const { data, error } = await sb.from("ai_usage").select("input_tokens, output_tokens, model, created_at").gte("created_at", from.toISOString()).order("created_at", { ascending: false });
