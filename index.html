@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap">
 <!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever the CSS / JS change. -->
-<link rel="stylesheet" href="styles.css?v=2026112801">
+<link rel="stylesheet" href="styles.css?v=2026112802">
 <script defer src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 </head>
 <body>
@@ -207,6 +207,11 @@
             </div>
             <div id="sendBox" class="sendbox stack" hidden>
               <div class="row" style="justify-content:space-between"><strong>Send to</strong><button class="btn plain" id="sendClose" type="button">Close</button></div>
+              <p class="note" style="margin:0">So that the receiver can find the case: its number in the cause list, and the date of that cause list. Sending does not save the draft to History; press Save for that.</p>
+              <div class="grid">
+                <label>Case No. in the cause list (required)<input id="sendCauseNo" maxlength="40" inputmode="numeric" placeholder="e.g. 14"></label>
+                <label>Cause list date (required)<span class="datewrap"><input id="sendCauseDate" data-day-target placeholder="dd.mm.yyyy"><span class="calbtn" title="Pick a date"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg><input type="date" class="datepick" data-for="sendCauseDate" aria-label="Pick the cause list date from a calendar"></span></span><span class="weekday" data-day-for="sendCauseDate"></span></label>
+              </div>
               <label>Note (optional)<input id="sendNote" maxlength="500" placeholder="e.g. Please check the relief"></label>
               <div class="sendlist" id="sendList"></div>
               <span class="status" id="sendStatus" role="status"></span>
@@ -436,6 +441,6 @@ setTimeout(function () {
   if (!shown) document.getElementById("bootFail").hidden = false;
 }, 12000);
 </script>
-<script type="module" src="js/main.js?v=2026112801"></script>
+<script type="module" src="js/main.js?v=2026112802"></script>
 </body>
 </html>

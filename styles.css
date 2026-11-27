@@ -313,3 +313,4 @@ select.mini-select{width:auto;max-width:230px;font-size:12.5px;padding:5px 8px}
   /* The unread count stays visible on phones, where the other menu counts are hidden */
   .nav .badge.inboxbadge:not([hidden]){display:inline-block!important;margin-left:6px}
 }
+.causetag{display:inline-block;font-size:12px;font-weight:600;color:var(--accent-ink);background:var(--accent);border-radius:6px;padding:1px 7px;margin-right:8px;vertical-align:1px}

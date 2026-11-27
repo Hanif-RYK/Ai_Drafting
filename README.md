@@ -26,13 +26,17 @@ jo scroll nahi hota). Settings ke tab:
 Har setting ke saath Urdu mein likha hai ke woh kis liye hai. Settings sirf screen par
 chhupi nahi: database (RLS) bhi member ko settings, samples aur rules badalne nahi deta.
 
-**Send / Inbox:** draft ke neeche **Send** dabayein → team ke logon ke naam aate hain
-(note likhna optional) → naam dabayein. Draft pehle History mein save hota hai, phir us
-shakhs ke **Inbox** mein aa jata hai (menu mein laal ginti, aur browser tab ke title mein
-bhi). Woh **Open** dabaye to case apne section mein khulta hai; badal kar Save kare to wahi
-case History mein update hota hai, aur Send se wapas bhej sakta hai. Har user ka Inbox sirf
-usi ko dikhta hai (database bhi yahi rokta hai). History poori team ki saanjhi hai, is liye
-bheja hua case History mein sab ko nazar aata hai.
+**Send / Inbox:** draft ke neeche **Send** dabayein → app poochti hai **case ka number cause
+list mein** aur **cause list ki tareekh** (aaj ki tareekh pehle se likhi hoti hai), note
+optional → team ke logon ke naam aate hain → naam dabayein. Draft jaisa hai waisa us shakhs
+ke **Inbox** mein chala jata hai (menu mein laal ginti, browser tab ke title mein bhi). Inbox
+mein sab se pehle "Cause list 28.11.2026 · No. 14" dikhta hai, taake title na ho tab bhi
+case mil jaye. Woh **Open** dabaye to draft apne section mein khulta hai.
+
+**History mein sirf Save se:** Send, Word file aur Copy draft ko History mein save nahi
+karte. Jo History mein rakhna ho, pehle **Save** dabayein (phir Copy / Word / Send jo chahein).
+Receiver bhi Inbox se khola hua draft tabhi History mein daalta hai jab Save dabaye. Har user
+ka Inbox sirf usi ko dikhta hai (database bhi yahi rokta hai).
 
 **Quick words:** order box ke neeche ke chhote buttons. Built-in (CPA, CPB, PA, PB, EV, AR,
 SEEK, PRES, ABS, PW, WS) sab ke liye ek jaise hain aur sirf app update (code mein
@@ -255,7 +259,7 @@ ke naam Settings → Court se, 18 saal ya kam umar ka flag).
 - `teams`, `profiles` (har user ki team aur role: admin / member), `team_invites`
 - `docs`: har saved cheez ek row: `kind` = case / sample / lesson (rule) / digest / settings
 - `ai_usage`: har AI request ke tokens (Team page par is mahine ka total)
-- `inbox`: bheje hue drafts (sirf bhejne wala aur receiver dekh sakte hain; case History mein)
+- `inbox`: bheje hue drafts, cause list number aur tareekh ke saath (sirf bhejne wala aur receiver dekh sakte hain)
 - `profiles.quick_words`: har user ke apne quick words
 
 Row Level Security har query par check karti hai ke user sirf apni team ka data

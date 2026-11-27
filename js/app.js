@@ -635,7 +635,7 @@ function blankCase(section) {
   return { id: null, section, subtype: st0, stage: SECTIONS[section].stages?.[0] || "", courtKind: k0, court: courtName(k0), found: [], missing: [], questions: [], needCheck: false, readDone: false, dateAuto: true,
     f: { title: "", cms: "", caseNo: "", instDate: "", date: today(), present: "", decision: "", nextDate: "", nextPurpose: "", instructions: "" },
     o: { text: "", date: today(), next: "", same: false, lo: false, loCost: false, loWarn: false, cost: "" },
-    cond: blankCond(st0), idp: { date: "", time: "", io: "", asj: "", witnesses: [], rows: [] },
+    cond: blankCond(st0), idp: { date: "", time: "", io: "", asj: "", witnesses: [], rows: [] }, cause: null,
     notes: "", summary: "", flags: [], points: [], draft: "", draftNotes: "", prevDraft: "" };
 }
 /* Conditional decree: on by default for the types that always end in one (e.g. the seller's suit). */
@@ -711,7 +711,7 @@ function renderWork() {
   $("#draftNotesWrap").hidden = !current.draftNotes; $("#draftNotes").textContent = current.draftNotes;
   renderAfterDraft();
   setSendOpen(false);
-  status("#saveStatus", current.id ? "Saved case." : ""); status("#draftStatus", ""); status("#readStatus", "");
+  status("#saveStatus", current.saved ? "Saved case." : ""); status("#draftStatus", ""); status("#readStatus", "");
   renderReady();
 }
 $("#f_subtype").addEventListener("change", e => {
@@ -1638,25 +1638,32 @@ function fitDoc(doc, keys) {
   }
   return doc;
 }
+/* The stored form of a case: what Save puts in History and what Send puts in the receiver's Inbox. */
+function caseDoc(c) {
+  if (!c.id) c.id = rid("c_");
+  c.courtKind = autoKind(c.section, c.subtype); c.court = courtName(c.courtKind);
+  return fitDoc({ kind: "case", section: c.section, subtype: c.subtype, stage: c.stage, court: c.court, courtKind: c.courtKind, found: c.found || [], missing: c.missing || [], questions: c.questions || [], needCheck: !!c.needCheck, readDone: !!c.readDone, f: c.f, o: c.o, cond: c.cond, idp: c.idp, cause: c.cause || null, notes: c.notes, summary: c.summary, flags: c.flags, points: c.points, draft: c.draft, draftNotes: c.draftNotes, updatedAt: Date.now() }, ["notes", "summary", "draftNotes", "draft"]);
+}
 async function saveCase() {
   if (!col) { status("#saveStatus", "Not connected to the database, so this could not be saved.", true); return null; }
   const c = current;
   c.draft = sheetText();
   if (!c.draft) { status("#saveStatus", "There is nothing to save yet.", true); return null; }
-  if (!c.id) c.id = rid("c_");
-  c.courtKind = autoKind(c.section, c.subtype); c.court = courtName(c.courtKind);
-  const doc = fitDoc({ kind: "case", section: c.section, subtype: c.subtype, stage: c.stage, court: c.court, courtKind: c.courtKind, found: c.found || [], missing: c.missing || [], questions: c.questions || [], needCheck: !!c.needCheck, readDone: !!c.readDone, f: c.f, o: c.o, cond: c.cond, idp: c.idp, notes: c.notes, summary: c.summary, flags: c.flags, points: c.points, draft: c.draft, draftNotes: c.draftNotes, updatedAt: Date.now() }, ["notes", "summary", "draftNotes", "draft"]);
-  try { await col.doc(c.id).set(doc); if (current === c) status("#saveStatus", "Saved to History.", false, true); return c.id; }
+  const doc = caseDoc(c);
+  try { await col.doc(c.id).set(doc); c.saved = true; if (current === c) status("#saveStatus", "Saved to History.", false, true); return c.id; }
   catch (e) { status("#saveStatus", "Could not save. Please try again.", true); return null; }
 }
 $("#saveBtn").addEventListener("click", () => saveCase());
 
-/* ---------- Send: the draft is saved to History and a message goes to the chosen member's Inbox ---------- */
+/* ---------- Send: the draft as it stands goes to the chosen member's Inbox, with the case's No. in the cause list
+   and the date of that cause list. Sending does not save to History: only Save does (Word file and Copy do not either). ---------- */
 const INBOX_SQL = "The Inbox needs a one-time database update: the team admin must run supabase/update_inbox_quickwords.sql in Supabase (SQL Editor).";
 function inboxErr(e) {
   const m = String(e?.message || e?.code || "");
   if (/inbox|schema cache|does not exist|42P01|PGRST20/i.test(m)) return INBOX_SQL;
-  if (/team mein nahi|History mein nahi/i.test(m)) return m;
+  if (/team mein nahi/i.test(m)) return m;
+  if (/Cause list ka number/i.test(m)) return "Write the case's No. in the cause list and the cause list date.";
+  if (/inbox_data_size|too large|payload/i.test(m)) return "This draft is too long to send. Shorten the record notes, or save it and tell the member to open it from History.";
   if (/fetch|network/i.test(m)) return "Could not reach the server. Check your internet connection.";
   return "Something went wrong: " + m;
 }
@@ -1666,6 +1673,9 @@ $("#sendBtn").addEventListener("click", async () => {
   if (!$("#sendBox").hidden) { setSendOpen(false); return; }
   if (!sheetText()) { status("#saveStatus", "There is nothing to send yet.", true); return; }
   setSendOpen(true); status("#sendStatus", "");
+  // The cause list details stay with the case, so sending it again (or forwarding it) does not ask twice.
+  const cl = current.cause || {};
+  $("#sendCauseNo").value = cl.no || ""; $("#sendCauseDate").value = cl.date || today(); showWeekday($("#sendCauseDate"));
   $("#sendList").innerHTML = `<p class="note">Loading your team...</p>`;
   try {
     const list = await teamApi.members();
@@ -1680,14 +1690,19 @@ $("#sendList").addEventListener("click", async e => {
   const b = e.target.closest("[data-to]");
   if (!b || b.disabled) return;
   const c = current, name = members[b.dataset.to] || "the member";
+  const no = $("#sendCauseNo").value.trim(), date = fmtDate($("#sendCauseDate").value), iso = toISO(date);
+  if (!no) { status("#sendStatus", "Write the case's No. in the cause list first.", true); $("#sendCauseNo").focus(); return; }
+  if (!iso || isNaN(new Date(iso + "T00:00:00"))) { status("#sendStatus", "Write the cause list date (dd.mm.yyyy) first.", true); $("#sendCauseDate").focus(); return; }
+  c.draft = sheetText();
+  if (!c.draft) { status("#sendStatus", "There is nothing to send yet.", true); return; }
+  c.cause = { no, date };
   b.disabled = true; status("#sendStatus", `Sending to ${name}...`);
-  const id = await saveCase();   // the receiver opens the latest text from History
-  if (!id) { b.disabled = false; status("#sendStatus", "The draft could not be saved, so it was not sent.", true); return; }
   try {
-    const title = c.f.title || (c.section === "order" ? "Order " + (c.o?.date || today()) : c.subtype) || "Draft";
-    await teamApi.inbox.send({ to_user: b.dataset.to, case_id: id, title: title.slice(0, 300), section: c.section, subtype: (c.section === "order" ? "Daily order" : c.subtype).slice(0, 200), note: $("#sendNote").value.trim().slice(0, 1000) });
+    const data = caseDoc(c);   // not saved: the draft travels with the message
+    const title = c.f.title || (c.section === "order" ? "Daily order" : c.subtype) || "Draft";
+    await teamApi.inbox.send({ to_user: b.dataset.to, case_id: c.id, title: title.slice(0, 300), section: c.section, subtype: (c.section === "order" ? "Daily order" : c.subtype).slice(0, 200), note: $("#sendNote").value.trim().slice(0, 1000), cause_no: no.slice(0, 40), cause_date: iso, data });
     b.classList.add("sent");
-    status("#sendStatus", `Sent to ${name}. It is now in their Inbox.`, false, true);
+    status("#sendStatus", `Sent to ${name} (cause list ${date}, No. ${no}). It was not saved to History; press Save if you want it there.`, false, true);
   } catch (err) { status("#sendStatus", inboxErr(err), true); }
   finally { b.disabled = false; }
 });
@@ -1711,7 +1726,7 @@ function renderInbox() {
   $("#inboxReadAll").hidden = !unread.length;
   if (inboxError && !inbox.length) { $("#inboxList").innerHTML = `<p class="status err">${esc(inboxError)}</p>`; return; }
   $("#inboxList").innerHTML = inbox.length ? inbox.map(m => `<div class="item${m.read_at ? "" : " unread"}"><div>
-      <h4>${m.read_at ? "" : '<span class="dot" aria-label="Not read yet"></span>'}${esc(m.title || "Untitled case")}</h4>
+      <h4>${m.read_at ? "" : '<span class="dot" aria-label="Not read yet"></span>'}${m.cause_no ? `<span class="causetag">Cause list ${esc(fmtCause(m.cause_date))} · No. ${esc(m.cause_no)}</span>` : ""}${esc(m.title || "Untitled case")}</h4>
       <div class="meta"><span class="chip">${esc(SECTIONS[m.section]?.label || m.section || "Draft")}</span>${esc(m.subtype || "")} · from ${esc(members[m.from_user] || "a team member")} · ${new Date(m.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
       ${m.note ? `<p class="inote">${esc(m.note)}</p>` : ""}</div>
       <div class="row"><button class="btn plain" data-iopen="${m.id}">Open</button><button class="btn danger" data-idel="${m.id}">Remove</button></div></div>`).join("")
@@ -1728,13 +1743,18 @@ async function markRead(list) {
   try { await teamApi.inbox.markRead(ids); const t = new Date().toISOString(); list.forEach(m => { m.read_at = m.read_at || t; }); renderInboxCount(); if (view === "inbox") renderInbox(); }
   catch (e) { /* stays unread; the next refresh tries again */ }
 }
+const fmtCause = d => { const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}.${m[2]}.${m[1]}` : String(d || ""); };
+/* Opens the draft that came with the message (as it was when sent). It is not in History until the receiver presses Save. */
 async function openInbox(id) {
   const m = inbox.find(x => x.id === id); if (!m) return;
-  let c = cases.find(x => x.id === m.case_id);
-  if (!c) { try { await col.refresh(); } catch (e) {} c = cases.find(x => x.id === m.case_id); }   // the case may arrive just after the message
+  let data = null;
+  try { data = await teamApi.inbox.get(id); } catch (e) { toast(inboxErr(e), 6000); return; }
+  let c = data && data.section ? { ...data, id: m.case_id } : cases.find(x => x.id === m.case_id);   // older messages pointed to History
+  if (!c) { toast("This draft could not be opened: it is not in the message and not in History.", 6000); return; }
   markRead([m]);
-  if (!c) { toast("This case is no longer in History: it was deleted.", 6000); return; }
-  openCase(c);
+  openCase(c, !(data && data.section));
+  current.cause = m.cause_no ? { no: m.cause_no, date: fmtCause(m.cause_date) } : current.cause;
+  status("#saveStatus", `Opened from your Inbox (sent by ${members[m.from_user] || "a team member"}${m.cause_no ? `, cause list ${fmtCause(m.cause_date)}, No. ${m.cause_no}` : ""}). It is not in History until you press Save.`);
 }
 $("#inboxReadAll").addEventListener("click", () => markRead(inbox));
 // New messages arrive live; a slow refresh and a refresh on returning to the app cover a dropped connection.
@@ -1766,13 +1786,14 @@ function renderHistory() {
   $$("#histList [data-open]").forEach(b => b.addEventListener("click", () => { const c = cases.find(x => x.id === b.dataset.open); if (c) openCase(c); }));
   $$("#histList [data-del]").forEach(b => b.addEventListener("click", () => confirmInline(b, () => col?.doc(b.dataset.del).delete().catch(delFail))));}
 $("#histSearch").addEventListener("input", renderHistory);
-/* Opens a saved case in its section (from History or the Inbox), keeping the unfinished work of that section aside. */
-function openCase(c) {
+/* Opens a case in its section (a saved one from History, or a draft from the Inbox), keeping the unfinished work of that
+   section aside. */
+function openCase(c, saved = true) {
   if (!c || !SECTIONS[c.section]) return;
   const base = blankCase(c.section);
   if (current) stash[current.section] = { current, images };
   current = { ...base, ...c, f: { ...base.f, ...c.f }, o: { ...base.o, ...(c.o || {}) }, cond: { ...base.cond, ...(c.cond || {}), asked: false },
-    idp: c.idp && Array.isArray(c.idp.rows) ? structuredClone(c.idp) : base.idp, prevDraft: "", layers: null };
+    idp: c.idp && Array.isArray(c.idp.rows) ? structuredClone(c.idp) : base.idp, prevDraft: "", layers: null, saved };
   current.found = Array.isArray(c.found) ? [...c.found] : []; current.missing = Array.isArray(c.missing) ? c.missing.map(m => ({ ...m })) : []; current.questions = Array.isArray(c.questions) ? c.questions.map(q => ({ ...q })) : [];
   images = []; current.dateAuto = false; if (!current.readDone && current.notes) current.readDone = true;
   view = c.section; $$(".nav").forEach(n => n.classList.toggle("active", n.dataset.view === view));

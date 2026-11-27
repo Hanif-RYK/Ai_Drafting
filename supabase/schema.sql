@@ -19,7 +19,7 @@
 --   * Team ke sab members team ke saare cases dekh aur save kar sakte hain (delete:
 --     banane wala ya admin). Settings, samples, rules aur seekhe hue notes sab parhte
 --     hain (drafting ke liye) magar likhta / badalta / hatata sirf admin hai.
---   * Har user ke apne quick words (profiles.quick_words) aur apna Inbox (inbox table:
+--   * Har user ke apne quick words (profiles.quick_words) aur apna Inbox (inbox table,
 --     message sirf bhejne wala aur receiver dekh sakte hain).
 -- =====================================================================
 
@@ -158,7 +158,7 @@ create table if not exists public.ai_usage (
 );
 create index if not exists ai_usage_team_idx on public.ai_usage (team_id, created_at desc);
 
--- Inbox: team member ko bheja hua draft (case History mein; yahan sirf us ka hawala)
+-- Inbox: team member ko bheja hua draft, cause list ke number aur tareekh ke saath (History mein sirf Save se)
 create table if not exists public.inbox (
   id          uuid primary key default gen_random_uuid(),
   team_id     uuid not null references public.teams(id) on delete cascade,
@@ -169,10 +169,26 @@ create table if not exists public.inbox (
   section     text not null default '' check (length(section) <= 40),
   subtype     text not null default '' check (length(subtype) <= 200),
   note        text not null default '' check (length(note) <= 1000),
+  cause_no    text not null default '',          -- case ka number cause list mein
+  cause_date  date,                              -- kis tareekh ki cause list
+  data        jsonb not null default '{}'::jsonb, -- bheja hua draft (History mein save hona zaroori nahi)
   created_at  timestamptz not null default now(),
   read_at     timestamptz
 );
 create index if not exists inbox_to_idx on public.inbox (to_user, created_at desc);
+-- Pehle wala inbox table ho to naye columns bhi aa jayein
+alter table public.inbox add column if not exists cause_no text not null default '';
+alter table public.inbox add column if not exists cause_date date;
+alter table public.inbox add column if not exists data jsonb not null default '{}'::jsonb;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'inbox_cause_no_len') then
+    alter table public.inbox add constraint inbox_cause_no_len check (length(cause_no) <= 40);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'inbox_data_size') then
+    alter table public.inbox add constraint inbox_data_size check (octet_length(data::text) <= 400000);
+  end if;
+end $$;
 
 
 -- ---------------------------------------------------------------------
@@ -447,7 +463,8 @@ create trigger docs_guard
 -- 5b. INBOX GUARD + "parha hua" RPC
 -- ---------------------------------------------------------------------
 -- Browser se aane wala har message: bhejne wala, team aur waqt server khud likhta hai;
--- receiver isi team ka member hona chahiye aur case isi team ki History mein.
+-- receiver isi team ka member hona chahiye. Draft message ke saath jata hai, History mein
+-- save hona zaroori nahi.
 -- (Ye trigger function security definer NAHI hai, taake current_user browser ka role rahe.)
 create or replace function public.inbox_guard()
 returns trigger language plpgsql set search_path = public as $$
@@ -461,8 +478,8 @@ begin
     if not exists (select 1 from public.profiles where id = new.to_user and team_id = new.team_id) then
       raise exception 'Ye shakhs aap ki team mein nahi hai';
     end if;
-    if not exists (select 1 from public.docs where team_id = new.team_id and id = new.case_id and kind = 'case') then
-      raise exception 'Ye case History mein nahi mila';
+    if length(btrim(new.cause_no)) = 0 or new.cause_date is null then
+      raise exception 'Cause list ka number aur tareekh likhein';
     end if;
   end if;
   return new;
