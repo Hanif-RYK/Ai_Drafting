@@ -1,8 +1,36 @@
 // Login, registration, password reset and team membership screens.
 // When the signed-in user belongs to a team, onReady({ profile, team, teamApi }) is called once.
+import { KEY_HELP, fillModels, keyRequest, keyErrText } from "./aikeys.js";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const DESIGNATIONS = ["Judge", "Stenographer", "Computer Operator", "Ahlmad"];
+
+/* Designation: one of the list, or "Other" with the person's own words. */
+export function readDesignation(select, other) {
+  if (select.value === "Other") return other.value.trim().replace(/\s+/g, " ").slice(0, 40);
+  return select.value;
+}
+export function showDesignation(select, otherWrap, other, value) {
+  const known = DESIGNATIONS.includes(value);
+  select.value = !value ? "" : known ? value : "Other";
+  otherWrap.hidden = select.value !== "Other";
+  other.value = known ? "" : (value || "");
+}
+
+/* Invitation link: #invite=<email>&team=<team name>. It only fills in the sign-up form; the invitation
+   itself is accepted after signing in with that same email (the database checks it). */
+function readInviteLink() {
+  const h = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const email = (h.get("invite") || "").trim().toLowerCase();
+  if (email && EMAIL_RE.test(email)) {
+    const inv = { email, team: (h.get("team") || "").slice(0, 80) };
+    try { sessionStorage.setItem("ad_invite", JSON.stringify(inv)); } catch (e) { /* private mode */ }
+    history.replaceState(null, "", location.pathname + location.search);
+    return inv;
+  }
+  try { return JSON.parse(sessionStorage.getItem("ad_invite") || "null"); } catch (e) { return null; }
+}
 
 export function initAuth(sb, onReady) {
   let user = null, profile = null, team = null, readyCalled = false;
@@ -15,6 +43,8 @@ export function initAuth(sb, onReady) {
   }
   function showForm(which) {
     ["login", "register", "reset", "newPass"].forEach((f) => { $(f + "Form").hidden = f !== which; });
+    document.querySelectorAll(".pwwrap input").forEach((i) => { i.type = "password"; });
+    document.querySelectorAll("[data-pw]").forEach((b) => { b.setAttribute("aria-pressed", "false"); b.setAttribute("aria-label", "Show password"); b.title = "Show password"; b.classList.remove("on"); });
     msg("");
     const first = $(which + "Form").querySelector("input");
     if (first && !matchMedia("(pointer:coarse)").matches) first.focus();
@@ -36,6 +66,14 @@ export function initAuth(sb, onReady) {
     finally { btn.disabled = false; btn.textContent = old; }
   }
   document.querySelectorAll("[data-auth]").forEach((b) => b.addEventListener("click", () => showForm(b.dataset.auth)));
+  // Show / hide password: the eye button inside each password box
+  document.querySelectorAll("[data-pw]").forEach((b) => b.addEventListener("click", () => {
+    const input = b.parentElement.querySelector("input"), show = input.type === "password";
+    input.type = show ? "text" : "password";
+    b.setAttribute("aria-pressed", String(show));
+    b.setAttribute("aria-label", show ? "Hide password" : "Show password"); b.title = b.getAttribute("aria-label");
+    b.classList.toggle("on", show);
+  }));
 
   /* ---------- login / register / reset ---------- */
   $("loginForm").addEventListener("submit", async (e) => {
@@ -50,15 +88,19 @@ export function initAuth(sb, onReady) {
     });
   });
 
+  $("regDesig").addEventListener("change", () => { $("regDesigOtherWrap").hidden = $("regDesig").value !== "Other"; if ($("regDesig").value === "Other") $("regDesigOther").focus(); });
   $("registerForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const full_name = $("regName").value.trim(), email = $("regEmail").value.trim(), password = $("regPassword").value;
+    const designation = readDesignation($("regDesig"), $("regDesigOther"));
     if (!full_name) { msg("Please enter your full name.", "err"); return; }
+    if (!$("regDesig").value) { msg("Please choose your designation.", "err"); $("regDesig").focus(); return; }
+    if (designation.length < 2) { msg("Please write your designation.", "err"); $("regDesigOther").focus(); return; }
     if (!EMAIL_RE.test(email)) { msg("Please enter a valid email address.", "err"); return; }
     if (password.length < 8) { msg("The password must be at least 8 characters.", "err"); return; }
     await busy($("registerBtn"), "Creating account...", async () => {
       // The profile row is created by a database trigger (supabase/schema.sql)
-      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name } } });
+      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name, designation } } });
       if (error) { msg(friendlyAuthError(error), "err"); return; }
       if (data.session && data.user) { await afterLogin(data.user); return; }
       // Email confirmation is on: the user must click the link first
@@ -132,6 +174,7 @@ export function initAuth(sb, onReady) {
       return;
     }
     team = t;
+    try { sessionStorage.removeItem("ad_invite"); } catch (e) { /* private mode */ }
     showScreen("app");
     if (!readyCalled) { readyCalled = true; onReady({ profile, team, teamApi: makeTeamApi() }); }
   }
@@ -153,8 +196,10 @@ export function initAuth(sb, onReady) {
     if (error) { box.innerHTML = `<p class="status err">${esc(error.message)}</p>`; return; }
     if (!data.length) {
       box.innerHTML = `<p class="note">No invitations for <b>${esc(profile.email)}</b> yet. Ask your team's admin to invite this email, then press "Check again".</p>`;
+      $("newCourt").open = !invite;
       return;
     }
+    $("newCourt").open = false;
     box.innerHTML = `<strong>Invitations</strong>` + data.map((i) => `
       <div class="item">
         <div><h4>${esc(i.team_name)}</h4><div class="meta">Invited by ${esc(i.invited_by_name || "the team admin")} · as ${esc(i.role)}</div></div>
@@ -172,13 +217,24 @@ export function initAuth(sb, onReady) {
     })));
   }
 
+  function renderKeyChoices() {
+    const p = $("tsProvider").value;
+    fillModels($("tsModel"), p, $("tsModel").value);
+    $("tsKeyHelp").textContent = KEY_HELP[p];
+  }
+  $("tsProvider").addEventListener("change", renderKeyChoices);
+  renderKeyChoices();
   $("createTeamForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const name = $("teamNameInput").value.trim();
-    if (name.length < 2) { tsMsg("Please enter the team name.", "err"); return; }
-    await busy($("createTeamBtn"), "Creating...", async () => {
-      const { error } = await sb.rpc("create_team", { p_name: name });
-      if (error) { tsMsg(error.message, "err"); return; }
+    const name = $("teamNameInput").value.trim(), key = $("tsKey").value.trim();
+    if (name.length < 2) { tsMsg("Please enter the court (team) name.", "err"); $("teamNameInput").focus(); return; }
+    if (key.length < 20) { tsMsg("Please paste your AI key.", "err"); $("tsKey").focus(); return; }
+    await busy($("createTeamBtn"), "Checking the key...", async () => {
+      try {
+        await keyRequest(sb, { action: "setup_team", team_name: name, provider: $("tsProvider").value, model: $("tsModel").value, key });
+      } catch (err) { tsMsg(keyErrText(err), "err"); return; }
+      $("tsKey").value = "";
+      try { localStorage.setItem("ad_setup", "1"); } catch (x) { /* the app still opens */ }
       await afterLogin(user);
     });
   });
@@ -196,7 +252,7 @@ export function initAuth(sb, onReady) {
     return {
       profile, team,
       async members() {
-        const { data, error } = await sb.from("profiles").select("id, full_name, email, role, created_at").eq("team_id", teamId).order("created_at");
+        const { data, error } = await sb.from("profiles").select("id, full_name, email, role, designation, created_at").eq("team_id", teamId).order("created_at");
         if (error) throw error;
         return data || [];
       },
@@ -211,10 +267,22 @@ export function initAuth(sb, onReady) {
       setRole: (userId, role) => rpc("set_member_role", { p_user: userId, p_role: role }),
       leave: () => rpc("leave_team"),
       rename: (name) => rpc("rename_team", { p_name: name }),
-      async updateName(full_name) {
-        const { error } = await sb.from("profiles").update({ full_name }).eq("id", profile.id);
+      async updateProfile({ full_name, designation }) {
+        const { error } = await sb.from("profiles").update({ full_name, designation }).eq("id", profile.id);
         if (error) throw error;
-        profile.full_name = full_name;
+        profile.full_name = full_name; profile.designation = designation;
+      },
+      // The team's AI key: what is saved (never the key itself), and changing / testing it (admin only)
+      async aiInfo() {
+        const { data, error } = await sb.rpc("team_ai_info");
+        if (error) throw error;
+        return (Array.isArray(data) ? data[0] : data) || null;
+      },
+      setKey: ({ provider, key, model }) => keyRequest(sb, { action: "set_key", provider, key, model }),
+      testKey: () => keyRequest(sb, { action: "test_key" }),
+      inviteLink(email) {
+        const base = location.origin + location.pathname;
+        return `${base}#invite=${encodeURIComponent(email)}&team=${encodeURIComponent(team.name)}`;
       },
       // The user's own quick words (Settings → Quick words); the built-in ones live in the app's code.
       async saveQuickWords(text) {
@@ -282,11 +350,20 @@ export function initAuth(sb, onReady) {
   });
 
   /* ---------- boot ---------- */
+  const invite = readInviteLink();
+  function showInvite() {
+    if (!invite) return;
+    $("regEmail").value = invite.email; $("loginEmail").value = invite.email;
+    const note = $("inviteNote");
+    note.innerHTML = `You have been invited${invite.team ? ` to join <b>${esc(invite.team)}</b>` : ""}. Create your account with this email: <b>${esc(invite.email)}</b>. Already have an account? <button type="button" class="linkbtn" data-auth="login">Log in</button>`;
+    note.hidden = false;
+    note.querySelector("[data-auth]").addEventListener("click", () => showForm("login"));
+  }
   (async () => {
     const recovery = /type=recovery/.test(location.hash);
     const { data } = await sb.auth.getSession();
     if (recovery) { showScreen("auth"); showForm("newPass"); return; }
     if (data?.session?.user) await afterLogin(data.session.user);
-    else { showScreen("auth"); showForm("login"); }
+    else { showScreen("auth"); showForm(invite ? "register" : "login"); showInvite(); }
   })();
 }

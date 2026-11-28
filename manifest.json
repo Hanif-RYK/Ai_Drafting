@@ -1,6 +1,6 @@
 {
-  "name": "Faisla Desk",
-  "short_name": "Faisla Desk",
+  "name": "AI Drafting",
+  "short_name": "AI Drafting",
   "description": "Court drafting desk: daily orders, issues, orders on applications, judgments and criminal orders.",
   "start_url": "./index.html",
   "scope": "./",

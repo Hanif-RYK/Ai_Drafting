@@ -1,4 +1,4 @@
-# Faisla Desk
+# AI Drafting
 
 Court drafting desk: daily order sheet, framing of issues, orders on applications,
 judgments (civil, family, rent, guardian, succession) aur Magistrate Section-30 ka
@@ -8,6 +8,30 @@ Claude) se record parhwati hai aur Judge ke apne style mein draft likhti hai.
 Ek team (court) ke sab log ek hi History (saved cases) dekhte hain. Settings, Samples aur
 Rules admin banata hai aur sab ke drafts unhi ke mutabiq bante hain. Har user ka apna
 **Inbox** aur apne **quick words** hain.
+
+## Naya court kaise shuru hota hai
+
+1. **Account:** app kholein → **Create an account** → naam, **designation** (Judge,
+   Stenographer, Computer Operator, Ahlmad, ya "Other" mein khud likhein), email, password.
+2. **Naya court:** agli screen par **Start a new court** → court ka naam, AI (**Google
+   Gemini** ya **Anthropic Claude**), model, aur apni **API key** paste karein → **Check key
+   and create team**. App pehle key ko Google / Anthropic se check karti hai; sahi ho to team
+   banti hai aur aap uske **admin** hain. Ghalat key par team nahi banti.
+3. **Court setup:** team bante hi Settings → **Court** khulta hai: Judge ka naam, district,
+   designations → Save.
+4. **Team:** Settings → **Team** → member ki email → **Send invitation** → **Copy link** (ya
+   **Share**) → link WhatsApp par bhejein.
+5. **Member:** link kholta hai → Create account (email pehle se likhi) → invitation par
+   **Accept** → team mein. Member ko key ki zaroorat nahi; team ki key istemal hoti hai.
+
+**AI key (har court ki apni):**
+- Key sirf ek dafa server (AI function) ko jaati hai; wahan check ho kar **encrypt** hoti hai
+  aur `team_ai` table mein rehti hai, jise browser na parh sakta hai na likh sakta hai.
+- Admin ko sirf provider, model aur key ke aakhri 4 harf dikhte hain (Settings → Team → AI key).
+  Wahin key / model badal sakta hai aur "Test saved key" kar sakta hai.
+- AI ka kharcha usi court ki key ke account se hota hai. Koi aur court app istemal kare to
+  apni key laata hai; aap ki key kisi aur ke kaam nahi aati.
+- Members ko key kabhi nazar nahi aati, aur woh use badal bhi nahi sakte.
 
 **Menu:** side panel (phone par upar wali patti) mein sirf roz ke kaam hain: Order, Issues,
 Misc, Judgment, Criminal, History aur Inbox. Ek dafa set hone wali cheezein **⚙ Settings**
@@ -56,28 +80,34 @@ khulti hai, Settings par nahi.
 
 ### 1. Database: `supabase/schema.sql`
 
-> **Pehle se chalti app (Inbox / quick words update):** agar `schema.sql` pehle chala
-> chuke hain to sirf `supabase/update_inbox_quickwords.sql` ek dafa SQL Editor mein Run
-> karein. Is ke baghair Send / Inbox aur apne quick words save nahi honge (app saaf batati
-> hai), baqi sab chalta rehta hai.
-
 Supabase Dashboard → **SQL Editor** → New query → `supabase/schema.sql` ki poori
-file paste karein → **Run**.
+file paste karein → **Run**. Neeche "Success. No rows returned" aaye to ho gaya.
 
-- Dobara chalana safe hai.
-- Purane AI Drafting ke tables (profiles, cases, glossary_rules, ai_logs,
-  live_notes, live_sessions) delete nahi hote: woh `old_ai_drafting` schema mein
-  move ho jate hain. Jab yaqeen ho jaye ke purane data ki zaroorat nahi, ye ek line
-  chalayein: `drop schema old_ai_drafting cascade;`
-- Pehle se registered accounts ki nayi profile khud ban jati hai. Unhein sirf
-  dobara team banani / invite accept karna hoga.
+- Isi ek file mein saara database hai (teams, accounts + designation, History, Samples,
+  Rules, Settings, Inbox, quick words, har team ki encrypted AI key). Koi aur SQL file nahi.
+- Dobara chalana safe hai; koi data nahi mitta. App update ke baad agar kaha jaye to yahi
+  file dobara chala dein.
 
-### 2. AI function: `supabase/functions/ai/index.ts`
+### 2. Encryption secret (sirf ek dafa)
 
-AI ki key (Gemini ya Claude) sirf server par rehti hai; browser ko kabhi nahi milti.
+Supabase Dashboard → **Edge Functions** → **Secrets** → Add:
+
+| Name | Value |
+|---|---|
+| `KEY_ENCRYPTION_SECRET` | Ek lamba random lafz, kam az kam 32 harf (masalan password manager se 40 harf ka random password). Courts ki AI keys isi se encrypt hoti hain. |
+
+> **Zaroori:** yeh secret **baad mein kabhi na badlein** aur kahin likh kar mehfooz rakhein.
+> Badla to saved keys khul nahi sakengi aur har court ke admin ko key dobara daalni padegi.
+
+AI ki key (Gemini / Claude) ab yahan secrets mein **nahi** daali jaati: har court app ke
+andar apni key daalta hai. Purane secrets `AI_PROVIDER`, `GEMINI_API_KEY`,
+`ANTHROPIC_API_KEY` ab istemal nahi hote; hata sakte hain.
+
+### 3. AI function: `supabase/functions/ai/index.ts`
 
 **Dashboard se (aasan):**
-1. Supabase Dashboard → **Edge Functions** → **Deploy a new function** → **Via Editor**.
+1. Supabase Dashboard → **Edge Functions** → **Deploy a new function** → **Via Editor**
+   (pehle se `ai` bana hai to use kholein → Code).
 2. Function ka naam bilkul `ai` rakhein.
 3. `supabase/functions/ai/index.ts` ki poori file paste karein → **Deploy**.
 
@@ -86,18 +116,6 @@ AI ki key (Gemini ya Claude) sirf server par rehti hai; browser ko kabhi nahi mi
 npx supabase login
 npx supabase functions deploy ai --project-ref atnjolykwqgzouqvorfe
 ```
-
-### 3. AI key (secret): Gemini ya Claude
-
-Supabase Dashboard → **Edge Functions** → **Secrets** → Add. Do mein se ek option chunein.
-
-**Option A: Google Gemini**
-
-| Name | Value |
-|---|---|
-| `AI_PROVIDER` | `gemini` |
-| `GEMINI_API_KEY` | aistudio.google.com → **Get API key** se li hui key (`AIza...`) |
-| `GEMINI_MODEL` (optional) | Khali chhor dein to function aap ki key ke liye dastiyab sab se naya Pro-darje ka model khud chunta hai (Google model ke naam aksar badalta hai). Free tier par Pro models aksar 429 (quota) dete hain; tab Flash model ka naam likhein, masalan `gemini-flash-latest` |
 
 **Gemini kitna soche (thinking):** har kaam ke saath app batati hai ke model kitna
 soche, aur function Google ki documentation ke mutabiq setting bhejta hai:
@@ -108,35 +126,20 @@ soche, aur function Google ki documentation ke mutabiq setting bhejta hai:
 | Issues, Misc application, Criminal, Read record, samples ka mutala | medium | `medium` (jo model na le us par `low`) | 4096 |
 | Judgment | high | `high` | -1 (model khud tay kare) |
 
-Model ka naam `gemini-2.` se shuru ho to `thinkingBudget`, warna `thinkingLevel`
-bheja jata hai. Agar Google 400 de ke ye setting is model ke liye nahi, to function
-khud agli setting aazmata hai (Logs mein `google_error` aur naya `request` nazar aata hai).
-
 > **Zaroori (court records):** Google ki terms ke mutabiq free tier (billing ke
 > baghair) par bheja gaya data Google apni services behtar banane ke liye istemal
 > kar sakta hai aur log usay parh bhi sakte hain. Court ke records ke liye Google
 > AI Studio / Cloud mein **billing on** karein (paid tier par ye data is tarah
-> istemal nahi hota). Lagu hone se pehle Google ki maujooda terms ek dafa dekh lein.
+> istemal nahi hota). Free key par Pro model aksar 429 (quota) deta hai; is liye
+> naye court ke liye "Gemini Flash" pehle se chuna hota hai.
 
-**Option B: Anthropic Claude**
-
-| Name | Value |
-|---|---|
-| `AI_PROVIDER` | `anthropic` |
-| `ANTHROPIC_API_KEY` | console.anthropic.com se li hui key (`sk-ant-...`) |
-| `AI_EFFORT` (optional) | `high` (default). Har judgment par "Continue" dabana pare to `medium` |
-| `AI_MODEL_COMPLEX` (optional) | default `claude-opus-5-5` |
-
-`AI_PROVIDER` na likhein to jis ki key maujood ho woh istemal hota hai (dono hon to
-Claude). Baad mein provider badalna ho to `AI_PROVIDER` ki value badal dein (aur
-zaroori key add karein); naya setting foran na lage to function ko ek dafa dobara
-**Deploy** kar dein.
-
-**Dono ke liye (optional):**
+**Optional secrets:**
 
 | Name | Value |
 |---|---|
 | `AI_TIME_LIMIT_SECONDS` | `140` (default, Free plan). Paid plan par `390` |
+| `AI_EFFORT` | Claude ke liye: `high` (default). Har judgment par "Continue" dabana pare to `medium` |
+| `GEMINI_MODEL` / `AI_MODEL_COMPLEX` | Sirf default; har court app mein apna model chunta hai |
 
 Kaun sa model istemal ho raha hai, ye **Settings → Team** par "AI usage this month" mein
 dikhta hai.
@@ -189,13 +192,16 @@ static hosting par repo ki files upload karein. `index.html` kholein.
 
 ## Team kaise banti hai
 
-1. **Pehla user** (masalan Judge ya steno): Create an account → login → **Create team**.
-   Ye user team ka **admin** hai.
-2. Admin: **⚙ Settings** → **Team** → **Invite a member** → doosre user ki email likhein.
-3. **Doosra user**: usi email se Create an account / login → pehli screen par
-   invitation dikhegi → **Accept**. Ab woh team ka hissa hai aur team ka saara data dekhta hai.
+Upar "Naya court kaise shuru hota hai" dekhein. Mukhtasar:
+
+1. **Pehla user** (Judge, steno, operator, Ahlmad, koi bhi): account → **Start a new court**
+   (court ka naam + apni AI key) → woh team ka **admin** hai.
+2. Admin: **⚙ Settings** → **Team** → email → **Send invitation** → **Copy link / Share**.
+3. **Doosra user**: link kholta hai (ya usi email se khud Create account / login karta hai)
+   → pehli screen par invitation → **Accept**.
 4. Admin kisi ko **Make admin** / **Remove** kar sakta hai. Aakhri admin team nahi
    chhor sakta jab tak koi aur admin na ho.
+5. Team ke baghair koi app istemal nahi kar sakta: na draft, na AI.
 
 Case **delete** sirf woh kar sakta hai jis ne save kiya, ya admin. Settings, samples,
 rules aur "seekhe hue notes" sirf admin likh / badal / hata sakta hai.
@@ -245,12 +251,12 @@ ke naam Settings → Court se, 18 saal ya kam umar ka flag).
 | `styles.css` | Saara design (light / dark) |
 | `js/main.js` | Shuruaat: login ke baad app chalata hai |
 | `js/auth.js` | Login, register, password reset, team banana, invite accept |
-| `js/app.js` | Faisla Desk: sections, record parhna, drafts, History, Samples, Settings, Team |
+| `js/app.js` | AI Drafting: sections, record parhna, drafts, History, Samples, Settings, Team |
 | `js/ai.js` | AI function ko request (tasveerein chhoti karke, streaming) |
+| `js/aikeys.js` | Court ki AI key: provider / model ki list, key check aur save karwana |
 | `js/db.js` | Team ka data (`docs` table) + realtime updates |
 | `js/config.js` | Supabase URL aur public anon key |
-| `supabase/schema.sql` | Tables, RLS policies, team functions (naye install ke liye poori file) |
-| `supabase/update_inbox_quickwords.sql` | Pehle se chalti app ke liye: Inbox, apne quick words, settings sirf admin |
+| `supabase/schema.sql` | Poora database: tables, RLS policies, team functions (ek hi file, dobara chalana safe) |
 | `supabase/functions/ai/index.ts` | Gemini ya Claude se baat karne wala server function |
 | `sw.js`, `manifest.json`, `icon.svg` | Phone par app ki tarah install (PWA) |
 
@@ -260,7 +266,8 @@ ke naam Settings → Court se, 18 saal ya kam umar ka flag).
 - `docs`: har saved cheez ek row: `kind` = case / sample / lesson (rule) / digest / settings
 - `ai_usage`: har AI request ke tokens (Team page par is mahine ka total)
 - `inbox`: bheje hue drafts, cause list number aur tareekh ke saath (sirf bhejne wala aur receiver dekh sakte hain)
-- `profiles.quick_words`: har user ke apne quick words
+- `profiles.quick_words`: har user ke apne quick words; `profiles.designation`: designation
+- `team_ai`: har team ki AI key (encrypted; browser ki pahunch se bahar)
 
 Row Level Security har query par check karti hai ke user sirf apni team ka data
 dekh / badal sake.

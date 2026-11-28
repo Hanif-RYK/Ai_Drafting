@@ -1,4 +1,4 @@
-// Database adapter: the small "collection" interface the Faisla Desk artifact used
+// Database adapter: the small "collection" interface the drafting artifact used
 // (col.doc(id).set / update / delete, col.onSnapshot) on top of the team-shared
 // `docs` table in Supabase (see supabase/schema.sql).
 //

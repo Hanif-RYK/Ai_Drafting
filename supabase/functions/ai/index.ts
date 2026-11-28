@@ -1,30 +1,35 @@
-// Faisla Desk — AI proxy (Supabase Edge Function, Deno)
+// AI Drafting — AI proxy (Supabase Edge Function, Deno)
 //
-// The browser never sees an AI key. Every request must carry a logged-in user's
-// Supabase JWT, and the user must belong to a team. The function forwards the prompt
-// (and record pictures) to the chosen AI provider and streams the answer back.
+// Every team brings its own AI key (Google Gemini or Anthropic Claude). The team admin enters it once in
+// the app; this function checks it with the provider, encrypts it (AES-GCM, KEY_ENCRYPTION_SECRET) and
+// stores it in the team_ai table, which browsers can neither read nor write. A drafting request is
+// answered with the caller's own team's key; there is no shared key.
 //
 // Secrets (Supabase Dashboard → Edge Functions → Secrets):
-//   AI_PROVIDER         optional: "gemini" or "anthropic". If not set, the provider whose key
-//                       is set is used (Anthropic first when both keys are set).
-//   GEMINI_API_KEY      key from Google AI Studio (for AI_PROVIDER gemini)
-//   GEMINI_MODEL        optional; if not set, the best Gemini Pro model available to the key is
-//                       picked automatically (Google renames its models often)
-//   ANTHROPIC_API_KEY   key from console.anthropic.com (for AI_PROVIDER anthropic)
-//   AI_MODEL_COMPLEX    optional, Anthropic model, default claude-opus-5-5
-//   AI_MODEL_DEFAULT    optional, Anthropic model for sorting samples, default = AI_MODEL_COMPLEX
-//   AI_EFFORT           optional, Anthropic only, default high: low | medium | high | xhigh | max
+//   KEY_ENCRYPTION_SECRET required: a long random text (at least 32 characters). Never change it later:
+//                       the saved keys could no longer be read and every team admin would have to enter
+//                       the key again.
+//   GEMINI_MODEL        optional default Gemini model when a team did not choose one; if not set, the best
+//                       Gemini Pro model available to the team's key is picked automatically
+//   AI_MODEL_COMPLEX    optional default Claude model, default claude-opus-5-5
+//   AI_MODEL_DEFAULT    optional Claude model for sorting samples, default = the team's / complex model
+//   AI_EFFORT           optional, Claude only, default high: low | medium | high | xhigh | max
 //   AI_TIME_LIMIT_SECONDS optional, default 140. Supabase stops a function after 150 s on the Free
 //                       plan (400 s on paid plans). The function ends the answer itself a little
 //                       before that, so the part already written reaches the app, which can then
 //                       ask the AI to continue from there. On a paid plan set it to 390.
 //   SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY are set by Supabase itself.
 //
-// Request (POST, JSON):
+// Requests (POST, JSON, with the signed-in user's Supabase JWT):
+//   { action: "setup_team", team_name, provider: "gemini" | "anthropic", key, model? }
+//       a user who is not in a team yet: checks the key, creates the team (the user becomes its admin)
+//       and stores the key → { ok, team_id, provider, model, last4 }
+//   { action: "set_key", provider, key, model? }   team admin: checks and replaces the team's key
+//   { action: "test_key" }                         team admin: checks the saved key → { ok, provider, model }
 //   { mode: "text" | "json", prompt, images?: [{ media_type, data }], tier?: "complex" | "default",
-//     effort?: "low" | "medium" | "high", stream?: boolean, max_tokens?: number }
+//     effort?: "low" | "medium" | "high", stream?: boolean, max_tokens?: number }   a drafting request
 //   `effort` says how much the model may think: low for a daily order, high for a judgment.
-// Response:
+// Response to a drafting request:
 //   mode "text" (stream)  → text/event-stream, lines `data: {"text": "..."}`, then `data: {"done": true, ...}`
 //                           (stop_reason "time_limit" when the time limit ended it after some text)
 //                           or `data: {"error": {"code", "message"}}` (code "no_answer" when the time
@@ -35,7 +40,7 @@
 // Every request writes lines starting with "[ai <id>]" to the function's Logs (Supabase Dashboard →
 // Edge Functions → ai → Logs): the model and thinking setting used, the AI provider's own error
 // message, and a final "done" line with the seconds to the first chunk and the first text,
-// finishReason, prompt / output / thinking tokens and how the request ended.
+// finishReason, prompt / output / thinking tokens and how the request ended. Keys are never logged.
 
 import Anthropic from "npm:@anthropic-ai/sdk@1";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -44,23 +49,17 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
-const PROVIDER: "anthropic" | "gemini" = (() => {
-  const p = (Deno.env.get("AI_PROVIDER") ?? "").trim().toLowerCase();
-  if (p === "gemini" || p === "google") return "gemini";
-  if (p === "anthropic" || p === "claude") return "anthropic";
-  return ANTHROPIC_API_KEY ? "anthropic" : GEMINI_API_KEY ? "gemini" : "anthropic";
-})();
+const ENC_SECRET = Deno.env.get("KEY_ENCRYPTION_SECRET") ?? "";
 
 const MODEL_COMPLEX = Deno.env.get("AI_MODEL_COMPLEX") || "claude-opus-5-5";
-const MODEL_DEFAULT = Deno.env.get("AI_MODEL_DEFAULT") || MODEL_COMPLEX;
+const MODEL_DEFAULT = Deno.env.get("AI_MODEL_DEFAULT") || "";
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 type Effort = typeof EFFORTS[number];
 const EFFORT_COMPLEX: Effort = (EFFORTS as readonly string[]).includes(Deno.env.get("AI_EFFORT") ?? "") ? Deno.env.get("AI_EFFORT") as Effort : "high";
 
 const GEMINI_BASE = (Deno.env.get("GEMINI_BASE_URL") || "https://generativelanguage.googleapis.com").replace(/\/+$/, "");
 const GEMINI_MODEL = (Deno.env.get("GEMINI_MODEL") ?? "").trim().replace(/^models\//, "");
+const ANTHROPIC_BASE = Deno.env.get("ANTHROPIC_BASE_URL") || undefined;   // tests only
 
 const TIME_LIMIT_MS = Math.max(30, Number(Deno.env.get("AI_TIME_LIMIT_SECONDS")) || 140) * 1000;
 
@@ -89,6 +88,9 @@ type Meter = {
   finish: string; thinking: string; chars: number; firstChunkMs: number | null; firstTextMs: number | null;
 };
 type Log = (event: string, data: Record<string, unknown>) => void;
+type Provider = "gemini" | "anthropic";
+/** One team's AI: its provider, its own key (decrypted, kept only in memory) and the model it chose ("" = default). */
+type TeamAi = { provider: Provider; key: string; model: string };
 
 /** An error with the short code the app shows to the user. */
 class AiError extends Error {
@@ -105,7 +107,7 @@ function mapError(e: unknown): { status: number; body: ErrBody } {
   const msg = e instanceof Error ? e.message : String(e);
   if (e instanceof AiError) return { status: e.status, body: { code: e.code, message: e.message } };
   if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
-    return { status: 500, body: { code: "no_key", message: "The Anthropic key saved in the Edge Function secrets is wrong or disabled." } };
+    return { status: 500, body: { code: "no_key", message: "The team's Claude key is wrong or disabled. The team admin can change it in Settings → Team → AI key." } };
   }
   if (e instanceof Anthropic.RateLimitError) {
     return { status: 429, body: { code: "rate_limited", message: msg } };
@@ -128,13 +130,75 @@ function mapError(e: unknown): { status: number; body: ErrBody } {
   return { status: 500, body: { code: "server", message: msg } };
 }
 
+/* ======================= The teams' keys: encrypted at rest ======================= */
+
+let aesKey: CryptoKey | null = null;
+async function cryptoKey(): Promise<CryptoKey> {
+  if (ENC_SECRET.length < 32) {
+    throw new AiError(500, "server_setup", "KEY_ENCRYPTION_SECRET is missing or shorter than 32 characters in the Edge Function secrets.");
+  }
+  aesKey ??= await crypto.subtle.importKey("raw", await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ENC_SECRET)), "AES-GCM", false, ["encrypt", "decrypt"]);
+  return aesKey;
+}
+const toB64 = (u: Uint8Array) => { let s = ""; for (const b of u) s += String.fromCharCode(b); return btoa(s); };
+const fromB64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+/** "v1:<iv>:<ciphertext>"; the team id is bound in, so a key copied to another team's row cannot be opened. */
+export async function encryptKey(plain: string, teamId: string): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: new TextEncoder().encode(teamId) }, await cryptoKey(), new TextEncoder().encode(plain)));
+  return `v1:${toB64(iv)}:${toB64(ct)}`;
+}
+export async function decryptKey(cipher: string, teamId: string): Promise<string> {
+  const [v, iv, ct] = String(cipher).split(":");
+  if (v !== "v1" || !iv || !ct) throw new Error("unknown key format");
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromB64(iv), additionalData: new TextEncoder().encode(teamId) }, await cryptoKey(), fromB64(ct));
+  return new TextDecoder().decode(pt);
+}
+
+/* Checks a key with its provider without spending tokens (the model list) and returns the model to use.
+   Exported for tests. */
+const MODEL_RE = /^[a-z0-9][a-z0-9.\-]{2,79}$/i;
+export function keyLooksRight(provider: Provider, key: string): boolean {
+  return provider === "gemini" ? /^[A-Za-z0-9_\-]{20,120}$/.test(key) : /^sk-ant-[A-Za-z0-9_\-]{20,200}$/.test(key);
+}
+async function checkKey(ai: TeamAi, signal: AbortSignal, log: Log): Promise<string> {
+  if (!keyLooksRight(ai.provider, ai.key)) {
+    throw new AiError(400, "bad_key", ai.provider === "gemini"
+      ? "This does not look like a Gemini key (it usually starts with AIza). Copy the whole key from aistudio.google.com."
+      : "This does not look like a Claude key (it starts with sk-ant-). Copy the whole key from console.anthropic.com.");
+  }
+  if (ai.model && !MODEL_RE.test(ai.model)) throw new AiError(400, "bad_request", "The model name is not valid.");
+  if (ai.provider === "gemini") {
+    const { name } = await geminiModel(ai, signal, log, true);
+    return name;
+  }
+  const client = claudeClient(ai.key);
+  const ids: string[] = [];
+  try {
+    for await (const m of client.models.list({ limit: 100 }, { signal })) { ids.push(m.id); if (ids.length >= 300) break; }
+  } catch (e) {
+    if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
+      throw new AiError(400, "bad_key", "Anthropic did not accept this key. Check that it is copied completely and is active.");
+    }
+    throw e;
+  }
+  const model = ai.model || MODEL_COMPLEX;
+  if (ids.length && !ids.includes(model)) throw new AiError(400, "no_model", `This key cannot use the model ${model}. Choose another model.`);
+  return model;
+}
+
 /* ======================= Anthropic (Claude) ======================= */
 
-let claude: Anthropic | null = null;
+const claudeClients = new Map<string, Anthropic>();
+function claudeClient(key: string): Anthropic {
+  let c = claudeClients.get(key);
+  if (!c) { c = new Anthropic({ apiKey: key, maxRetries: 2, ...(ANTHROPIC_BASE ? { baseURL: ANTHROPIC_BASE } : {}) }); claudeClients.set(key, c); }
+  return c;
+}
 
-async function runClaude(job: Job, onText: (t: string) => void, signal: AbortSignal, meter: Meter, log: Log,
+async function runClaude(ai: TeamAi, job: Job, onText: (t: string) => void, signal: AbortSignal, meter: Meter, log: Log,
                          sinceStart: () => number): Promise<Stop> {
-  claude ??= new Anthropic({ apiKey: ANTHROPIC_API_KEY, maxRetries: 2 });
+  const claude = claudeClient(ai.key);
   const content: Anthropic.Beta.BetaContentBlockParam[] = [
     ...job.images.map((im) => ({
       type: "image" as const,
@@ -146,7 +210,7 @@ async function runClaude(job: Job, onText: (t: string) => void, signal: AbortSig
   // Server-side refusal fallback ("default") re-runs a declined request on another model.
   const effort = job.tier === "complex" ? EFFORT_COMPLEX : "medium";
   const params: Anthropic.Beta.MessageCreateParamsNonStreaming = {
-    model: job.tier === "complex" ? MODEL_COMPLEX : MODEL_DEFAULT,
+    model: job.tier === "complex" ? (ai.model || MODEL_COMPLEX) : (MODEL_DEFAULT || ai.model || MODEL_COMPLEX),
     max_tokens: job.maxTokens,
     messages: [{ role: "user", content }],
     thinking: { type: "adaptive" },
@@ -181,7 +245,7 @@ async function runClaude(job: Job, onText: (t: string) => void, signal: AbortSig
 
 /* ======================= Google Gemini ======================= */
 
-let geminiPicked = "";
+const geminiPicked = new Map<string, string>();   // team key -> model picked from its list
 const geminiOutputLimit = new Map<string, number>();   // model name -> outputTokenLimit from Google
 
 /** Picks the best text model from the key's model list: the newest Pro-class model (a stable one
@@ -251,9 +315,9 @@ async function readGeminiError(res: Response): Promise<GoogleError> {
 function geminiAiError(g: GoogleError): AiError {
   const all = g.message + " " + g.details + " " + g.status;
   if (/API_KEY_INVALID|API key not valid|API_KEY_/i.test(all) || g.httpStatus === 401) {
-    return new AiError(500, "no_key", "The Gemini key saved in the Edge Function secrets is wrong. " + g.message);
+    return new AiError(500, "no_key", "The team's Gemini key is wrong. The team admin can change it in Settings → Team → AI key. " + g.message);
   }
-  if (g.httpStatus === 403) return new AiError(500, "no_key", "The Gemini key is not allowed to use this API. " + g.message);
+  if (g.httpStatus === 403) return new AiError(500, "no_key", "The team's Gemini key is not allowed to use this API. " + g.message);
   if (g.httpStatus === 429) return new AiError(429, "rate_limited", g.message || "Too many requests to Gemini.");
   if (g.httpStatus === 404) return new AiError(502, "no_model", "This Gemini model is not available: " + g.message);
   if (g.httpStatus === 400 && /image|inline|mime/i.test(g.message)) return new AiError(400, "image_rejected", g.message);
@@ -262,25 +326,27 @@ function geminiAiError(g: GoogleError): AiError {
   return new AiError(502, "ai_error", g.message || `Gemini error ${g.httpStatus}`);
 }
 
-/** The model to use and its output limit. GEMINI_MODEL wins; otherwise one is picked from the key's list. */
-async function geminiModel(signal: AbortSignal, log: Log): Promise<{ name: string; outputLimit: number }> {
-  const headers = { "x-goog-api-key": GEMINI_API_KEY };
-  if (GEMINI_MODEL) {
-    if (!geminiOutputLimit.has(GEMINI_MODEL)) {
+/** The model to use and its output limit: the team's choice, else GEMINI_MODEL, else one picked from the
+ *  key's list. `check` (when a key is entered) always reads the list, which also proves the key works. */
+async function geminiModel(ai: TeamAi, signal: AbortSignal, log: Log, check = false): Promise<{ name: string; outputLimit: number }> {
+  const headers = { "x-goog-api-key": ai.key };
+  const chosen = ai.model || GEMINI_MODEL;
+  if (chosen && !check) {
+    if (!geminiOutputLimit.has(chosen)) {
       // Only to learn the output limit; if this fails, the generate call reports the real error.
-      const res = await fetch(`${GEMINI_BASE}/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}`, { headers, signal });
+      const res = await fetch(`${GEMINI_BASE}/v1beta/models/${encodeURIComponent(chosen)}`, { headers, signal });
       if (res.ok) {
         const j = await res.json();
-        geminiOutputLimit.set(GEMINI_MODEL, Number(j?.outputTokenLimit) || 0);
+        geminiOutputLimit.set(chosen, Number(j?.outputTokenLimit) || 0);
       } else {
         const g = await readGeminiError(res);
-        log("google_error", { during: "model info", model: GEMINI_MODEL, httpStatus: g.httpStatus, status: g.status, message: g.message });
-        geminiOutputLimit.set(GEMINI_MODEL, 0);
+        log("google_error", { during: "model info", model: chosen, httpStatus: g.httpStatus, status: g.status, message: g.message });
+        geminiOutputLimit.set(chosen, 0);
       }
     }
-    return { name: GEMINI_MODEL, outputLimit: geminiOutputLimit.get(GEMINI_MODEL) ?? 0 };
+    return { name: chosen, outputLimit: geminiOutputLimit.get(chosen) ?? 0 };
   }
-  if (!geminiPicked) {
+  if (!geminiPicked.has(ai.key) || check) {
     const names: string[] = [];
     let pageToken = "";
     for (let page = 0; page < 5; page++) {
@@ -289,6 +355,9 @@ async function geminiModel(signal: AbortSignal, log: Log): Promise<{ name: strin
       if (!res.ok) {
         const g = await readGeminiError(res);
         log("google_error", { during: "model list", httpStatus: g.httpStatus, status: g.status, message: g.message, details: g.details });
+        if (check && (g.httpStatus === 400 || g.httpStatus === 401 || g.httpStatus === 403)) {
+          throw new AiError(400, "bad_key", "Google did not accept this key. Check that it is copied completely and that it is active. " + g.message);
+        }
         throw geminiAiError(g);
       }
       const j = await res.json();
@@ -302,13 +371,19 @@ async function geminiModel(signal: AbortSignal, log: Log): Promise<{ name: strin
       pageToken = j?.nextPageToken ?? "";
       if (!pageToken) break;
     }
-    geminiPicked = pickGeminiModel(names);
-    if (!geminiPicked) {
-      throw new AiError(500, "no_model", "No Gemini text model is available for this key. Set GEMINI_MODEL in the Edge Function secrets.");
+    if (check && chosen) {
+      if (names.length && !names.includes(chosen)) throw new AiError(400, "no_model", `This key cannot use the model ${chosen}. Choose another model.`);
+      return { name: chosen, outputLimit: geminiOutputLimit.get(chosen) ?? 0 };
     }
-    log("model_picked", { model: geminiPicked, from: names.length + " models" });
+    const picked = pickGeminiModel(names);
+    if (!picked) {
+      throw new AiError(400, "no_model", "No Gemini text model is available for this key. Choose a model in Settings → Team → AI key.");
+    }
+    geminiPicked.set(ai.key, picked);
+    log("model_picked", { model: picked, from: names.length + " models" });
   }
-  return { name: geminiPicked, outputLimit: geminiOutputLimit.get(geminiPicked) ?? 0 };
+  const name = geminiPicked.get(ai.key)!;
+  return { name, outputLimit: geminiOutputLimit.get(name) ?? 0 };
 }
 
 const GEMINI_REFUSALS = new Set(["SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY", "IMAGE_PROHIBITED_CONTENT"]);
@@ -317,7 +392,7 @@ const sleep = (ms: number, signal: AbortSignal) => new Promise<void>((resolve, r
   signal.addEventListener("abort", () => { clearTimeout(t); reject(new DOMException("Aborted", "AbortError")); }, { once: true });
 });
 
-async function runGemini(job: Job, onText: (t: string) => void, signal: AbortSignal, meter: Meter, log: Log,
+async function runGemini(ai: TeamAi, job: Job, onText: (t: string) => void, signal: AbortSignal, meter: Meter, log: Log,
                          timeLeft: () => number, sinceStart: () => number): Promise<Stop> {
   // Court records quote FIRs, injuries and allegations; Google's default filters can block them.
   const safetySettings = ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"]
@@ -341,7 +416,7 @@ async function runGemini(job: Job, onText: (t: string) => void, signal: AbortSig
   let repicked = false, busyRetries = 0, thinkingRetries = 0;
   let res: Response;
   for (;;) {
-    const { name: model, outputLimit } = await geminiModel(signal, log);
+    const { name: model, outputLimit } = await geminiModel(ai, signal, log);
     meter.model = model;
     if (thinking === undefined) thinking = firstThinking(model, job.effort);
     meter.thinking = thinking ? JSON.stringify(thinking) : "model default";
@@ -352,7 +427,7 @@ async function runGemini(job: Job, onText: (t: string) => void, signal: AbortSig
     });
     res = await fetch(`${GEMINI_BASE}/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": ai.key },
       body: makeBody(thinking, outputLimit),
       signal,
     });
@@ -360,7 +435,7 @@ async function runGemini(job: Job, onText: (t: string) => void, signal: AbortSig
     const g = await readGeminiError(res);
     log("google_error", { during: "generate", model, httpStatus: g.httpStatus, status: g.status, message: g.message, retryAfterSec: g.retrySec, details: g.details });
     // The picked model was withdrawn: pick again once.
-    if (g.httpStatus === 404 && !GEMINI_MODEL && !repicked) { repicked = true; geminiPicked = ""; thinking = undefined; continue; }
+    if (g.httpStatus === 404 && !ai.model && !GEMINI_MODEL && !repicked) { repicked = true; geminiPicked.delete(ai.key); thinking = undefined; continue; }
     // This model does not accept that thinking setting: try the next one.
     if (g.httpStatus === 400 && /thinking/i.test(g.message) && thinkingRetries < 3) {
       const next = nextThinking(thinking, job.effort);
@@ -420,6 +495,21 @@ async function runGemini(job: Job, onText: (t: string) => void, signal: AbortSig
 
 /* ======================= Request handler ======================= */
 
+/** The caller's team's AI settings with the key decrypted (in memory only). */
+// deno-lint-ignore no-explicit-any
+async function teamAi(admin: any, teamId: string): Promise<TeamAi> {
+  const { data, error } = await admin.from("team_ai").select("provider, model, key_cipher").eq("team_id", teamId).maybeSingle();
+  if (error) throw new AiError(500, "server", "The team's AI key could not be read: " + error.message);
+  if (!data) throw new AiError(400, "no_key", "Your team has no AI key yet. The team admin can add it in Settings → Team → AI key.");
+  let key: string;
+  try { key = await decryptKey(String(data.key_cipher), teamId); }
+  catch (e) {
+    if (e instanceof AiError) throw e;
+    throw new AiError(500, "no_key", "The team's saved AI key could not be opened (was KEY_ENCRYPTION_SECRET changed?). The team admin must enter the key again in Settings → Team → AI key.");
+  }
+  return { provider: data.provider === "anthropic" ? "anthropic" : "gemini", key, model: String(data.model ?? "") };
+}
+
 Deno.serve(async (req: Request) => {
   const startedAt = Date.now();
   const sinceStart = () => Date.now() - startedAt;
@@ -429,13 +519,6 @@ Deno.serve(async (req: Request) => {
   const log: Log = (event, data) => console.log(`[ai ${rid}] ${event} ${JSON.stringify(data)}`);
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { code: "bad_request", message: "POST only" });
-  if (PROVIDER === "anthropic" && !ANTHROPIC_API_KEY) {
-    return json(500, { code: "no_key", message: "No AI key is set. Add GEMINI_API_KEY (and AI_PROVIDER = gemini) or ANTHROPIC_API_KEY to the Edge Function secrets." });
-  }
-  if (PROVIDER === "gemini" && !GEMINI_API_KEY) {
-    return json(500, { code: "no_key", message: "AI_PROVIDER is gemini, but GEMINI_API_KEY is not set in the Edge Function secrets." });
-  }
-
   // 1. Who is calling, and are they in a team?
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) return json(401, { code: "session_expired", message: "Please sign in again." });
@@ -446,13 +529,76 @@ Deno.serve(async (req: Request) => {
   const { data: userData, error: userErr } = await userClient.auth.getUser();
   const user = userData?.user;
   if (userErr || !user) return json(401, { code: "session_expired", message: "Please sign in again." });
-  const { data: profile } = await userClient.from("profiles").select("team_id").eq("id", user.id).maybeSingle();
-  const teamId: string | null = profile?.team_id ?? null;
-  if (!teamId) return json(403, { code: "not_granted", message: "You are not in a team yet." });
+  const { data: profile } = await userClient.from("profiles").select("team_id, role").eq("id", user.id).maybeSingle();
+  let teamId: string | null = profile?.team_id ?? null;
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  // 2. Validate the request
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json(400, { code: "bad_request", message: "Invalid JSON body." }); }
+
+  // 2. Team set-up and key changes: the key is checked with its provider, then stored encrypted.
+  const action = String(body.action ?? "");
+  if (action) {
+    const setupAc = new AbortController();
+    const setupGuard = setTimeout(() => setupAc.abort(), 40_000);
+    req.signal.addEventListener("abort", () => setupAc.abort(), { once: true });
+    try {
+      const store = async (tid: string, ai: TeamAi) => {
+        const { error } = await admin.from("team_ai").upsert({
+          team_id: tid, provider: ai.provider, model: ai.model, key_cipher: await encryptKey(ai.key, tid),
+          key_last4: ai.key.slice(-4), updated_by: user.id, updated_at: new Date().toISOString(),
+        }, { onConflict: "team_id" });
+        if (error) throw new AiError(500, "server", "The key could not be saved: " + error.message);
+      };
+      const given = (): TeamAi => {
+        const provider = body.provider === "anthropic" ? "anthropic" : body.provider === "gemini" ? "gemini" : null;
+        if (!provider) throw new AiError(400, "bad_request", "Choose Gemini or Claude.");
+        return { provider, key: String(body.key ?? "").trim(), model: String(body.model ?? "").trim() };
+      };
+      if (action === "setup_team") {
+        if (teamId) throw new AiError(400, "bad_request", "You are already in a team.");
+        const name = String(body.team_name ?? "").trim();
+        if (name.length < 2 || name.length > 80) throw new AiError(400, "bad_request", "Write the court (team) name, 2 to 80 letters.");
+        const ai = given();
+        await cryptoKey();   // the secret must be set before anything is created
+        const model = await checkKey(ai, setupAc.signal, log);
+        const { data: tid, error } = await userClient.rpc("create_team", { p_name: name });
+        if (error || !tid) throw new AiError(400, "bad_request", error?.message || "The team could not be created.");
+        teamId = String(tid);
+        await store(teamId, ai);
+        log("team_created", { team: teamId, provider: ai.provider, model });
+        return json(200, { ok: true, team_id: teamId, provider: ai.provider, model, last4: ai.key.slice(-4) });
+      }
+      if (!teamId) throw new AiError(403, "not_granted", "You are not in a team yet.");
+      if (profile?.role !== "admin") throw new AiError(403, "not_granted", "Only the team admin can change the AI key.");
+      if (action === "set_key") {
+        const ai = given();
+        await cryptoKey();
+        const model = await checkKey(ai, setupAc.signal, log);
+        await store(teamId, ai);
+        log("key_changed", { team: teamId, provider: ai.provider, model });
+        return json(200, { ok: true, provider: ai.provider, model, last4: ai.key.slice(-4) });
+      }
+      if (action === "test_key") {
+        const ai = await teamAi(admin, teamId);
+        const model = await checkKey(ai, setupAc.signal, log);
+        return json(200, { ok: true, provider: ai.provider, model });
+      }
+      throw new AiError(400, "bad_request", "Unknown action.");
+    } catch (e) {
+      const m = mapError(e);
+      log("setup_error", { action, code: m.body.code, error: m.body.message });
+      return json(m.status, m.body);
+    } finally {
+      clearTimeout(setupGuard);
+    }
+  }
+
+  // 3. A drafting request: the caller's team and its key
+  if (!teamId) return json(403, { code: "not_granted", message: "You are not in a team yet." });
+  let ai: TeamAi;
+  try { ai = await teamAi(admin, teamId); } catch (e) { const m = mapError(e); log("key_error", { code: m.body.code, error: m.body.message }); return json(m.status, m.body); }
+  // 4. Validate the request
   const mode = body.mode === "json" ? "json" : "text";
   const prompt = String(body.prompt ?? "");
   if (!prompt.trim()) return json(400, { code: "bad_request", message: "Empty prompt." });
@@ -479,14 +625,13 @@ Deno.serve(async (req: Request) => {
   };
   const wantStream = mode === "text" && body.stream !== false;
 
-  // 3. One AbortController for: the user pressing Stop / closing the page, and our own time limit.
+  // 5. One AbortController for: the user pressing Stop / closing the page, and our own time limit.
   const ac = new AbortController();
   let timedOut = false;
   req.signal.addEventListener("abort", () => ac.abort(), { once: true });
   const guard = setTimeout(() => { timedOut = true; ac.abort(); }, timeLeft());
 
   const meter: Meter = { model: "", input: 0, output: 0, cache: 0, thoughts: 0, finish: "", thinking: "", chars: 0, firstChunkMs: null, firstTextMs: null };
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const logUsage = async () => {
     if (!meter.input && !meter.output) return;
     try {
@@ -500,7 +645,7 @@ Deno.serve(async (req: Request) => {
   };
   // One line in the Logs per request, whatever the outcome
   const done = (outcome: string, extra: Record<string, unknown> = {}) => log("done", {
-    outcome, provider: PROVIDER, model: meter.model, mode, effort: job.effort, thinking: meter.thinking,
+    outcome, provider: ai.provider, model: meter.model, mode, effort: job.effort, thinking: meter.thinking,
     seconds: secs(sinceStart()), firstChunkSec: secs(meter.firstChunkMs), firstTextSec: secs(meter.firstTextMs),
     finishReason: meter.finish || null, promptTokens: meter.input, outputTokens: meter.output,
     thoughtsTokens: meter.thoughts, textChars: meter.chars, ...extra,
@@ -512,9 +657,9 @@ Deno.serve(async (req: Request) => {
       meter.chars += t.length;
       sink(t);
     };
-    return PROVIDER === "gemini"
-      ? runGemini(job, onText, ac.signal, meter, log, timeLeft, sinceStart)
-      : runClaude(job, onText, ac.signal, meter, log, sinceStart);
+    return ai.provider === "gemini"
+      ? runGemini(ai, job, onText, ac.signal, meter, log, timeLeft, sinceStart)
+      : runClaude(ai, job, onText, ac.signal, meter, log, sinceStart);
   };
   const REFUSED = { code: "refused", message: "The AI declined this request." };
   const EMPTY = () => ({ code: "empty_answer", message: `The AI finished without writing anything (finishReason ${meter.finish || "none"}).` });
@@ -524,7 +669,7 @@ Deno.serve(async (req: Request) => {
     message: `Model ${meter.model || "?"} was still thinking after ${Math.round(sinceStart() / 1000)} seconds.`,
   });
 
-  // 4a. One answer (JSON mode). A JSON answer is useless when cut short, so at the time limit
+  // 6a. One answer (JSON mode). A JSON answer is useless when cut short, so at the time limit
   //     it returns a clear error instead.
   if (!wantStream) {
     let text = "";
@@ -549,7 +694,7 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // 4b. Streamed draft: text deltas as SSE, a ping every 10 s while the AI is still thinking.
+  // 6b. Streamed draft: text deltas as SSE, a ping every 10 s while the AI is still thinking.
   //     At the time limit the text written so far is delivered with stop_reason "time_limit".
   const enc = new TextEncoder();
   const readable = new ReadableStream<Uint8Array>({

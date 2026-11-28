@@ -1,5 +1,5 @@
 -- =====================================================================
--- Faisla Desk — Supabase schema
+-- AI Drafting — Supabase schema
 -- Supabase Dashboard → SQL Editor → New query → poori file paste karein → Run
 -- Dobara chalana safe hai (idempotent).
 --
@@ -9,11 +9,14 @@
 --      mein move ho jate hain (backup). Jab yaqeen ho jaye ke unki zaroorat nahi,
 --      is file ke aakhir mein diya hua ek line ka command chala kar unhein
 --      hamesha ke liye hata dein.
---   2. Naye tables bante hain: teams, profiles, team_invites, docs, ai_usage, inbox.
+--   2. Naye tables bante hain: teams, profiles, team_invites, docs, ai_usage, inbox, team_ai.
 --   3. Row Level Security (RLS): har user sirf apni team ka data dekh/badal sakta hai.
 --
 -- Team model:
---   * Register karne wala user pehle "Create team" karta hai → woh us team ka admin hai.
+--   * Har shakhs pehle account banata hai (naam, designation, email, password).
+--   * Naya court: "Create team" + apni AI key (Gemini ya Claude). Key AI function check kar ke
+--     encrypt kar ke team_ai mein rakhta hai; team banane wala admin hai. Har team apni key
+--     istemal karti hai, kisi aur ki nahi; browser key ko kabhi wapas nahi parh sakta.
 --   * Admin doosron ko email se invite karta hai. Invite kiya hua user usi email se
 --     register/login karta hai, invite dekhta hai aur Accept karta hai.
 --   * Team ke sab members team ke saare cases dekh aur save kar sakte hain (delete:
@@ -93,16 +96,21 @@ create table if not exists public.profiles (
   full_name   text not null default '',
   team_id     uuid references public.teams(id) on delete set null,
   role        text not null default 'member' check (role in ('admin', 'member')),
+  designation text not null default '',   -- Judge, Stenographer, Computer Operator, Ahlmad, ya khud likha hua
   quick_words text not null default '',
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
 create index if not exists profiles_team_idx on public.profiles (team_id);
 alter table public.profiles add column if not exists quick_words text not null default '';
+alter table public.profiles add column if not exists designation text not null default '';
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'profiles_quick_words_len') then
     alter table public.profiles add constraint profiles_quick_words_len check (length(quick_words) <= 4000);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'profiles_designation_len') then
+    alter table public.profiles add constraint profiles_designation_len check (length(designation) <= 60);
   end if;
 end $$;
 
@@ -191,6 +199,20 @@ begin
 end $$;
 
 
+-- Har team ki apni AI key (Gemini ya Claude). Key encrypted hai (AI function ke
+-- KEY_ENCRYPTION_SECRET se); sirf AI function (service role) parhta / likhta hai. Browser ko
+-- sirf provider, model aur key ke aakhri 4 harf milte hain (team_ai_info RPC, sirf admin).
+create table if not exists public.team_ai (
+  team_id     uuid primary key references public.teams(id) on delete cascade,
+  provider    text not null check (provider in ('gemini', 'anthropic')),
+  model       text not null default '' check (length(model) <= 80),
+  key_cipher  text not null check (length(key_cipher) between 20 and 4000),
+  key_last4   text not null default '' check (length(key_last4) <= 8),
+  updated_by  uuid references auth.users(id) on delete set null,
+  updated_at  timestamptz not null default now()
+);
+
+
 -- ---------------------------------------------------------------------
 -- 2. HELPER FUNCTIONS (security definer → RLS ke andar recursion nahi hoti)
 -- ---------------------------------------------------------------------
@@ -224,11 +246,12 @@ returns trigger language plpgsql security definer set search_path = public as $$
 declare
   meta jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
 begin
-  insert into public.profiles (id, email, full_name)
+  insert into public.profiles (id, email, full_name, designation)
   values (
     new.id,
     lower(coalesce(new.email, '')),
-    coalesce(nullif(btrim(meta->>'full_name'), ''), split_part(coalesce(new.email, ''), '@', 1))
+    coalesce(nullif(btrim(meta->>'full_name'), ''), split_part(coalesce(new.email, ''), '@', 1)),
+    left(btrim(coalesce(meta->>'designation', '')), 60)
   )
   on conflict (id) do nothing;
   return new;
@@ -240,10 +263,11 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- Jo accounts pehle se auth.users mein hain unki profile bana dein
-insert into public.profiles (id, email, full_name)
+insert into public.profiles (id, email, full_name, designation)
 select u.id,
        lower(coalesce(u.email, '')),
-       coalesce(nullif(btrim(u.raw_user_meta_data->>'full_name'), ''), split_part(coalesce(u.email, ''), '@', 1))
+       coalesce(nullif(btrim(u.raw_user_meta_data->>'full_name'), ''), split_part(coalesce(u.email, ''), '@', 1)),
+       left(btrim(coalesce(u.raw_user_meta_data->>'designation', '')), 60)
 from auth.users u
 on conflict (id) do nothing;
 
@@ -254,16 +278,17 @@ declare
   p public.profiles;
 begin
   if auth.uid() is null then raise exception 'Not signed in'; end if;
-  insert into public.profiles (id, email, full_name)
+  insert into public.profiles (id, email, full_name, designation)
   select u.id, lower(coalesce(u.email, '')),
-         coalesce(nullif(btrim(u.raw_user_meta_data->>'full_name'), ''), split_part(coalesce(u.email, ''), '@', 1))
+         coalesce(nullif(btrim(u.raw_user_meta_data->>'full_name'), ''), split_part(coalesce(u.email, ''), '@', 1)),
+         left(btrim(coalesce(u.raw_user_meta_data->>'designation', '')), 60)
   from auth.users u where u.id = auth.uid()
   on conflict (id) do nothing;
   select * into p from public.profiles where id = auth.uid();
   return p;
 end $$;
 
--- Browser profile ke sirf apne naam ko badal sakta hai; team_id / role / email RPCs se hi badalte hain.
+-- Browser profile mein sirf apna naam, designation aur quick words badal sakta hai; team_id / role / email RPCs se hi badalte hain.
 -- Browser ki query "authenticated" role se chalti hai; neeche ke RPC functions (security definer)
 -- function ke owner ke role se chalte hain, is liye unki tabdeeli yahan nahi rukti.
 -- (Ye trigger function khud security definer NAHI hai, warna current_user hamesha owner hota.)
@@ -411,6 +436,15 @@ begin
   update public.profiles set team_id = null, role = 'member' where id = auth.uid();
 end $$;
 
+-- Team ki AI key ki maloomat (key khud nahi): sirf admin ko
+create or replace function public.team_ai_info()
+returns table (provider text, model text, key_last4 text, updated_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select a.provider, a.model, a.key_last4, a.updated_at
+  from public.team_ai a
+  where a.team_id = public.my_team_id() and public.is_team_admin();
+$$;
+
 create or replace function public.rename_team(p_name text)
 returns void language plpgsql security definer set search_path = public as $$
 begin
@@ -421,12 +455,12 @@ end $$;
 revoke all on function
   public.ensure_profile(), public.create_team(text), public.invite_member(text, text), public.revoke_invite(uuid),
   public.accept_invite(uuid), public.decline_invite(uuid), public.remove_member(uuid),
-  public.set_member_role(uuid, text), public.leave_team(), public.rename_team(text)
+  public.set_member_role(uuid, text), public.leave_team(), public.rename_team(text), public.team_ai_info()
 from public, anon;
 grant execute on function
   public.ensure_profile(), public.create_team(text), public.invite_member(text, text), public.revoke_invite(uuid),
   public.accept_invite(uuid), public.decline_invite(uuid), public.remove_member(uuid),
-  public.set_member_role(uuid, text), public.leave_team(), public.rename_team(text)
+  public.set_member_role(uuid, text), public.leave_team(), public.rename_team(text), public.team_ai_info()
 to authenticated;
 
 
@@ -509,6 +543,7 @@ alter table public.team_invites enable row level security;
 alter table public.docs         enable row level security;
 alter table public.ai_usage     enable row level security;
 alter table public.inbox        enable row level security;
+alter table public.team_ai      enable row level security;   -- koi policy nahi: browser na parh sakta hai na likh sakta hai
 
 -- Purani (isi naam ki) policies hata kar dobara banayein, taake file dobara chal sake
 do $$
@@ -517,7 +552,7 @@ begin
   for r in
     select policyname, tablename from pg_policies
     where schemaname = 'public'
-      and tablename in ('teams', 'profiles', 'team_invites', 'docs', 'ai_usage', 'inbox')
+      and tablename in ('teams', 'profiles', 'team_invites', 'docs', 'ai_usage', 'inbox', 'team_ai')
   loop
     execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
   end loop;
@@ -597,6 +632,8 @@ grant select, insert, update, delete on public.docs to authenticated;
 revoke all on public.inbox from anon;
 revoke update, truncate on public.inbox from authenticated;
 grant select, insert, delete on public.inbox to authenticated;
+revoke all on public.team_ai from anon, authenticated;
+grant select, insert, update, delete on public.team_ai to service_role;
 
 
 -- ---------------------------------------------------------------------

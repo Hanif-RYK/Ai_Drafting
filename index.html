@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Faisla Desk</title>
+<title>AI Drafting</title>
 <meta name="description" content="Court drafting desk: daily orders, issues, orders on applications, judgments and criminal orders in the Judge's own style.">
 <meta name="theme-color" content="#1f5f5b">
 <link rel="manifest" href="manifest.json">
@@ -13,20 +13,20 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap">
 <!-- ?v= forces browsers to fetch fresh files after a deploy. Change it whenever the CSS / JS change. -->
-<link rel="stylesheet" href="styles.css?v=2026112803">
+<link rel="stylesheet" href="styles.css?v=2026112902">
 <script defer src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 </head>
 <body>
-<noscript><p style="padding:20px;font-family:sans-serif">Faisla Desk needs JavaScript. Please enable it and reload.</p></noscript>
+<noscript><p style="padding:20px;font-family:sans-serif">AI Drafting needs JavaScript. Please enable it and reload.</p></noscript>
 
 <!-- LOGIN / REGISTER -->
 <div class="auth" id="authScreen" hidden>
   <div class="authcard">
-    <div class="authbrand">Faisla Desk<small>Court drafting desk</small></div>
+    <div class="authbrand">AI Drafting<small>Court drafting desk</small></div>
     <form id="loginForm" class="stack" autocomplete="on">
       <h2>Log in</h2>
       <label>Email<input id="loginEmail" type="email" autocomplete="email" inputmode="email" required></label>
-      <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required></label>
+      <label>Password<span class="pwwrap"><input id="loginPassword" type="password" autocomplete="current-password" required><button type="button" class="pweye" data-pw aria-label="Show password" aria-pressed="false" title="Show password"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
       <button class="btn" type="submit" id="loginBtn">Log in</button>
       <div class="row" style="justify-content:space-between">
         <button type="button" class="linkbtn" data-auth="register">Create an account</button>
@@ -35,9 +35,12 @@
     </form>
     <form id="registerForm" class="stack" hidden>
       <h2>Create an account</h2>
+      <div id="inviteNote" class="invitenote" hidden></div>
       <label>Full name<input id="regName" autocomplete="name" required></label>
+      <label>Designation<select id="regDesig" required><option value="">Choose</option><option>Judge</option><option>Stenographer</option><option>Computer Operator</option><option>Ahlmad</option><option value="Other">Other (write it)</option></select></label>
+      <label id="regDesigOtherWrap" hidden>Your designation<input id="regDesigOther" maxlength="40" placeholder="e.g. Reader, Naib Court"></label>
       <label>Email<input id="regEmail" type="email" autocomplete="email" inputmode="email" required></label>
-      <label>Password (at least 8 characters)<input id="regPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label>Password (at least 8 characters)<span class="pwwrap"><input id="regPassword" type="password" autocomplete="new-password" minlength="8" required><button type="button" class="pweye" data-pw aria-label="Show password" aria-pressed="false" title="Show password"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
       <button class="btn" type="submit" id="registerBtn">Create account</button>
       <button type="button" class="linkbtn" data-auth="login">← Back to log in</button>
     </form>
@@ -49,24 +52,34 @@
     </form>
     <form id="newPassForm" class="stack" hidden>
       <h2>Choose a new password</h2>
-      <label>New password<input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label>New password<span class="pwwrap"><input id="newPassword" type="password" autocomplete="new-password" minlength="8" required><button type="button" class="pweye" data-pw aria-label="Show password" aria-pressed="false" title="Show password"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
       <button class="btn" type="submit">Save password</button>
     </form>
     <p class="status" id="authMsg" role="alert"></p>
   </div>
 </div>
 
-<!-- NO TEAM YET: accept an invitation or create a team -->
+<!-- NO TEAM YET: accept an invitation, or start a new court with its own AI key -->
 <div class="auth" id="teamScreen" hidden>
   <div class="authcard">
-    <div class="authbrand">Faisla Desk<small>Court drafting desk</small></div>
+    <div class="authbrand">AI Drafting<small>Court drafting desk</small></div>
     <h2>Welcome, <span id="tsName"></span></h2>
-    <p class="note" style="margin:0">You are not in a team yet. Accept an invitation from your team's admin, or create a new team for your court. The person who creates the team is its admin and invites the others.</p>
+    <p class="note" style="margin:0">You are not in a team yet. If your court already uses AI Drafting, ask its admin to invite your email and accept the invitation below. To start a new court, create its team with your court's own AI key; you will be its admin.</p>
     <div id="tsInvites" class="list"></div>
-    <form id="createTeamForm" class="stack">
-      <label>New team name<input id="teamNameInput" placeholder="e.g. Court of Civil Judge, Rahim Yar Khan" required></label>
-      <button class="btn" type="submit" id="createTeamBtn">Create team</button>
-    </form>
+    <details id="newCourt" class="newcourt">
+      <summary>Start a new court (create team)</summary>
+      <form id="createTeamForm" class="stack">
+        <label>Court (team) name<input id="teamNameInput" maxlength="80" placeholder="e.g. Court of Civil Judge, Rahim Yar Khan" required></label>
+        <div class="grid">
+          <label>AI<select id="tsProvider"><option value="gemini">Google Gemini</option><option value="anthropic">Anthropic Claude</option></select></label>
+          <label>Model<select id="tsModel"></select></label>
+        </div>
+        <label>API key<span class="pwwrap"><input id="tsKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your AI key here"><button type="button" class="pweye" data-pw aria-label="Show password" aria-pressed="false" title="Show password"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
+        <p class="ur" lang="ur" dir="rtl" id="tsKeyHelp"></p>
+        <p class="ur" lang="ur" dir="rtl">key صرف ایک دفعہ سرور کو جاتی ہے، وہاں encrypt ہو کر محفوظ ہوتی ہے؛ ٹیم کا کوئی ممبر اسے نہیں دیکھ سکتا۔ AI کا سارا خرچ اسی key کے اکاؤنٹ سے ہوگا، کسی اور کا نہیں۔ ایپ پہلے key کو چیک کرتی ہے، پھر ٹیم بنتی ہے۔</p>
+        <button class="btn" type="submit" id="createTeamBtn">Check key and create team</button>
+      </form>
+    </details>
     <p class="status" id="tsMsg" role="alert"></p>
     <div class="row"><button class="btn plain" id="tsRefresh" type="button">Check again</button><button class="btn danger" id="tsSignOut" type="button">Sign out</button></div>
   </div>
@@ -75,7 +88,7 @@
 <div class="app" id="app" hidden>
   <nav class="rail" id="rail" aria-label="Sections">
     <div class="brandrow">
-      <div class="brand">Faisla Desk<small id="brandSub">Court drafting desk</small></div>
+      <div class="brand">AI Drafting<small id="brandSub">Court drafting desk</small></div>
       <button class="iconbtn" id="railClose" aria-label="Close side panel" title="Close side panel">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
       </button>
@@ -369,9 +382,21 @@
             <p class="ur" lang="ur" dir="rtl">ٹیم کے ممبر۔ ایڈمن کسی کو ایڈمن بنا سکتا ہے یا ٹیم سے نکال سکتا ہے۔</p>
             <div class="list" id="memberList"></div>
           </div>
+          <div class="card stack" id="aiKeyCard" hidden>
+            <strong>AI key</strong>
+            <p class="note" id="aiKeyInfo" style="margin:0">Loading...</p>
+            <p class="ur" lang="ur" dir="rtl">ٹیم کے تمام ڈرافٹ اسی key سے بنتے ہیں اور خرچ اسی key کے اکاؤنٹ سے ہوتا ہے۔ key پوری کبھی نظر نہیں آتی، صرف آخری 4 حروف۔ key بدلنی ہو یا model بدلنا ہو تو نیچے نئی key لگا کر Save دبائیں؛ ایپ پہلے key چیک کرتی ہے۔</p>
+            <div class="grid">
+              <label>AI<select id="akProvider"><option value="gemini">Google Gemini</option><option value="anthropic">Anthropic Claude</option></select></label>
+              <label>Model<select id="akModel"></select></label>
+            </div>
+            <label>New API key<span class="pwwrap"><input id="akKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste the new key"><button type="button" class="pweye" data-pw aria-label="Show password" aria-pressed="false" title="Show password"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button></span></label>
+            <p class="ur" lang="ur" dir="rtl" id="akKeyHelp"></p>
+            <div class="row"><button class="btn" id="akSave" type="button">Check and save key</button><button class="btn plain" id="akTest" type="button">Test saved key</button><span class="status" id="akStatus" role="status"></span></div>
+          </div>
           <div class="card stack" id="inviteCard" hidden>
             <strong>Invite a member</strong>
-            <p class="ur" lang="ur" dir="rtl">نئے ممبر کی وہ ای میل لکھیں جس سے وہ رجسٹر یا لاگ اِن کرے گا۔ دعوت اس کی پہلی اسکرین پر آئے گی اور Accept کرتے ہی وہ ٹیم میں شامل ہو جائے گا۔ Admin کو ٹیم کے انتظام کا اختیار ہوتا ہے، Member صرف کام کرتا ہے۔</p>
+            <p class="ur" lang="ur" dir="rtl">نئے ممبر کی وہ ای میل لکھیں جس سے وہ رجسٹر یا لاگ اِن کرے گا، پھر Send invitation دبائیں۔ اس کے بعد Copy link یا Share سے دعوت کا لنک WhatsApp وغیرہ پر بھیج دیں: لنک کھولنے پر اکاؤنٹ بنانے کا صفحہ کھلتا ہے جس میں ای میل پہلے سے لکھی ہوتی ہے، اور اکاؤنٹ بنتے ہی دعوت سامنے ہوتی ہے (Accept)۔ دعوت صرف اسی ای میل پر چلتی ہے۔ Admin کو ٹیم کے انتظام کا اختیار ہوتا ہے، Member صرف کام کرتا ہے۔</p>
             <div class="grid">
               <label>Email<input id="invEmail" type="email" inputmode="email" placeholder="name@example.com"></label>
               <label>Role<select id="invRole"><option value="member">Member</option><option value="admin">Admin</option></select></label>
@@ -416,8 +441,12 @@
           <div class="card stack">
             <strong>You</strong>
             <label>Your name<input id="meName"></label>
-            <p class="ur" lang="ur" dir="rtl">آپ کا نام، جو History میں ہر محفوظ کیس کے ساتھ (saved by) نظر آتا ہے۔</p>
-            <div class="row"><button class="btn plain" id="meSave">Save name</button><span class="status" id="meStatus"></span></div>
+            <div class="grid">
+              <label>Designation<select id="meDesig"><option value="">Choose</option><option>Judge</option><option>Stenographer</option><option>Computer Operator</option><option>Ahlmad</option><option value="Other">Other (write it)</option></select></label>
+              <label id="meDesigOtherWrap" hidden>Your designation<input id="meDesigOther" maxlength="40" placeholder="e.g. Reader, Naib Court"></label>
+            </div>
+            <p class="ur" lang="ur" dir="rtl">آپ کا نام اور عہدہ (designation) پہچان کے لیے ہیں: یہ ٹیم کی فہرست، Send، Inbox اور History میں (saved by) آپ کے نام کے ساتھ نظر آتے ہیں۔</p>
+            <div class="row"><button class="btn plain" id="meSave">Save</button><span class="status" id="meStatus"></span></div>
           </div>
           <div class="card stack">
             <div class="row"><button class="btn danger" id="leaveTeamBtn">Leave team</button><button class="btn plain" id="teamSignOut">Sign out</button></div>
@@ -431,7 +460,7 @@
   </main>
 </div>
 
-<div class="auth" id="bootFail" hidden><div class="authcard"><div class="authbrand">Faisla Desk</div>
+<div class="auth" id="bootFail" hidden><div class="authcard"><div class="authbrand">AI Drafting</div>
   <p class="status err" style="margin:0">The app could not load. Check your internet connection and reload the page.</p>
   <button class="btn" type="button" onclick="location.reload()">Reload</button></div></div>
 <script>
@@ -441,6 +470,6 @@ setTimeout(function () {
   if (!shown) document.getElementById("bootFail").hidden = false;
 }, 12000);
 </script>
-<script type="module" src="js/main.js?v=2026112803"></script>
+<script type="module" src="js/main.js?v=2026112902"></script>
 </body>
 </html>
