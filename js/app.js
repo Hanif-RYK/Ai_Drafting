@@ -2,6 +2,8 @@
    Ported from the claude.ai artifact: window.claude (sample / db / user / downloads) is replaced by the
    Supabase adapters in ai.js (Edge Function) and db.js (team-shared `docs` table). The drafting logic,
    prompts and style guide are unchanged. */
+import { PROVIDER_LABEL, KEY_HELP, fillModels, modelLabel, keyErrText } from "./aikeys.js";
+import { readDesignation, showDesignation } from "./auth.js";
 export function startFaislaDesk(ctx) {
 "use strict";
 const $ = (s, r = document) => r.querySelector(s);
@@ -614,7 +616,7 @@ function show(v) {
   if (v === "drafting") renderRules();
   if (v === "team") renderTeam();
   if (v === "quickwords") renderQuickWords();
-  if (v === "account") $("#meName").value = ctx.profile.full_name || "";
+  if (v === "account") { $("#meName").value = ctx.profile.full_name || ""; showDesignation($("#meDesig"), $("#meDesigOtherWrap"), $("#meDesigOther"), ctx.profile.designation || ""); }
   if (v === "inbox") { renderInbox(); loadInbox(); }
   try { localStorage.setItem(inSet ? "fd_settab" : "fd_view", v); } catch (e) {}
   scrollToTop();
@@ -1074,8 +1076,9 @@ ${limits.length ? "Before answering, check the order against the STRICT LIMITS a
 /* ---------- AI calls ---------- */
 function errText(e) {
   const m = { rate_limited: "Too many requests, or the usage limit was reached. Please try again a little later.", image_rejected: "A picture could not be used. Please try a different picture.", prompt_too_large: "The record is too long. Try fewer pictures or shorter notes.", invalid_json: "The AI's reply could not be read. Please try again.", refused: "The AI declined this request.", session_expired: "Please sign in again.", cancelled: "Stopped.",
-    not_granted: "You are not in a team, so the AI cannot be used.", no_key: "The AI key is missing or wrong. The team admin must check it in the Supabase Edge Function secrets.",
-    no_model: "The AI model is not available. The team admin must check GEMINI_MODEL / AI_MODEL_COMPLEX in the Supabase Edge Function secrets.",
+    not_granted: "You are not in a team, so the AI cannot be used.", no_key: "The team's AI key is missing or wrong. The team admin can add or change it in Settings → Team → AI key.",
+    no_model: "The AI model is not available for the team's key. The team admin can choose another model in Settings → Team → AI key.",
+    server_setup: "The app's server is not fully set up: KEY_ENCRYPTION_SECRET is missing in the Supabase Edge Function secrets.",
     network: "Could not reach the AI service. Check your internet connection and try again.", server: "The AI service had a problem. Please try again.",
     ai_error: "The AI service returned an error. Please try again.", bad_request: "The request could not be processed. Please try again.",
     time_limit: "This took longer than the server allows.",
@@ -1667,7 +1670,7 @@ $("#saveBtn").addEventListener("click", () => saveCase());
 
 /* ---------- Send: the draft as it stands goes to the chosen member's Inbox, with the case's No. in the cause list
    and the date of that cause list. Sending does not save to History: only Save does (Word file and Copy do not either). ---------- */
-const INBOX_SQL = "The Inbox needs a one-time database update: the team admin must run supabase/update_inbox_quickwords.sql in Supabase (SQL Editor).";
+const INBOX_SQL = "The Inbox needs a one-time database update: the team admin must run supabase/schema.sql in Supabase (SQL Editor).";
 function inboxErr(e) {
   const m = String(e?.message || e?.code || "");
   if (/inbox|schema cache|does not exist|42P01|PGRST20/i.test(m)) return INBOX_SQL;
@@ -1689,10 +1692,10 @@ $("#sendBtn").addEventListener("click", async () => {
   $("#sendList").innerHTML = `<p class="note">Loading your team...</p>`;
   try {
     const list = await teamApi.members();
-    members = Object.fromEntries(list.map(m => [m.id, m.full_name || m.email]));
+    setMembers(list);
     const others = list.filter(m => m.id !== uid);
     $("#sendList").innerHTML = others.length
-      ? others.map(m => `<button type="button" class="btn plain sendto" data-to="${m.id}">${esc(m.full_name || m.email)}<small>${esc(ROLE_LABEL[m.role] || m.role)}</small></button>`).join("")
+      ? others.map(m => `<button type="button" class="btn plain sendto" data-to="${m.id}">${esc(m.full_name || m.email)}<small>${esc([m.designation, m.role === "admin" ? "Admin" : ""].filter(Boolean).join(" · ") || ROLE_LABEL[m.role] || m.role)}</small></button>`).join("")
       : `<p class="note">Nobody else is in your team yet. The admin can invite members in Settings → Team.</p>`;
   } catch (e) { $("#sendList").innerHTML = ""; status("#sendStatus", "Could not load your team. Check your internet connection.", true); }
 });
@@ -2121,7 +2124,11 @@ const fmtK = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1000 ? Math.round
 const delFail = () => toast("Could not delete it. Only the person who saved it, or the team admin, can delete it.", 6000);
 function renderUserBox() {
   $("#ubName").textContent = ctx.profile.full_name || ctx.profile.email;
-  $("#ubTeam").textContent = ctx.team.name;
+  $("#ubTeam").textContent = [ctx.profile.designation, ctx.team.name].filter(Boolean).join(" · ");
+}
+/* Team members by id, shown as "Name (Designation)" in History, the Inbox and messages. */
+function setMembers(list) {
+  members = Object.fromEntries(list.map(m => [m.id, (m.full_name || m.email) + (m.designation ? ` (${m.designation})` : "")]));
 }
 $("#signOutBtn").addEventListener("click", () => teamApi.signOut());
 $("#teamSignOut").addEventListener("click", () => teamApi.signOut());
@@ -2130,14 +2137,15 @@ async function renderTeam() {
   const isAdmin = ctx.profile.role === "admin";
   $("#teamName").textContent = ctx.team.name;
   $("#teamRole").textContent = isAdmin ? "You are the admin" : "You are a member";
-  $("#inviteCard").hidden = !isAdmin; $("#renameCard").hidden = !isAdmin;
+  $("#inviteCard").hidden = !isAdmin; $("#renameCard").hidden = !isAdmin; $("#aiKeyCard").hidden = !isAdmin;
+  if (isAdmin) renderAiKey();
   $("#teamRename").value = ctx.team.name;
   $("#memberList").innerHTML = `<p class="ur" lang="ur" dir="rtl">ممبر لوڈ ہو رہے ہیں...</p>`;
   try {
     const list = await teamApi.members();
-    members = Object.fromEntries(list.map(m => [m.id, m.full_name || m.email]));
+    setMembers(list);
     $("#memberList").innerHTML = list.map(m => `<div class="item"><div><h4>${esc(m.full_name || m.email)}${m.id === uid ? " (you)" : ""}</h4>
-        <div class="meta"><span class="chip">${esc(ROLE_LABEL[m.role] || m.role)}</span>${esc(m.email)}</div></div>
+        <div class="meta"><span class="chip">${esc(ROLE_LABEL[m.role] || m.role)}</span>${m.designation ? esc(m.designation) + " · " : ""}${esc(m.email)}</div></div>
       ${isAdmin && m.id !== uid ? `<div class="row"><button class="btn plain" data-role="${m.id}" data-to="${m.role === "admin" ? "member" : "admin"}">${m.role === "admin" ? "Make member" : "Make admin"}</button><button class="btn danger" data-remove="${m.id}">Remove</button></div>` : ""}</div>`).join("");
     $$("#memberList [data-role]").forEach(b => b.addEventListener("click", async () => {
       b.disabled = true;
@@ -2152,13 +2160,68 @@ async function renderTeam() {
   if (isAdmin) renderInvites();
   renderUsage();
 }
+/* ---------- The team's AI key (admin): what is saved, change it, test it ---------- */
+let aiInfo = null;
+async function renderAiKey() {
+  $("#aiKeyInfo").textContent = "Loading...";
+  $("#akKeyHelp").textContent = KEY_HELP[$("#akProvider").value];
+  try { aiInfo = await teamApi.aiInfo(); }
+  catch (e) { aiInfo = null; $("#aiKeyInfo").textContent = /team_ai_info|schema cache|function/i.test(String(e?.message)) ? "The database needs the update: run supabase/schema.sql in Supabase (SQL Editor)." : "Could not load the key details."; return; }
+  $("#aiKeyInfo").innerHTML = aiInfo
+    ? `<b>${esc(PROVIDER_LABEL[aiInfo.provider] || aiInfo.provider)}</b> · ${esc(modelLabel(aiInfo.provider, aiInfo.model))} · key ••••${esc(aiInfo.key_last4)} · saved ${new Date(aiInfo.updated_at).toLocaleDateString("en-GB")}`
+    : `<span class="err">No AI key yet: drafting does not work until the key is saved below.</span>`;
+  if (!$("#akKey").value) {
+    $("#akProvider").value = aiInfo?.provider || "gemini";
+    fillModels($("#akModel"), $("#akProvider").value, aiInfo?.model ?? "");
+    $("#akKeyHelp").textContent = KEY_HELP[$("#akProvider").value];
+  }
+  $("#akTest").hidden = !aiInfo;
+}
+fillModels($("#akModel"), "gemini", "gemini-flash-latest"); $("#akKeyHelp").textContent = KEY_HELP.gemini;
+$("#akProvider").addEventListener("change", () => { fillModels($("#akModel"), $("#akProvider").value, ""); $("#akKeyHelp").textContent = KEY_HELP[$("#akProvider").value]; });
+$("#akSave").addEventListener("click", async () => {
+  const key = $("#akKey").value.trim();
+  if (key.length < 20) { status("#akStatus", "Paste the new key first.", true); $("#akKey").focus(); return; }
+  const btn = $("#akSave"); btn.disabled = true; status("#akStatus", "Checking the key with " + PROVIDER_LABEL[$("#akProvider").value] + "...");
+  try {
+    const r = await teamApi.setKey({ provider: $("#akProvider").value, model: $("#akModel").value, key });
+    $("#akKey").value = "";
+    status("#akStatus", `Saved. The key works (model: ${r.model || "automatic"}).`, false, true);
+    renderAiKey();
+  } catch (e) { status("#akStatus", keyErrText(e), true); }
+  finally { btn.disabled = false; }
+});
+$("#akTest").addEventListener("click", async () => {
+  const btn = $("#akTest"); btn.disabled = true; status("#akStatus", "Testing the saved key...");
+  try { const r = await teamApi.testKey(); status("#akStatus", `The saved key works (model: ${r.model || "automatic"}).`, false, true); }
+  catch (e) { status("#akStatus", keyErrText(e), true); }
+  finally { btn.disabled = false; }
+});
+
+/* Invitations waiting for acceptance, each with its link to send on WhatsApp etc. */
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (e) {
+    const t = document.createElement("textarea"); t.value = text; t.style.cssText = "position:fixed;left:-9999px"; document.body.appendChild(t); t.select();
+    let ok = false; try { ok = document.execCommand("copy"); } catch (x) {} t.remove(); return ok;
+  }
+}
 async function renderInvites() {
   const box = $("#inviteList");
   try {
     const list = await teamApi.invites();
     box.innerHTML = list.length ? `<strong style="margin-top:6px">Waiting for acceptance</strong>` + list.map(i => `<div class="item"><div><h4>${esc(i.email)}</h4>
-        <div class="meta"><span class="chip">${esc(ROLE_LABEL[i.role] || i.role)}</span>sent ${new Date(i.created_at).toLocaleDateString("en-GB")}</div></div>
+        <div class="meta"><span class="chip">${esc(ROLE_LABEL[i.role] || i.role)}</span>sent ${new Date(i.created_at).toLocaleDateString("en-GB")}</div>
+        <div class="invlink"><button class="btn plain" data-copylink="${esc(i.email)}">Copy link</button>${navigator.share ? `<button class="btn plain" data-sharelink="${esc(i.email)}">Share</button>` : ""}</div></div>
         <button class="btn danger" data-revoke="${i.id}">Cancel</button></div>`).join("") : "";
+    $$("#inviteList [data-copylink]").forEach(b => b.addEventListener("click", async () => {
+      const ok = await copyText(teamApi.inviteLink(b.dataset.copylink));
+      toast(ok ? "Invitation link copied. Paste it in WhatsApp (or an SMS / email) to " + b.dataset.copylink + "." : "Could not copy. Long-press to copy: " + teamApi.inviteLink(b.dataset.copylink), 7000);
+    }));
+    $$("#inviteList [data-sharelink]").forEach(b => b.addEventListener("click", async () => {
+      try { await navigator.share({ title: "AI Drafting", text: `You are invited to join ${ctx.team.name} on AI Drafting. Open this link and create your account with ${b.dataset.sharelink}:`, url: teamApi.inviteLink(b.dataset.sharelink) }); }
+      catch (e) { /* closed by the user */ }
+    }));
     $$("#inviteList [data-revoke]").forEach(b => b.addEventListener("click", () => confirmInline(b, async () => {
       try { await teamApi.revoke(b.dataset.revoke); } catch (e) { toast(e.message, 6000); }
       renderInvites();
@@ -2180,16 +2243,18 @@ $("#invSend").addEventListener("click", async () => {
   try {
     await teamApi.invite(email, role);
     $("#invEmail").value = "";
-    status("#invStatus", `Invitation sent. ${email} can now register or log in with this email and accept it.`, false, true);
+    status("#invStatus", `Invitation made for ${email}. Now press "Copy link" (or "Share") below and send the link to them.`, false, true);
     renderInvites();
   } catch (e) { status("#invStatus", e.message, true); }
   finally { btn.disabled = false; }
 });
 $("#invEmail").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#invSend").click(); } });
+$("#meDesig").addEventListener("change", () => { $("#meDesigOtherWrap").hidden = $("#meDesig").value !== "Other"; });
 $("#meSave").addEventListener("click", async () => {
-  const name = $("#meName").value.trim();
+  const name = $("#meName").value.trim(), designation = readDesignation($("#meDesig"), $("#meDesigOther"));
   if (name.length < 2) { status("#meStatus", "Please enter your name.", true); return; }
-  try { await teamApi.updateName(name); ctx.profile.full_name = name; renderUserBox(); status("#meStatus", "Name saved.", false, true); }
+  if (!$("#meDesig").value || designation.length < 2) { status("#meStatus", "Please choose or write your designation.", true); return; }
+  try { await teamApi.updateProfile({ full_name: name, designation }); renderUserBox(); status("#meStatus", "Saved.", false, true); }
   catch (e) { status("#meStatus", e.message, true); }
 });
 $("#teamRenameBtn").addEventListener("click", async () => {
@@ -2224,7 +2289,7 @@ $("#myChipsSave").addEventListener("click", async () => {
     const warn = [bad.length ? `${bad.length} line${bad.length === 1 ? " is" : "s are"} not in the form SHORT = words` : "", taken.length ? `already built in: ${taken.join(", ")}` : ""].filter(Boolean).join("; ");
     status("#myChipsStatus", warn ? `Saved. Not used: ${warn}.` : "Saved. Your quick words now appear under the order box.", !!warn, !warn);
   } catch (e) {
-    status("#myChipsStatus", /quick_words|schema cache|column/i.test(String(e?.message)) ? "Could not save: the database needs a one-time update (supabase/update_inbox_quickwords.sql). Ask the team admin." : "Could not save. Please try again.", true);
+    status("#myChipsStatus", /quick_words|schema cache|column/i.test(String(e?.message)) ? "Could not save: the database needs a one-time update (supabase/schema.sql). Ask the team admin." : "Could not save. Please try again.", true);
   } finally { btn.disabled = false; }
 });
 $("#leaveTeamBtn").addEventListener("click", () => confirmInline($("#leaveTeamBtn"), async () => {
@@ -2235,16 +2300,18 @@ $("#leaveTeamBtn").addEventListener("click", () => confirmInline($("#leaveTeamBt
 let railOpen = true; try { railOpen = localStorage.getItem("fd_rail") !== "closed"; } catch (e) {}
 setRail(railOpen);
 renderUserBox();
-// The app always opens on the daily work, never on Settings.
+// The app always opens on the daily work, never on Settings; a court that was just created opens on its set-up.
 let startView = "order"; try { startView = localStorage.getItem("fd_view") || "order"; } catch (e) {}
 if (SET_TABS.includes(startView)) startView = "order";
+let firstSetup = false; try { firstSetup = localStorage.getItem("ad_setup") === "1"; localStorage.removeItem("ad_setup"); } catch (e) {}
+if (firstSetup && isAdmin) { startView = "settings"; setTimeout(() => toast("Your court is ready. First write the Judge's name, district and court designations here and press Save; then invite your team in the Team tab.", 9000), 400); }
 show(startView);
 renderCounts();
 renderReady();
 loadInbox();
 imgMax = Math.min(ctx.imgMax || imgMax, 20);
 teamApi.members().then(list => {
-  members = Object.fromEntries(list.map(m => [m.id, m.full_name || m.email]));
+  setMembers(list);
   if (view === "history") renderHistory();
   if (view === "inbox") renderInbox();
 }).catch(() => {});

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-drafting-v12';
+const CACHE_NAME = 'ai-drafting-v13';
 
 const APP_SHELL = [
   './',
@@ -10,6 +10,7 @@ const APP_SHELL = [
   './js/app.js',
   './js/auth.js',
   './js/ai.js',
+  './js/aikeys.js',
   './js/db.js',
   './js/supa.js',
   './js/config.js'

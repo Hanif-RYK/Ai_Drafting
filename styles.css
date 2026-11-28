@@ -323,3 +323,10 @@ select.mini-select{width:auto;max-width:230px;font-size:12.5px;padding:5px 8px}
 .pweye:focus-visible{outline:2px solid var(--accent)}
 .pweye.on{color:var(--accent)}
 .pweye.on::after{content:"";position:absolute;width:22px;height:2px;background:currentColor;transform:rotate(-40deg);border-radius:2px}
+
+/* Start a new court (team screen) and the invitation note on the sign-up form */
+.newcourt{border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--bg)}
+.newcourt summary{cursor:pointer;font-weight:600;font-size:14px}
+.newcourt[open] summary{margin-bottom:10px}
+.invitenote{border:1px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:8px 12px;font-size:13px}
+.invlink{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
